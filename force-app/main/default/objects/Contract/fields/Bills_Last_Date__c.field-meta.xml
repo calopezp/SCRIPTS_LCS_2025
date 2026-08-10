@@ -1,0 +1,10 @@
+<?xml version="1.0" encoding="UTF-8"?>
+<CustomField xmlns="http://soap.sforce.com/2006/04/metadata">
+    <fullName>Bills_Last_Date__c</fullName>
+    <label>Bills Last Date</label>
+    <summarizedField>Contract_Bill__c.Bill_Date__c</summarizedField>
+    <summaryForeignKey>Contract_Bill__c.Contract__c</summaryForeignKey>
+    <summaryOperation>max</summaryOperation>
+    <trackHistory>false</trackHistory>
+    <type>Summary</type>
+</CustomField>

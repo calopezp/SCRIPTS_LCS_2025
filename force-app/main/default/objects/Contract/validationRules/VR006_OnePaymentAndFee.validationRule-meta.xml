@@ -1,0 +1,21 @@
+<?xml version="1.0" encoding="UTF-8"?>
+<ValidationRule xmlns="http://soap.sforce.com/2006/04/metadata">
+    <fullName>VR006_OnePaymentAndFee</fullName>
+    <active>true</active>
+    <description>If you select One Payment you cannot fill out split date or if you select Fees you must fill out split date</description>
+    <errorConditionFormula>AND(
+				NOT(ISNULL(SM_AC_start_date__c)),
+    OR(
+        AND(
+            ISPICKVAL(SM_Way_of_AC_Payment__c, &apos;One payment&apos;),
+            NOT(ISNULL(SM_AC_Split_Date__c))
+        ),
+				    AND(
+								    ISPICKVAL(SM_Way_of_AC_Payment__c, &apos;Fees&apos;),
+								    ISNULL(SM_AC_Split_Date__c)
+				    )
+    )
+)</errorConditionFormula>
+    <errorDisplayField>SM_AC_Split_Date__c</errorDisplayField>
+    <errorMessage>If you select One Payment you cannot fill out split date or if you select Fees you must fill out split date</errorMessage>
+</ValidationRule>

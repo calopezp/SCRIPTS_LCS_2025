@@ -1,0 +1,24 @@
+<?xml version="1.0" encoding="UTF-8"?>
+<CustomField xmlns="http://soap.sforce.com/2006/04/metadata">
+    <fullName>Cancellation_Reason_Excludes_from_Market__c</fullName>
+    <formula>1 == CASE(SM_Reason_for_cancellation__c,
+  &quot;Customer Deceased&quot;, 1,
+  &quot;Suspect criminal actions&quot;, 1,
+  &quot;Customer complaint in DACO&quot;, 1,
+  &quot;Does not comply with payments&quot;, 1,
+  &quot;Does not comply with the obligations of the Contract&quot;, 1,
+  &quot;Non-compliance with the obligations of the customer stipulated in the contract&quot;, 1,
+  &quot;Overdue with more than 120 days&quot;, 1,
+  &quot;Stop Payment&quot;, 1,
+  &quot;Customer dissatisfaction -Collect Claim&quot;, 1,
+  &quot;Customer Dissatisfaction&quot;, 1,
+  &quot;Customer dissatisfaction / Case work but Not Results Expected&quot;, 1,
+  &quot;Sales Dissatisfaction&quot;, 1,
+  &quot;PTP Cancellation - Bad Reviews&quot;, 1,
+  0
+)</formula>
+    <formulaTreatBlanksAs>BlankAsZero</formulaTreatBlanksAs>
+    <label>Cancellation Reason Excludes from Market</label>
+    <trackHistory>false</trackHistory>
+    <type>Checkbox</type>
+</CustomField>

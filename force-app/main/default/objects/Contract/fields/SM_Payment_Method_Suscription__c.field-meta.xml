@@ -1,0 +1,15 @@
+<?xml version="1.0" encoding="UTF-8"?>
+<CustomField xmlns="http://soap.sforce.com/2006/04/metadata">
+    <fullName>SM_Payment_Method_Suscription__c</fullName>
+    <deleteConstraint>SetNull</deleteConstraint>
+    <description>This field should be only used when the suscription and the AC have a different payment method, So that the Chargent charges will be pointing to different  Card tokens</description>
+    <inlineHelpText>This field should be only used when the suscription and the AC have a different payment method, So that the Chargent charges will be pointing to different  Card tokens</inlineHelpText>
+    <label>Payment Method Suscription</label>
+    <referenceTo>SM_Payment_Method__c</referenceTo>
+    <relationshipLabel>Contracts (Payment Method Suscription)</relationshipLabel>
+    <relationshipName>Contracts_Suscription</relationshipName>
+    <required>false</required>
+    <trackFeedHistory>false</trackFeedHistory>
+    <trackHistory>false</trackHistory>
+    <type>Lookup</type>
+</CustomField>

@@ -1,0 +1,11 @@
+<?xml version="1.0" encoding="UTF-8"?>
+<CustomField xmlns="http://soap.sforce.com/2006/04/metadata">
+    <fullName>Opportunity_Affiliate__c</fullName>
+    <externalId>false</externalId>
+    <formula>IF(OR(ISNULL(SM_Opportunity__r.Affiliate__c),ISBLANK(SM_Opportunity__r.Affiliate__c)), NULL, CASESAFEID(SM_Opportunity__r.Affiliate__c))</formula>
+    <label>Opportunity Affiliate</label>
+    <required>false</required>
+    <trackHistory>false</trackHistory>
+    <type>Text</type>
+    <unique>false</unique>
+</CustomField>

@@ -1,0 +1,17 @@
+<?xml version="1.0" encoding="UTF-8"?>
+<ValidationRule xmlns="http://soap.sforce.com/2006/04/metadata">
+    <fullName>InfoBasicaContract</fullName>
+    <active>true</active>
+    <description>Información básica para el registro de Contratos con Multinacional50K</description>
+    <errorConditionFormula>AND( RecordTypeId = &apos;0128W000000Jw4vQAC&apos;, 
+				  ISCHANGED( Status ), NOT(ISPICKVAL(Status, &quot;Cancelled&quot;)),
+			OR(
+							TEXT(Account.PersonContact.SM_Gender__c)==NULL,
+							SM_Marital_Status_ESP__c==NULL,
+							BillingCity==NULL,
+							SM_Monthly_offer__c==NULL,
+							SM_Start_date__c==NULL
+			)
+)</errorConditionFormula>
+    <errorMessage>Debe diligenciar información básica en la cuenta (Marital Status, Gender) y del Contrato (Billing Address, AC and RC Dates, Monthly Offer)</errorMessage>
+</ValidationRule>

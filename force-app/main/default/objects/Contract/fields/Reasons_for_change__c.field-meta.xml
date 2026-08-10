@@ -1,0 +1,87 @@
+<?xml version="1.0" encoding="UTF-8"?>
+<CustomField xmlns="http://soap.sforce.com/2006/04/metadata">
+    <fullName>Reasons_for_change__c</fullName>
+    <description>Select an option in case the client requests the change of payment day</description>
+    <inlineHelpText>Select an option in case the client requests the change of payment day</inlineHelpText>
+    <label>Reasons for change Payment day</label>
+    <required>false</required>
+    <trackFeedHistory>false</trackFeedHistory>
+    <trackHistory>false</trackHistory>
+    <type>Picklist</type>
+    <valueSet>
+        <restricted>true</restricted>
+        <valueSetDefinition>
+            <sorted>false</sorted>
+            <value>
+                <fullName>Death of a relative</fullName>
+                <default>false</default>
+                <label>Death of a relative</label>
+            </value>
+            <value>
+                <fullName>House Payment</fullName>
+                <default>false</default>
+                <label>House Payment</label>
+            </value>
+            <value>
+                <fullName>Personal Emergency</fullName>
+                <default>false</default>
+                <label>Personal Emergency</label>
+            </value>
+            <value>
+                <fullName>Rent Payment</fullName>
+                <default>false</default>
+                <label>Rent Payment</label>
+            </value>
+            <value>
+                <fullName>Unemployment</fullName>
+                <default>false</default>
+                <label>Unemployment</label>
+            </value>
+            <value>
+                <fullName>Weekend pay date update</fullName>
+                <default>false</default>
+                <label>Weekend pay date update</label>
+            </value>
+            <value>
+                <fullName>Weekend pay date update (resend)</fullName>
+                <default>false</default>
+                <label>Weekend pay date update (resend)</label>
+            </value>
+            <value>
+                <fullName>IT Support</fullName>
+                <default>false</default>
+                <label>IT Support</label>
+            </value>
+            <value>
+                <fullName>Weekend Updated</fullName>
+                <default>false</default>
+                <label>Weekend Updated</label>
+            </value>
+            <value>
+                <fullName>Changed Payment Method</fullName>
+                <default>false</default>
+                <label>Changed Payment Method</label>
+            </value>
+            <value>
+                <fullName>Change Payment Date Contract</fullName>
+                <default>false</default>
+                <label>Change Payment Date Contract</label>
+            </value>
+            <value>
+                <fullName>Promises to Pay (PTP)</fullName>
+                <default>false</default>
+                <label>Promises to Pay (PTP)</label>
+            </value>
+            <value>
+                <fullName>Date Restored (Weekend)</fullName>
+                <default>false</default>
+                <label>Date Restored (Weekend)</label>
+            </value>
+            <value>
+                <fullName>ChargeBee Subscription PTP</fullName>
+                <default>false</default>
+                <label>ChargeBee Subscription PTP</label>
+            </value>
+        </valueSetDefinition>
+    </valueSet>
+</CustomField>

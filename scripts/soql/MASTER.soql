@@ -1,0 +1,5 @@
+SELECT Id, ContractNumber
+    FROM Contract
+    WHERE SM_Customer_Cancellation__c = TRUE
+    AND Status IN ('Activated', 'Payment Process')
+    AND ContractNumber = '00314090'

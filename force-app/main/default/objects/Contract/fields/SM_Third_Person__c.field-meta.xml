@@ -1,0 +1,10 @@
+<?xml version="1.0" encoding="UTF-8"?>
+<CustomField xmlns="http://soap.sforce.com/2006/04/metadata">
+    <fullName>SM_Third_Person__c</fullName>
+    <description>Payment method belongs to third person</description>
+    <formula>SM_Payment_Method__r.SM_Third_Person__c</formula>
+    <inlineHelpText>Payment method belongs to third person</inlineHelpText>
+    <label>Third-Person</label>
+    <trackHistory>false</trackHistory>
+    <type>Checkbox</type>
+</CustomField>

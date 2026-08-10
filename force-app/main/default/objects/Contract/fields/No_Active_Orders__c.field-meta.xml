@@ -1,0 +1,9 @@
+<?xml version="1.0" encoding="UTF-8"?>
+<CustomField xmlns="http://soap.sforce.com/2006/04/metadata">
+    <fullName>No_Active_Orders__c</fullName>
+    <formula>IF(OR(AND( ISPICKVAL(SM_Payment_methods__c, &apos;ACH&apos;), ACH_Orders_Count__c =0),AND(ISPICKVAL(SM_Payment_methods__c, &apos;Credit Card&apos;),  Chargent_Orders_Count__c =0)),TRUE,FALSE)</formula>
+    <formulaTreatBlanksAs>BlankAsZero</formulaTreatBlanksAs>
+    <label>No Active Orders</label>
+    <trackHistory>false</trackHistory>
+    <type>Checkbox</type>
+</CustomField>

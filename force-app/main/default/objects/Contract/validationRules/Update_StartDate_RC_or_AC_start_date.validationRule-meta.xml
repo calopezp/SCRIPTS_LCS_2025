@@ -1,0 +1,19 @@
+<?xml version="1.0" encoding="UTF-8"?>
+<ValidationRule xmlns="http://soap.sforce.com/2006/04/metadata">
+    <fullName>Update_StartDate_RC_or_AC_start_date</fullName>
+    <active>false</active>
+    <description>No permite cambio de fechas de Inicio de Cobro de AC o RC</description>
+    <errorConditionFormula>AND(
+  NOT(ISPICKVAL(Status, &apos;Draft&apos;)),
+			OR(	$Profile.Name &lt;&gt; &apos;System Administrator&apos;,
+				$User.Username &lt;&gt; &apos;salesforceadmin-qkv6@force.com&apos;,
+				$User.Username &lt;&gt; &apos;gortega@legal-credit.com&apos;,
+				$User.Username &lt;&gt; &apos;mchevres@legal-credit.com&apos;,
+				$User.Username &lt;&gt; &apos;rdejesus@legal-credit.com&apos;,
+				$User.Username &lt;&gt; &apos;emantilla@legal-credit.com&apos;,
+				$User.Username &lt;&gt; &apos;nrodriguez@legal-credit.com&apos;),
+				OR(ISCHANGED(SM_Start_date__c),ISCHANGED(SM_AC_start_date__c), ISCHANGED(SM_AC_Split_Date__c))
+				)</errorConditionFormula>
+    <errorMessage>NO ESTA AUTORIZADO A CAMBIAR LAS FECHAS DE INICIO DE RC O DE AC
+por favor contacte con su supervisro.</errorMessage>
+</ValidationRule>

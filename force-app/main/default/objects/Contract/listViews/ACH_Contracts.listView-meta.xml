@@ -1,0 +1,29 @@
+<?xml version="1.0" encoding="UTF-8"?>
+<ListView xmlns="http://soap.sforce.com/2006/04/metadata">
+    <fullName>ACH_Contracts</fullName>
+    <columns>CONTRACT.CONTRACT_NUMBER</columns>
+    <columns>SALES.ACCOUNT.NAME</columns>
+    <columns>CONTRACT.STATUS</columns>
+    <columns>CONTRACT.START_DATE</columns>
+    <columns>CORE.USERS.ALIAS</columns>
+    <columns>SM_AC_start_date__c</columns>
+    <columns>SM_AC_Split_Date__c</columns>
+    <columns>SM_Start_date__c</columns>
+    <columns>SM_IVU_Municipal__c</columns>
+    <columns>SM_IVU_State__c</columns>
+    <columns>SM_Net_AC__c</columns>
+    <columns>SM_Net_Monthly_offer__c</columns>
+    <columns>CONTRACT.CREATED_DATE</columns>
+    <filterScope>Everything</filterScope>
+    <filters>
+        <field>SM_Payment_methods__c</field>
+        <operation>equals</operation>
+        <value>ACH</value>
+    </filters>
+    <filters>
+        <field>SM_Is_Migrated__c</field>
+        <operation>equals</operation>
+        <value>0</value>
+    </filters>
+    <label>ACH Contracts</label>
+</ListView>

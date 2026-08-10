@@ -1,0 +1,13 @@
+<?xml version="1.0" encoding="UTF-8"?>
+<ValidationRule xmlns="http://soap.sforce.com/2006/04/metadata">
+    <fullName>VR001_EmailIsRequired</fullName>
+    <active>false</active>
+    <description>The email is required to change status to complete information</description>
+    <errorConditionFormula>AND( 
+				ISCHANGED( Status ), 
+				ISPICKVAL( Status , &apos;Complete Information&apos; ),
+				ISBLANK( SM_Email_to_send_contract__c )
+)</errorConditionFormula>
+    <errorDisplayField>SM_Email_to_send_contract__c</errorDisplayField>
+    <errorMessage>The email is required to change status to complete information</errorMessage>
+</ValidationRule>

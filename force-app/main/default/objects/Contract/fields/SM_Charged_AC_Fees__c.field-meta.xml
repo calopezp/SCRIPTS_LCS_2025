@@ -1,0 +1,15 @@
+<?xml version="1.0" encoding="UTF-8"?>
+<CustomField xmlns="http://soap.sforce.com/2006/04/metadata">
+    <fullName>SM_Charged_AC_Fees__c</fullName>
+    <description>This holds the Approved Transactions for The AC it&apos;s compared against the Number of fees for th AC</description>
+    <externalId>false</externalId>
+    <inlineHelpText>This holds the Approved Transactions for The AC it&apos;s compared against the Number of fees for th AC</inlineHelpText>
+    <label>Number of AC fees collected</label>
+    <precision>18</precision>
+    <required>false</required>
+    <scale>0</scale>
+    <trackFeedHistory>false</trackFeedHistory>
+    <trackHistory>false</trackHistory>
+    <type>Number</type>
+    <unique>false</unique>
+</CustomField>

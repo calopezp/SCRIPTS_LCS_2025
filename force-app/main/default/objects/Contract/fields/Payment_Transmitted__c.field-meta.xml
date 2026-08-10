@@ -1,0 +1,14 @@
+<?xml version="1.0" encoding="UTF-8"?>
+<CustomField xmlns="http://soap.sforce.com/2006/04/metadata">
+    <fullName>Payment_Transmitted__c</fullName>
+    <label>Pagos en Transmitted</label>
+    <summaryFilterItems>
+        <field>SM_Payment__c.Payment_Status__c</field>
+        <operation>contains</operation>
+        <value>ACH PENDING, ACH TRANSMITTED, ACH PENDING REFUND, TRANSMITTED REFUND</value>
+    </summaryFilterItems>
+    <summaryForeignKey>SM_Payment__c.SM_Contract__c</summaryForeignKey>
+    <summaryOperation>count</summaryOperation>
+    <trackHistory>false</trackHistory>
+    <type>Summary</type>
+</CustomField>

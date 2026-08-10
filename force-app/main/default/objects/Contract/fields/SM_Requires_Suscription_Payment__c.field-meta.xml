@@ -1,0 +1,11 @@
+<?xml version="1.0" encoding="UTF-8"?>
+<CustomField xmlns="http://soap.sforce.com/2006/04/metadata">
+    <fullName>SM_Requires_Suscription_Payment__c</fullName>
+    <defaultValue>false</defaultValue>
+    <description>Marks that based on the product the suscription must be Collected</description>
+    <inlineHelpText>Marks that based on the product the suscription must be Captured</inlineHelpText>
+    <label>Requires Suscription Payment</label>
+    <trackFeedHistory>false</trackFeedHistory>
+    <trackHistory>false</trackHistory>
+    <type>Checkbox</type>
+</CustomField>

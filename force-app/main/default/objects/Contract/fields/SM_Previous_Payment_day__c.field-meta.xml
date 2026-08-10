@@ -1,0 +1,17 @@
+<?xml version="1.0" encoding="UTF-8"?>
+<CustomField xmlns="http://soap.sforce.com/2006/04/metadata">
+    <fullName>SM_Previous_Payment_day__c</fullName>
+    <description>Fecha anterior del Subscription (ACH)
+Fecha PTP para Subscription (CHargeBee)</description>
+    <externalId>false</externalId>
+    <inlineHelpText>Fecha anterior del Subscription (ACH)
+Fecha PTP para Subscription (CHargeBee)</inlineHelpText>
+    <label>Previous Payment day (PTP CB SUB)</label>
+    <precision>2</precision>
+    <required>false</required>
+    <scale>0</scale>
+    <trackFeedHistory>false</trackFeedHistory>
+    <trackHistory>false</trackHistory>
+    <type>Number</type>
+    <unique>false</unique>
+</CustomField>

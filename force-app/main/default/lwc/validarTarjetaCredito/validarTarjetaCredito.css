@@ -1,0 +1,32 @@
+/* Estilos personalizados para el componente */
+.slds-theme_success {
+    background-color: #d9f0d1;
+    border-left: 4px solid #2e844a;
+}
+
+.slds-theme_error {
+    background-color: #feded8;
+    border-left: 4px solid #c23934;
+}
+
+pre {
+    font-family: 'Courier New', monospace;
+    font-size: 0.8rem;
+    max-height: 200px;
+    overflow-y: auto;
+}
+
+code {
+    background-color: #f4f6f9;
+    padding: 2px 6px;
+    border-radius: 3px;
+    font-family: 'Courier New', monospace;
+}
+
+.slds-dl_horizontal dt {
+    width: 40%;
+}
+
+.slds-dl_horizontal dd {
+    width: 60%;
+}

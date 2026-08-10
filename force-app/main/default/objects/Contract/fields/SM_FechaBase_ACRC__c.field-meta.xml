@@ -1,0 +1,18 @@
+<?xml version="1.0" encoding="UTF-8"?>
+<CustomField xmlns="http://soap.sforce.com/2006/04/metadata">
+    <fullName>SM_FechaBase_ACRC__c</fullName>
+    <formula>IF(
+    NOT(ISBLANK(SM_Upgraded_Date__c)),
+    SM_Upgraded_Date__c,
+    IF(
+        ISBLANK(SM_AC_start_date__c),
+        SM_Start_date__c,
+        SM_AC_start_date__c
+    )
+)</formula>
+    <formulaTreatBlanksAs>BlankAsZero</formulaTreatBlanksAs>
+    <label>FechaBase_ACRC</label>
+    <required>false</required>
+    <trackHistory>false</trackHistory>
+    <type>Date</type>
+</CustomField>

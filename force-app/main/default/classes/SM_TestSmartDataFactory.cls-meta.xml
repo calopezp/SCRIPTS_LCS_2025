@@ -1,0 +1,30 @@
+<?xml version="1.0" encoding="UTF-8"?>
+<ApexClass xmlns="http://soap.sforce.com/2006/04/metadata">
+    <apiVersion>50.0</apiVersion>
+    <packageVersions>
+        <majorNumber>8</majorNumber>
+        <minorNumber>190</minorNumber>
+        <namespace>APXTConga4</namespace>
+    </packageVersions>
+    <packageVersions>
+        <majorNumber>5</majorNumber>
+        <minorNumber>91</minorNumber>
+        <namespace>ChargentBase</namespace>
+    </packageVersions>
+    <packageVersions>
+        <majorNumber>5</majorNumber>
+        <minorNumber>91</minorNumber>
+        <namespace>ChargentOrders</namespace>
+    </packageVersions>
+    <packageVersions>
+        <majorNumber>1</majorNumber>
+        <minorNumber>47</minorNumber>
+        <namespace>Five9LSP</namespace>
+    </packageVersions>
+    <packageVersions>
+        <majorNumber>23</majorNumber>
+        <minorNumber>4</minorNumber>
+        <namespace>echosign_dev1</namespace>
+    </packageVersions>
+    <status>Active</status>
+</ApexClass>

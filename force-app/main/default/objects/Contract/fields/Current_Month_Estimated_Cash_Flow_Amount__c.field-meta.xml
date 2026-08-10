@@ -1,0 +1,18 @@
+<?xml version="1.0" encoding="UTF-8"?>
+<CustomField xmlns="http://soap.sforce.com/2006/04/metadata">
+    <fullName>Current_Month_Estimated_Cash_Flow_Amount__c</fullName>
+    <formula>IF(AND(
+   MONTH( SM_AC_start_date__c ) == MONTH( TODAY() ),
+   YEAR( SM_AC_start_date__c ) == YEAR( TODAY() )
+  )
+ ,SM_Net_AC__c
+ , SM_Net_Monthly_offer__c
+)</formula>
+    <formulaTreatBlanksAs>BlankAsZero</formulaTreatBlanksAs>
+    <label>Current Month Estimated Cash Flow Amount</label>
+    <precision>18</precision>
+    <required>false</required>
+    <scale>2</scale>
+    <trackHistory>false</trackHistory>
+    <type>Currency</type>
+</CustomField>

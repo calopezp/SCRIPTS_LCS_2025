@@ -1,0 +1,67 @@
+<?xml version="1.0" encoding="UTF-8"?>
+<CustomField xmlns="http://soap.sforce.com/2006/04/metadata">
+    <fullName>SM_Monthly_Offer_Decimals_Text__c</fullName>
+    <externalId>false</externalId>
+    <formula>IF(
+    ROUND((SM_Monthly_offer__c - FLOOR(SM_Monthly_offer__c)) * 100, 0) &gt; 0,
+    &quot; con &quot; &amp;
+    CASE(
+        ROUND((SM_Monthly_offer__c - FLOOR(SM_Monthly_offer__c)) * 100, 0),
+        1,&quot;uno&quot;,
+        2,&quot;dos&quot;,
+        3,&quot;tres&quot;,
+        4,&quot;cuatro&quot;,
+        5,&quot;cinco&quot;,
+        6,&quot;seis&quot;,
+        7,&quot;siete&quot;,
+        8,&quot;ocho&quot;,
+        9,&quot;nueve&quot;,
+        10,&quot;diez&quot;,
+        11,&quot;once&quot;,
+        12,&quot;doce&quot;,
+        13,&quot;trece&quot;,
+        14,&quot;catorce&quot;,
+        15,&quot;quince&quot;,
+        16,&quot;dieciséis&quot;,
+        17,&quot;diecisiete&quot;,
+        18,&quot;dieciocho&quot;,
+        19,&quot;diecinueve&quot;,
+        20,&quot;veinte&quot;,
+
+        IF(
+            ROUND((SM_Monthly_offer__c - FLOOR(SM_Monthly_offer__c)) * 100, 0) &lt; 30,
+            &quot;veinti&quot; &amp;
+            CASE(
+                MOD(ROUND((SM_Monthly_offer__c - FLOOR(SM_Monthly_offer__c)) * 100, 0),10),
+                1,&quot;uno&quot;,2,&quot;dos&quot;,3,&quot;tres&quot;,4,&quot;cuatro&quot;,5,&quot;cinco&quot;,
+                6,&quot;seis&quot;,7,&quot;siete&quot;,8,&quot;ocho&quot;,9,&quot;nueve&quot;,&quot;&quot;
+            ),
+
+            CASE(
+                FLOOR(ROUND((SM_Monthly_offer__c - FLOOR(SM_Monthly_offer__c)) * 100, 0)/10)*10,
+                30,&quot;treinta&quot;,
+                40,&quot;cuarenta&quot;,
+                50,&quot;cincuenta&quot;,
+                60,&quot;sesenta&quot;,
+                70,&quot;setenta&quot;,
+                80,&quot;ochenta&quot;,
+                90,&quot;noventa&quot;,
+                &quot;&quot;
+            )
+            &amp; &quot; y &quot; &amp;
+            CASE(
+                MOD(ROUND((SM_Monthly_offer__c - FLOOR(SM_Monthly_offer__c)) * 100, 0),10),
+                1,&quot;uno&quot;,2,&quot;dos&quot;,3,&quot;tres&quot;,4,&quot;cuatro&quot;,5,&quot;cinco&quot;,
+                6,&quot;seis&quot;,7,&quot;siete&quot;,8,&quot;ocho&quot;,9,&quot;nueve&quot;,&quot;&quot;
+            )
+        )
+    ),
+    &quot;&quot;
+)</formula>
+    <formulaTreatBlanksAs>BlankAsZero</formulaTreatBlanksAs>
+    <label>Monthly Offer DecimalsText</label>
+    <required>false</required>
+    <trackHistory>false</trackHistory>
+    <type>Text</type>
+    <unique>false</unique>
+</CustomField>

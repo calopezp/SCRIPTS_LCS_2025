@@ -1,0 +1,29 @@
+<?xml version="1.0" encoding="UTF-8"?>
+<CustomField xmlns="http://soap.sforce.com/2006/04/metadata">
+    <fullName>Count_Expected_Pymnts_Today_2__c</fullName>
+    <externalId>false</externalId>
+    <formula>IF(SM_Requires_AC_Payment__c,
+  IF(ISPICKVAL(SM_Way_of_AC_Payment__c, &quot;One payment&quot;),
+     IF(SM_AC_start_date__c &lt;= TODAY(), 1, 0),
+     IF(SM_AC_Split_Date__c &lt;= TODAY(), 2, IF(SM_AC_start_date__c &lt;= TODAY(), 1, 0))
+  ),
+  0
+)
++
+IF(Contract_Calculated_RC_Start_Date__c &lt;= TODAY(),
+  FLOOR(
+    ( IF(Contract_End_Date_Calculated__c &lt;= TODAY(), Contract_End_Date_Calculated__c, TODAY()) 
+      - Contract_Calculated_RC_Start_Date__c 
+    ) / 30.4368
+  ),
+  0
+)</formula>
+    <formulaTreatBlanksAs>BlankAsZero</formulaTreatBlanksAs>
+    <label>Count Expected Pymnts Today 2</label>
+    <precision>18</precision>
+    <required>false</required>
+    <scale>0</scale>
+    <trackHistory>false</trackHistory>
+    <type>Number</type>
+    <unique>false</unique>
+</CustomField>

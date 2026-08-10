@@ -1,0 +1,379 @@
+<?xml version="1.0" encoding="UTF-8"?>
+<CustomField xmlns="http://soap.sforce.com/2006/04/metadata">
+    <fullName>SM_Reason_for_cancellation__c</fullName>
+    <label>Cancellation Reason</label>
+    <required>false</required>
+    <trackFeedHistory>false</trackFeedHistory>
+    <trackHistory>true</trackHistory>
+    <type>Picklist</type>
+    <valueSet>
+        <controllingField>Status</controllingField>
+        <restricted>true</restricted>
+        <valueSetDefinition>
+            <sorted>true</sorted>
+            <value>
+                <fullName>Cancelation Notice Received/ Not retention contact.</fullName>
+                <default>false</default>
+                <label>Cancelation Notice Received/ Not retention contact.</label>
+            </value>
+            <value>
+                <fullName>Cancellation Notice Received</fullName>
+                <default>false</default>
+                <label>Cancellation Notice Received</label>
+            </value>
+            <value>
+                <fullName>Change Inactive to Cancel</fullName>
+                <default>false</default>
+                <label>Change Inactive to Cancel</label>
+            </value>
+            <value>
+                <fullName>Closed Account</fullName>
+                <default>false</default>
+                <label>Closed Account</label>
+            </value>
+            <value>
+                <fullName>Contract not signed</fullName>
+                <default>false</default>
+                <label>Contract not signed</label>
+            </value>
+            <value>
+                <fullName>Customer complaint in DACO</fullName>
+                <default>false</default>
+                <label>Customer complaint in DACO</label>
+            </value>
+            <value>
+                <fullName>Customer Deceased</fullName>
+                <default>false</default>
+                <label>Customer Deceased</label>
+            </value>
+            <value>
+                <fullName>Customer disatisfaction -Collect Claim</fullName>
+                <default>false</default>
+                <label>Customer disatisfaction -Collect Claim</label>
+            </value>
+            <value>
+                <fullName>Customer Dissatisfaction</fullName>
+                <default>false</default>
+                <label>Customer Dissatisfaction</label>
+            </value>
+            <value>
+                <fullName>Customer dissatisfaction  / Case work but Not Results Expected</fullName>
+                <default>false</default>
+                <label>Customer dissatisfaction  / Case work but Not Results Expected</label>
+            </value>
+            <value>
+                <fullName>CUSTOMER NOT COMPLY DOCUMENTS / CLAIM REFUND</fullName>
+                <default>false</default>
+                <label>CUSTOMER NOT COMPLY DOCUMENTS / CLAIM REFUND</label>
+            </value>
+            <value>
+                <fullName>Does not comply with payments</fullName>
+                <default>false</default>
+                <label>Does not comply with payments</label>
+            </value>
+            <value>
+                <fullName>Does not comply with the obligations of the Contract</fullName>
+                <default>false</default>
+                <label>Does not comply with the obligations of the Contract</label>
+            </value>
+            <value>
+                <fullName>DOES NOT WISH TO EXTEND CONTRACT 6 MONTHS</fullName>
+                <default>false</default>
+                <label>DOES NOT WISH TO EXTEND CONTRACT 6 MONTHS</label>
+            </value>
+            <value>
+                <fullName>Draft Contract Cancel</fullName>
+                <default>false</default>
+                <label>Draft Contract Cancel</label>
+            </value>
+            <value>
+                <fullName>Economic Reasons</fullName>
+                <default>false</default>
+                <label>Economic Reasons</label>
+            </value>
+            <value>
+                <fullName>Evidence not complete</fullName>
+                <default>false</default>
+                <label>Evidence not complete</label>
+            </value>
+            <value>
+                <fullName>Invalid Account Number</fullName>
+                <default>false</default>
+                <label>Invalid Account Number</label>
+            </value>
+            <value>
+                <fullName>Lack of contactability</fullName>
+                <default>false</default>
+                <label>Lack of contactability</label>
+            </value>
+            <value>
+                <fullName>Migrate Savera</fullName>
+                <default>false</default>
+                <label>Migrate Savera</label>
+            </value>
+            <value>
+                <fullName>No funds in Bank Account</fullName>
+                <default>false</default>
+                <label>No funds in Bank Account</label>
+            </value>
+            <value>
+                <fullName>Non-compliance with the obligations of the customer stipulated in the contract</fullName>
+                <default>false</default>
+                <label>Non-compliance with the obligations of the customer stipulated in the contract</label>
+            </value>
+            <value>
+                <fullName>Not Adverse account</fullName>
+                <default>false</default>
+                <label>Not Adverse account</label>
+            </value>
+            <value>
+                <fullName>Overdue with more than 120 days</fullName>
+                <default>false</default>
+                <label>Overdue with more than 120 days</label>
+            </value>
+            <value>
+                <fullName>PTP Cancellation - Bad Reviews</fullName>
+                <default>false</default>
+                <label>PTP Cancellation - Bad Reviews</label>
+            </value>
+            <value>
+                <fullName>PTP Cancellation - Better offer from Other Company</fullName>
+                <default>false</default>
+                <label>PTP Cancellation - Better offer from Other Company</label>
+            </value>
+            <value>
+                <fullName>PTP Cancellation - Customers Retracts</fullName>
+                <default>false</default>
+                <label>PTP Cancellation - Customers Retracts</label>
+            </value>
+            <value>
+                <fullName>PTP Cancellation - Declined transaction</fullName>
+                <default>false</default>
+                <label>PTP Cancellation - Declined transaction</label>
+            </value>
+            <value>
+                <fullName>PTP Cancellation - No job / less Working Hours</fullName>
+                <default>false</default>
+                <label>PTP Cancellation - No job / less Working Hours</label>
+            </value>
+            <value>
+                <fullName>PTP Cancellation - No Money</fullName>
+                <default>false</default>
+                <label>PTP Cancellation - No Money</label>
+            </value>
+            <value>
+                <fullName>PTP Cancellation - Sickness</fullName>
+                <default>false</default>
+                <label>PTP Cancellation - Sickness</label>
+            </value>
+            <value>
+                <fullName>Sales Dissatisfaction</fullName>
+                <default>false</default>
+                <label>Sales Dissatisfaction</label>
+            </value>
+            <value>
+                <fullName>Satisfied Customer /  does not want to continue</fullName>
+                <default>false</default>
+                <label>Satisfied Customer /  does not want to continue</label>
+            </value>
+            <value>
+                <fullName>Stop Payment</fullName>
+                <default>false</default>
+                <label>Stop Payment</label>
+            </value>
+            <value>
+                <fullName>Suspect criminal actions</fullName>
+                <default>false</default>
+                <label>Suspect criminal actions</label>
+            </value>
+            <value>
+                <fullName>Training cancellation</fullName>
+                <default>false</default>
+                <label>Training cancellation</label>
+            </value>
+            <value>
+                <fullName>Upgrade CE</fullName>
+                <default>false</default>
+                <label>Upgrade CE</label>
+            </value>
+        </valueSetDefinition>
+        <valueSettings>
+            <controllingFieldValue>Cancelled</controllingFieldValue>
+            <controllingFieldValue>Payment Rejection</controllingFieldValue>
+            <valueName>Cancelation Notice Received/ Not retention contact.</valueName>
+        </valueSettings>
+        <valueSettings>
+            <controllingFieldValue>Cancelled</controllingFieldValue>
+            <controllingFieldValue>Payment Rejection</controllingFieldValue>
+            <valueName>Cancellation Notice Received</valueName>
+        </valueSettings>
+        <valueSettings>
+            <controllingFieldValue>Cancelled</controllingFieldValue>
+            <controllingFieldValue>Payment Rejection</controllingFieldValue>
+            <valueName>Change Inactive to Cancel</valueName>
+        </valueSettings>
+        <valueSettings>
+            <controllingFieldValue>Cancelled</controllingFieldValue>
+            <controllingFieldValue>Finalized</controllingFieldValue>
+            <controllingFieldValue>Payment Rejection</controllingFieldValue>
+            <valueName>Closed Account</valueName>
+        </valueSettings>
+        <valueSettings>
+            <controllingFieldValue>Cancelled</controllingFieldValue>
+            <valueName>Contract not signed</valueName>
+        </valueSettings>
+        <valueSettings>
+            <controllingFieldValue>Cancelled</controllingFieldValue>
+            <controllingFieldValue>Payment Rejection</controllingFieldValue>
+            <valueName>Customer complaint in DACO</valueName>
+        </valueSettings>
+        <valueSettings>
+            <controllingFieldValue>Cancelled</controllingFieldValue>
+            <controllingFieldValue>Payment Rejection</controllingFieldValue>
+            <valueName>Customer Deceased</valueName>
+        </valueSettings>
+        <valueSettings>
+            <controllingFieldValue>Cancelled</controllingFieldValue>
+            <controllingFieldValue>Payment Rejection</controllingFieldValue>
+            <valueName>Customer disatisfaction -Collect Claim</valueName>
+        </valueSettings>
+        <valueSettings>
+            <controllingFieldValue>Cancelled</controllingFieldValue>
+            <controllingFieldValue>Payment Rejection</controllingFieldValue>
+            <valueName>Customer Dissatisfaction</valueName>
+        </valueSettings>
+        <valueSettings>
+            <controllingFieldValue>Cancelled</controllingFieldValue>
+            <controllingFieldValue>Payment Rejection</controllingFieldValue>
+            <valueName>Customer dissatisfaction  / Case work but Not Results Expected</valueName>
+        </valueSettings>
+        <valueSettings>
+            <controllingFieldValue>Cancelled</controllingFieldValue>
+            <valueName>CUSTOMER NOT COMPLY DOCUMENTS / CLAIM REFUND</valueName>
+        </valueSettings>
+        <valueSettings>
+            <controllingFieldValue>Cancelled</controllingFieldValue>
+            <controllingFieldValue>Payment Rejection</controllingFieldValue>
+            <valueName>Does not comply with payments</valueName>
+        </valueSettings>
+        <valueSettings>
+            <controllingFieldValue>Cancelled</controllingFieldValue>
+            <valueName>Does not comply with the obligations of the Contract</valueName>
+        </valueSettings>
+        <valueSettings>
+            <controllingFieldValue>Cancelled</controllingFieldValue>
+            <valueName>DOES NOT WISH TO EXTEND CONTRACT 6 MONTHS</valueName>
+        </valueSettings>
+        <valueSettings>
+            <controllingFieldValue>Cancelled</controllingFieldValue>
+            <valueName>Draft Contract Cancel</valueName>
+        </valueSettings>
+        <valueSettings>
+            <controllingFieldValue>Cancelled</controllingFieldValue>
+            <controllingFieldValue>Payment Rejection</controllingFieldValue>
+            <valueName>Economic Reasons</valueName>
+        </valueSettings>
+        <valueSettings>
+            <controllingFieldValue>Cancelled</controllingFieldValue>
+            <valueName>Evidence not complete</valueName>
+        </valueSettings>
+        <valueSettings>
+            <controllingFieldValue>Cancelled</controllingFieldValue>
+            <controllingFieldValue>Payment Rejection</controllingFieldValue>
+            <valueName>Invalid Account Number</valueName>
+        </valueSettings>
+        <valueSettings>
+            <controllingFieldValue>Cancelled</controllingFieldValue>
+            <controllingFieldValue>Payment Rejection</controllingFieldValue>
+            <valueName>Lack of contactability</valueName>
+        </valueSettings>
+        <valueSettings>
+            <controllingFieldValue>Cancelled</controllingFieldValue>
+            <controllingFieldValue>Payment Rejection</controllingFieldValue>
+            <valueName>Migrate Savera</valueName>
+        </valueSettings>
+        <valueSettings>
+            <controllingFieldValue>Cancelled</controllingFieldValue>
+            <controllingFieldValue>Payment Rejection</controllingFieldValue>
+            <valueName>No funds in Bank Account</valueName>
+        </valueSettings>
+        <valueSettings>
+            <controllingFieldValue>Cancelled</controllingFieldValue>
+            <controllingFieldValue>Payment Rejection</controllingFieldValue>
+            <valueName>Non-compliance with the obligations of the customer stipulated in the contract</valueName>
+        </valueSettings>
+        <valueSettings>
+            <controllingFieldValue>Cancelled</controllingFieldValue>
+            <controllingFieldValue>Finalized</controllingFieldValue>
+            <valueName>Not Adverse account</valueName>
+        </valueSettings>
+        <valueSettings>
+            <controllingFieldValue>Cancelled</controllingFieldValue>
+            <controllingFieldValue>Payment Rejection</controllingFieldValue>
+            <valueName>Overdue with more than 120 days</valueName>
+        </valueSettings>
+        <valueSettings>
+            <controllingFieldValue>Cancelled</controllingFieldValue>
+            <controllingFieldValue>Payment Rejection</controllingFieldValue>
+            <valueName>PTP Cancellation - Bad Reviews</valueName>
+        </valueSettings>
+        <valueSettings>
+            <controllingFieldValue>Cancelled</controllingFieldValue>
+            <controllingFieldValue>Payment Rejection</controllingFieldValue>
+            <valueName>PTP Cancellation - Better offer from Other Company</valueName>
+        </valueSettings>
+        <valueSettings>
+            <controllingFieldValue>Cancelled</controllingFieldValue>
+            <controllingFieldValue>Payment Rejection</controllingFieldValue>
+            <valueName>PTP Cancellation - Customers Retracts</valueName>
+        </valueSettings>
+        <valueSettings>
+            <controllingFieldValue>Cancelled</controllingFieldValue>
+            <controllingFieldValue>Payment Rejection</controllingFieldValue>
+            <valueName>PTP Cancellation - Declined transaction</valueName>
+        </valueSettings>
+        <valueSettings>
+            <controllingFieldValue>Cancelled</controllingFieldValue>
+            <controllingFieldValue>Payment Rejection</controllingFieldValue>
+            <valueName>PTP Cancellation - No job / less Working Hours</valueName>
+        </valueSettings>
+        <valueSettings>
+            <controllingFieldValue>Cancelled</controllingFieldValue>
+            <controllingFieldValue>Payment Rejection</controllingFieldValue>
+            <valueName>PTP Cancellation - No Money</valueName>
+        </valueSettings>
+        <valueSettings>
+            <controllingFieldValue>Cancelled</controllingFieldValue>
+            <controllingFieldValue>Payment Rejection</controllingFieldValue>
+            <valueName>PTP Cancellation - Sickness</valueName>
+        </valueSettings>
+        <valueSettings>
+            <controllingFieldValue>Cancelled</controllingFieldValue>
+            <controllingFieldValue>Payment Rejection</controllingFieldValue>
+            <valueName>Sales Dissatisfaction</valueName>
+        </valueSettings>
+        <valueSettings>
+            <controllingFieldValue>Cancelled</controllingFieldValue>
+            <controllingFieldValue>Payment Rejection</controllingFieldValue>
+            <valueName>Satisfied Customer /  does not want to continue</valueName>
+        </valueSettings>
+        <valueSettings>
+            <controllingFieldValue>Cancelled</controllingFieldValue>
+            <controllingFieldValue>Payment Rejection</controllingFieldValue>
+            <valueName>Stop Payment</valueName>
+        </valueSettings>
+        <valueSettings>
+            <controllingFieldValue>Cancelled</controllingFieldValue>
+            <controllingFieldValue>Payment Rejection</controllingFieldValue>
+            <valueName>Suspect criminal actions</valueName>
+        </valueSettings>
+        <valueSettings>
+            <controllingFieldValue>Cancelled</controllingFieldValue>
+            <valueName>Training cancellation</valueName>
+        </valueSettings>
+        <valueSettings>
+            <controllingFieldValue>Cancelled</controllingFieldValue>
+            <valueName>Upgrade CE</valueName>
+        </valueSettings>
+    </valueSet>
+</CustomField>

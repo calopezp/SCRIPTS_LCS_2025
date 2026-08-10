@@ -1,0 +1,15 @@
+<?xml version="1.0" encoding="UTF-8"?>
+<CustomField xmlns="http://soap.sforce.com/2006/04/metadata">
+    <fullName>SM_Failed_AC_Fees__c</fullName>
+    <description>This field Holds the Fees that were rejected by Chargent</description>
+    <externalId>false</externalId>
+    <inlineHelpText>This field Holds the Fees that were rejected by Chargent</inlineHelpText>
+    <label>Failed AC Transactions</label>
+    <precision>18</precision>
+    <required>false</required>
+    <scale>0</scale>
+    <trackFeedHistory>false</trackFeedHistory>
+    <trackHistory>false</trackHistory>
+    <type>Number</type>
+    <unique>false</unique>
+</CustomField>

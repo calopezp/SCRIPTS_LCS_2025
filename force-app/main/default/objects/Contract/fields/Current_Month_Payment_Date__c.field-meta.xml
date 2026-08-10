@@ -1,0 +1,39 @@
+<?xml version="1.0" encoding="UTF-8"?>
+<CustomField xmlns="http://soap.sforce.com/2006/04/metadata">
+    <fullName>Current_Month_Payment_Date__c</fullName>
+    <formula>IF(AND(
+   MONTH( SM_AC_start_date__c ) == MONTH( TODAY() ),
+   YEAR( SM_AC_start_date__c ) == YEAR( TODAY() )
+  )
+ ,/* RAMA 1: MES DE INICIO (Seguro porque la fecha ya existe en el registro) */
+  IF(ISPICKVAL(SM_Payment_methods__c,&quot;ACH&quot;)
+     ,CASE(MOD(SM_AC_start_date__c - DATE(1900, 1, 7), 7), 0, SM_AC_start_date__c - 2, 6, SM_AC_start_date__c - 1, SM_AC_start_date__c)
+     ,CASE(MOD(SM_AC_start_date__c - DATE(1900, 1, 7), 7), 4, SM_AC_start_date__c + 4, 5, SM_AC_start_date__c + 4, 6, SM_AC_start_date__c + 3, SM_AC_start_date__c + 2)  
+    )  
+ ,/* RAMA 2: RECURRENTE (Blindada contra días 29, 30 y 31) */
+  IF(NOT(ISNULL(SM_Payment_day__c)),
+    /* Cálculo de la &apos;BaseDate&apos;: asegura que si el día no existe, use el último día del mes actual */
+    IF(ISPICKVAL(SM_Payment_methods__c,&quot;ACH&quot;)
+     ,CASE( 
+       MOD( (ADDMONTHS(DATE(YEAR(TODAY()), MONTH(TODAY()), 1), 1) - 1) - MAX(0, DAY(ADDMONTHS(DATE(YEAR(TODAY()), MONTH(TODAY()), 1), 1) - 1) - SM_Payment_day__c) - DATE(1900, 1, 7), 7),
+       0, ((ADDMONTHS(DATE(YEAR(TODAY()), MONTH(TODAY()), 1), 1) - 1) - MAX(0, DAY(ADDMONTHS(DATE(YEAR(TODAY()), MONTH(TODAY()), 1), 1) - 1) - SM_Payment_day__c)) - 2,
+       6, ((ADDMONTHS(DATE(YEAR(TODAY()), MONTH(TODAY()), 1), 1) - 1) - MAX(0, DAY(ADDMONTHS(DATE(YEAR(TODAY()), MONTH(TODAY()), 1), 1) - 1) - SM_Payment_day__c)) - 1,
+       ((ADDMONTHS(DATE(YEAR(TODAY()), MONTH(TODAY()), 1), 1) - 1) - MAX(0, DAY(ADDMONTHS(DATE(YEAR(TODAY()), MONTH(TODAY()), 1), 1) - 1) - SM_Payment_day__c))
+     )
+     ,CASE( 
+       MOD( (ADDMONTHS(DATE(YEAR(TODAY()), MONTH(TODAY()), 1), 1) - 1) - MAX(0, DAY(ADDMONTHS(DATE(YEAR(TODAY()), MONTH(TODAY()), 1), 1) - 1) - SM_Payment_day__c) - DATE(1900, 1, 7), 7),
+       4, ((ADDMONTHS(DATE(YEAR(TODAY()), MONTH(TODAY()), 1), 1) - 1) - MAX(0, DAY(ADDMONTHS(DATE(YEAR(TODAY()), MONTH(TODAY()), 1), 1) - 1) - SM_Payment_day__c)) + 4,
+       5, ((ADDMONTHS(DATE(YEAR(TODAY()), MONTH(TODAY()), 1), 1) - 1) - MAX(0, DAY(ADDMONTHS(DATE(YEAR(TODAY()), MONTH(TODAY()), 1), 1) - 1) - SM_Payment_day__c)) + 4,
+       6, ((ADDMONTHS(DATE(YEAR(TODAY()), MONTH(TODAY()), 1), 1) - 1) - MAX(0, DAY(ADDMONTHS(DATE(YEAR(TODAY()), MONTH(TODAY()), 1), 1) - 1) - SM_Payment_day__c)) + 3,
+       ((ADDMONTHS(DATE(YEAR(TODAY()), MONTH(TODAY()), 1), 1) - 1) - MAX(0, DAY(ADDMONTHS(DATE(YEAR(TODAY()), MONTH(TODAY()), 1), 1) - 1) - SM_Payment_day__c)) + 2
+      )  
+    )  
+   ,NULL
+  )
+)</formula>
+    <formulaTreatBlanksAs>BlankAsZero</formulaTreatBlanksAs>
+    <label>Current Month Payment Date</label>
+    <required>false</required>
+    <trackHistory>false</trackHistory>
+    <type>Date</type>
+</CustomField>

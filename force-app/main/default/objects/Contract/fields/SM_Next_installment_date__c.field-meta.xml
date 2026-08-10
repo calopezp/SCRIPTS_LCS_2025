@@ -1,0 +1,15 @@
+<?xml version="1.0" encoding="UTF-8"?>
+<CustomField xmlns="http://soap.sforce.com/2006/04/metadata">
+    <fullName>SM_Next_installment_date__c</fullName>
+    <formula>IF(SM_AC_collected__c
+	,DATE(YEAR(ADDMONTHS(SM_Start_date__c, (SM_Charged_SB_Fees2__c - SM_Number_of_Refund__c))), MONTH(ADDMONTHS(SM_Start_date__c, (SM_Charged_SB_Fees2__c - SM_Number_of_Refund__c))), 28)
+	,IF(ISNULL(SM_Charged_AC_Fees__c)
+		,SM_AC_start_date__c
+		,SM_AC_Split_Date__c
+		)
+	)</formula>
+    <label>Next installment date</label>
+    <required>false</required>
+    <trackHistory>false</trackHistory>
+    <type>Date</type>
+</CustomField>

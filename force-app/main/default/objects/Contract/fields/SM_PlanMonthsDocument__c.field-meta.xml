@@ -1,0 +1,18 @@
+<?xml version="1.0" encoding="UTF-8"?>
+<CustomField xmlns="http://soap.sforce.com/2006/04/metadata">
+    <fullName>SM_PlanMonthsDocument__c</fullName>
+    <externalId>false</externalId>
+    <formula>IF(
+    ISPICKVAL(SM_Way_of_Contract_Payment__c, &apos;Subscription&apos;),
+				6,
+				SM_Plan_Months__c
+)</formula>
+    <formulaTreatBlanksAs>BlankAsZero</formulaTreatBlanksAs>
+    <label>Plan Months (Document)</label>
+    <precision>18</precision>
+    <required>false</required>
+    <scale>0</scale>
+    <trackHistory>false</trackHistory>
+    <type>Number</type>
+    <unique>false</unique>
+</CustomField>

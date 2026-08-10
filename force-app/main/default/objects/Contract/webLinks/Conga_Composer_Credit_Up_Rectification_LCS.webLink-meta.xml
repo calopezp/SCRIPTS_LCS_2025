@@ -1,0 +1,36 @@
+<?xml version="1.0" encoding="UTF-8"?>
+<WebLink xmlns="http://soap.sforce.com/2006/04/metadata">
+    <fullName>Conga_Composer_Credit_Up_Rectification_LCS</fullName>
+    <availability>online</availability>
+    <description>Originally created by Conga Solution Manager. Date of last use of Update Button from Conga Solution record: https://monee--apxtconga4.visualforce.com/a0I8W00000DZyNBUA1
+17-Nov-2022 08:22:56 PM</description>
+    <displayType>button</displayType>
+    <encodingKey>UTF-8</encodingKey>
+    <hasMenubar>false</hasMenubar>
+    <hasScrollbars>false</hasScrollbars>
+    <hasToolbar>false</hasToolbar>
+    <height>660</height>
+    <isResizable>false</isResizable>
+    <linkType>url</linkType>
+    <masterLabel>Credit Up Rectification LCS</masterLabel>
+    <openType>newWindow</openType>
+    <position>none</position>
+    <protected>false</protected>
+    <showsLocation>false</showsLocation>
+    <showsStatus>false</showsStatus>
+    <url>/apex/APXTConga4__Conga_Composer?SolMgr=1
+&amp;serverUrl={!API.Partner_Server_URL_370}
+&amp;Id={!Contract.Id}
+
+&amp;QueryId=[QAC]0Q_015UA2672851,
+[GetRI2]0Q_002UA2568019
+
+&amp;TemplateId=0T_115UAA880023,0T_114UAA562755,0T_113UAA689903,0T_112UAA322087,0T_111UAA044048,0T_053UA2247282,0T_018UA2009105,0T_019UA2474530,0T_020UA2724050,0T_021UA2606717
+
+&amp;ESSignatureType=2
+&amp;OFN=CUP_Rectificacion+Credito+{!Contract.Account}
+&amp;ESVisible=1
+&amp;DefaultPDF=1
+&amp;ESRecipient1={!Account.PersonEmail}</url>
+    <width>900</width>
+</WebLink>

@@ -1,0 +1,379 @@
+<?xml version="1.0" encoding="UTF-8"?>
+<CustomField xmlns="http://soap.sforce.com/2006/04/metadata">
+    <fullName>ACH_Bank_Name__c</fullName>
+    <label>ACH Bank Name</label>
+    <required>false</required>
+    <trackHistory>true</trackHistory>
+    <trackTrending>false</trackTrending>
+    <type>Picklist</type>
+    <valueSet>
+        <valueSetDefinition>
+            <sorted>false</sorted>
+            <value>
+                <fullName>ATHOL SAVING BANK</fullName>
+                <default>false</default>
+                <label>ATHOL SAVING BANK</label>
+            </value>
+            <value>
+                <fullName>BANCO POPULAR</fullName>
+                <default>false</default>
+                <label>BANCO POPULAR</label>
+            </value>
+            <value>
+                <fullName>BANCO SANTANDER</fullName>
+                <default>false</default>
+                <label>BANCO SANTANDER</label>
+            </value>
+            <value>
+                <fullName>BANK OF AMERICA - HENRICO</fullName>
+                <default>false</default>
+                <label>BANK OF AMERICA - HENRICO</label>
+            </value>
+            <value>
+                <fullName>BAXTER CREDIT UNIÓN</fullName>
+                <default>false</default>
+                <label>BAXTER CREDIT UNIÓN</label>
+            </value>
+            <value>
+                <fullName>BBT</fullName>
+                <default>false</default>
+                <label>BBT</label>
+            </value>
+            <value>
+                <fullName>CAGUAS COOP</fullName>
+                <default>false</default>
+                <label>CAGUAS COOP</label>
+            </value>
+            <value>
+                <fullName>CAPITAL ONE</fullName>
+                <default>false</default>
+                <label>CAPITAL ONE</label>
+            </value>
+            <value>
+                <fullName>CARIBE FEDERAL CREDIT UNION</fullName>
+                <default>false</default>
+                <label>CARIBE FEDERAL CREDIT UNION</label>
+            </value>
+            <value>
+                <fullName>CHASE FLORIDA</fullName>
+                <default>false</default>
+                <label>CHASE FLORIDA</label>
+            </value>
+            <value>
+                <fullName>COOP A/C  ABRAHM ROSA</fullName>
+                <default>false</default>
+                <label>COOP A/C  ABRAHM ROSA</label>
+            </value>
+            <value>
+                <fullName>COOP A/C DE ADJUNTAS</fullName>
+                <default>false</default>
+                <label>COOP A/C DE ADJUNTAS</label>
+            </value>
+            <value>
+                <fullName>COOP A/C DE AGUADA</fullName>
+                <default>false</default>
+                <label>COOP A/C DE AGUADA</label>
+            </value>
+            <value>
+                <fullName>COOP A/C DE AIBONITEÑA</fullName>
+                <default>false</default>
+                <label>COOP A/C DE AIBONITEÑA</label>
+            </value>
+            <value>
+                <fullName>COOP A/C DE CABO ROJO</fullName>
+                <default>false</default>
+                <label>COOP A/C DE CABO ROJO</label>
+            </value>
+            <value>
+                <fullName>COOP A/C DE CAMUY (CAMUYCOOP)</fullName>
+                <default>false</default>
+                <label>COOP A/C DE CAMUY (CAMUYCOOP)</label>
+            </value>
+            <value>
+                <fullName>COOP A/C DE CAPARRA</fullName>
+                <default>false</default>
+                <label>COOP A/C DE CAPARRA</label>
+            </value>
+            <value>
+                <fullName>COOP A/C DE CIALES</fullName>
+                <default>false</default>
+                <label>COOP A/C DE CIALES</label>
+            </value>
+            <value>
+                <fullName>COOP A/C DE CUPEY ALTO</fullName>
+                <default>false</default>
+                <label>COOP A/C DE CUPEY ALTO</label>
+            </value>
+            <value>
+                <fullName>COOP A/C DE FLORIDA</fullName>
+                <default>false</default>
+                <label>COOP A/C DE FLORIDA</label>
+            </value>
+            <value>
+                <fullName>COOP A/C DE GUAYANILLA</fullName>
+                <default>false</default>
+                <label>COOP A/C DE GUAYANILLA</label>
+            </value>
+            <value>
+                <fullName>COOP A/C DE HATILLO</fullName>
+                <default>false</default>
+                <label>COOP A/C DE HATILLO</label>
+            </value>
+            <value>
+                <fullName>COOP A/C DE ISABELA</fullName>
+                <default>false</default>
+                <label>COOP A/C DE ISABELA</label>
+            </value>
+            <value>
+                <fullName>COOP A/C DE JUANA DIAZ</fullName>
+                <default>false</default>
+                <label>COOP A/C DE JUANA DIAZ</label>
+            </value>
+            <value>
+                <fullName>COOP A/C DE LAJAS</fullName>
+                <default>false</default>
+                <label>COOP A/C DE LAJAS</label>
+            </value>
+            <value>
+                <fullName>COOP A/C DE LARES</fullName>
+                <default>false</default>
+                <label>COOP A/C DE LARES</label>
+            </value>
+            <value>
+                <fullName>COOP A/C DE LAS PIEDRAS</fullName>
+                <default>false</default>
+                <label>COOP A/C DE LAS PIEDRAS</label>
+            </value>
+            <value>
+                <fullName>COOP A/C DE MANATI</fullName>
+                <default>false</default>
+                <label>COOP A/C DE MANATI</label>
+            </value>
+            <value>
+                <fullName>COOP A/C DE PADRE MC DONALD</fullName>
+                <default>false</default>
+                <label>COOP A/C DE PADRE MC DONALD</label>
+            </value>
+            <value>
+                <fullName>COOP A/C DE RINCON</fullName>
+                <default>false</default>
+                <label>COOP A/C DE RINCON</label>
+            </value>
+            <value>
+                <fullName>COOP A/C GERENCIALES DE LA AEE</fullName>
+                <default>false</default>
+                <label>COOP A/C GERENCIALES DE LA AEE</label>
+            </value>
+            <value>
+                <fullName>COOP A/C HERMANOS UNIDOS</fullName>
+                <default>false</default>
+                <label>COOP A/C HERMANOS UNIDOS</label>
+            </value>
+            <value>
+                <fullName>COOP A/C LA CIDREÑA</fullName>
+                <default>false</default>
+                <label>COOP A/C LA CIDREÑA</label>
+            </value>
+            <value>
+                <fullName>COOP A/C LA COMERIEÑA</fullName>
+                <default>false</default>
+                <label>COOP A/C LA COMERIEÑA</label>
+            </value>
+            <value>
+                <fullName>COOP A/C LA PUERTORRIQUEÑA</fullName>
+                <default>false</default>
+                <label>COOP A/C LA PUERTORRIQUEÑA</label>
+            </value>
+            <value>
+                <fullName>COOP A/C LA SAGRADA FAMILIA</fullName>
+                <default>false</default>
+                <label>COOP A/C LA SAGRADA FAMILIA</label>
+            </value>
+            <value>
+                <fullName>COOP A/C LOS HERMANOS</fullName>
+                <default>false</default>
+                <label>COOP A/C LOS HERMANOS</label>
+            </value>
+            <value>
+                <fullName>COOP A/C MOROVEÑA</fullName>
+                <default>false</default>
+                <label>COOP A/C MOROVEÑA</label>
+            </value>
+            <value>
+                <fullName>COOP A/C NAGUABEÑA</fullName>
+                <default>false</default>
+                <label>COOP A/C NAGUABEÑA</label>
+            </value>
+            <value>
+                <fullName>COOP A/C NUESTRA SENORA DE LA CANDELARIA</fullName>
+                <default>false</default>
+                <label>COOP A/C NUESTRA SENORA DE LA CANDELARIA</label>
+            </value>
+            <value>
+                <fullName>COOP A/C ORIENTAL (HUMACAO)</fullName>
+                <default>false</default>
+                <label>COOP A/C ORIENTAL (HUMACAO)</label>
+            </value>
+            <value>
+                <fullName>COOP A/C QUEBRADA COOP</fullName>
+                <default>false</default>
+                <label>COOP A/C QUEBRADA COOP</label>
+            </value>
+            <value>
+                <fullName>COOP A/C ROOSVELT ROAD (LUQUILLO)</fullName>
+                <default>false</default>
+                <label>COOP A/C ROOSVELT ROAD (LUQUILLO)</label>
+            </value>
+            <value>
+                <fullName>COOP A/C SAN BLAS</fullName>
+                <default>false</default>
+                <label>COOP A/C SAN BLAS</label>
+            </value>
+            <value>
+                <fullName>COOP A/C SAN JOSE</fullName>
+                <default>false</default>
+                <label>COOP A/C SAN JOSE</label>
+            </value>
+            <value>
+                <fullName>COOP A/C SAN JOSE (CAYEY)</fullName>
+                <default>false</default>
+                <label>COOP A/C SAN JOSE (CAYEY)</label>
+            </value>
+            <value>
+                <fullName>COOP A/C SAN RAFAEL</fullName>
+                <default>false</default>
+                <label>COOP A/C SAN RAFAEL</label>
+            </value>
+            <value>
+                <fullName>COOP A/C VEGA COOP</fullName>
+                <default>false</default>
+                <label>COOP A/C VEGA COOP</label>
+            </value>
+            <value>
+                <fullName>COOP A/C VEGABAJEÑA</fullName>
+                <default>false</default>
+                <label>COOP A/C VEGABAJEÑA</label>
+            </value>
+            <value>
+                <fullName>COOP A/C VILLA COOP</fullName>
+                <default>false</default>
+                <label>COOP A/C VILLA COOP</label>
+            </value>
+            <value>
+                <fullName>COOP A/C YABUCOEÑA</fullName>
+                <default>false</default>
+                <label>COOP A/C YABUCOEÑA</label>
+            </value>
+            <value>
+                <fullName>COOP A/C ZENO GANDIA</fullName>
+                <default>false</default>
+                <label>COOP A/C ZENO GANDIA</label>
+            </value>
+            <value>
+                <fullName>COOP. A/C PADRE SALVADOR RUFFOLO</fullName>
+                <default>false</default>
+                <label>COOP. A/C PADRE SALVADOR RUFFOLO</label>
+            </value>
+            <value>
+                <fullName>COOPACA</fullName>
+                <default>false</default>
+                <label>COOPACA</label>
+            </value>
+            <value>
+                <fullName>COOPERATIVA PUEBLO COOP</fullName>
+                <default>false</default>
+                <label>COOPERATIVA PUEBLO COOP</label>
+            </value>
+            <value>
+                <fullName>COOPERATIVA RODRÍGUEZ HIDALGO</fullName>
+                <default>false</default>
+                <label>COOPERATIVA RODRÍGUEZ HIDALGO</label>
+            </value>
+            <value>
+                <fullName>CREDICENTRO COOP</fullName>
+                <default>false</default>
+                <label>CREDICENTRO COOP</label>
+            </value>
+            <value>
+                <fullName>DIGITAL FEDERAL CREDIT UNION</fullName>
+                <default>false</default>
+                <label>DIGITAL FEDERAL CREDIT UNION</label>
+            </value>
+            <value>
+                <fullName>FIRST BANK</fullName>
+                <default>false</default>
+                <label>FIRST BANK</label>
+            </value>
+            <value>
+                <fullName>MAUNACOOP (GUAYAMA)</fullName>
+                <default>false</default>
+                <label>MAUNACOOP (GUAYAMA)</label>
+            </value>
+            <value>
+                <fullName>NAVY FEDERAL BANK</fullName>
+                <default>false</default>
+                <label>NAVY FEDERAL BANK</label>
+            </value>
+            <value>
+                <fullName>ORIENTAL BANK GROUP</fullName>
+                <default>false</default>
+                <label>ORIENTAL BANK GROUP</label>
+            </value>
+            <value>
+                <fullName>PENTAGON</fullName>
+                <default>false</default>
+                <label>PENTAGON</label>
+            </value>
+            <value>
+                <fullName>PEOPLE S UNITED BANK</fullName>
+                <default>false</default>
+                <label>PEOPLE S UNITED BANK</label>
+            </value>
+            <value>
+                <fullName>PR FEDERAL CREDIT UNION</fullName>
+                <default>false</default>
+                <label>PR FEDERAL CREDIT UNION</label>
+            </value>
+            <value>
+                <fullName>REGIONS BANK</fullName>
+                <default>false</default>
+                <label>REGIONS BANK</label>
+            </value>
+            <value>
+                <fullName>SALICOOP</fullName>
+                <default>false</default>
+                <label>SALICOOP</label>
+            </value>
+            <value>
+                <fullName>SCOTIA BANK</fullName>
+                <default>false</default>
+                <label>SCOTIA BANK</label>
+            </value>
+            <value>
+                <fullName>SUNTRUST BANK</fullName>
+                <default>false</default>
+                <label>SUNTRUST BANK</label>
+            </value>
+            <value>
+                <fullName>TD BANK</fullName>
+                <default>false</default>
+                <label>TD BANK</label>
+            </value>
+            <value>
+                <fullName>USAA FEDERAL SAVING BANK</fullName>
+                <default>false</default>
+                <label>USAA FEDERAL SAVING BANK</label>
+            </value>
+            <value>
+                <fullName>VAPR FEDERAL CREDIT UNION</fullName>
+                <default>false</default>
+                <label>VAPR FEDERAL CREDIT UNION</label>
+            </value>
+            <value>
+                <fullName>WELLS FARGO</fullName>
+                <default>false</default>
+                <label>WELLS FARGO</label>
+            </value>
+        </valueSetDefinition>
+    </valueSet>
+</CustomField>

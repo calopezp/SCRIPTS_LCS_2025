@@ -1,0 +1,17 @@
+<?xml version="1.0" encoding="UTF-8"?>
+<ValidationRule xmlns="http://soap.sforce.com/2006/04/metadata">
+    <fullName>Update_Contract_Payment_Day</fullName>
+    <active>false</active>
+    <description>No permite cambio de fechas de Inicio de Cobro de AC o RC</description>
+    <errorConditionFormula>AND(
+     ISCHANGED(SM_Payment_day__c),
+     OR(SM_Previous_Payment_day__c &lt;&gt; null,
+         TEXT(Reasons_for_change__c)&lt;&gt; null),
+     OR($Profile.Name &lt;&gt; &apos;System Administrator&apos;,
+        $User.Username &lt;&gt; &apos;salesforceadmin-qkv6@force.com&apos;,
+        $User.Username &lt;&gt; &apos;rdejesus@legal-credit.com&apos;,
+        $User.Username &lt;&gt; &apos;emantilla@legal-credit.com&apos;)
+)</errorConditionFormula>
+    <errorMessage>NO ESTA AUTORIZADO A CAMBIAR EL PAYMENT DAY 
+(Solo se puede cambiar, si hace un registro de PTP en las eccion &quot;Payment Day Changes&quot;)</errorMessage>
+</ValidationRule>

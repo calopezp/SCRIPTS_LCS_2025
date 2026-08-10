@@ -1,0 +1,25 @@
+<?xml version="1.0" encoding="UTF-8"?>
+<CustomField xmlns="http://soap.sforce.com/2006/04/metadata">
+    <fullName>Count_AC_Payments_Made__c</fullName>
+    <description>Counts the number of payments AC type that are in ACCEPTED OR TRANSMITTED</description>
+    <label>Count AC Payments Made</label>
+    <summaryFilterItems>
+        <field>SM_Payment__c.Payment_Status__c</field>
+        <operation>equals</operation>
+        <value>ACH TRANSMITTED, ACCEPTED</value>
+    </summaryFilterItems>
+    <summaryFilterItems>
+        <field>SM_Payment__c.SM_Type__c</field>
+        <operation>equals</operation>
+        <value>AC</value>
+    </summaryFilterItems>
+    <summaryFilterItems>
+        <field>SM_Payment__c.SM_Fee_value__c</field>
+        <operation>greaterThan</operation>
+        <value>0</value>
+    </summaryFilterItems>
+    <summaryForeignKey>SM_Payment__c.SM_Contract__c</summaryForeignKey>
+    <summaryOperation>count</summaryOperation>
+    <trackHistory>false</trackHistory>
+    <type>Summary</type>
+</CustomField>

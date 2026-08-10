@@ -1,0 +1,16 @@
+<?xml version="1.0" encoding="UTF-8"?>
+<CustomField xmlns="http://soap.sforce.com/2006/04/metadata">
+    <fullName>Bundle__c</fullName>
+    <externalId>false</externalId>
+    <formula>IF(ISPICKVAL(Contract_Type__c  , &quot;Dependent&quot;),
+CASE(Principal_Contract__r.SM_Monthly_offer__c , 139, 12, 149, 18, 159, 18,169,24,12),
+CASE(SM_Monthly_offer__c , 139, 12, 149, 18, 159, 18,169,24,12))</formula>
+    <formulaTreatBlanksAs>BlankAsZero</formulaTreatBlanksAs>
+    <label>Bundle</label>
+    <precision>18</precision>
+    <required>false</required>
+    <scale>0</scale>
+    <trackHistory>false</trackHistory>
+    <type>Number</type>
+    <unique>false</unique>
+</CustomField>

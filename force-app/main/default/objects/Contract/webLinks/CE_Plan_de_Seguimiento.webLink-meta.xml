@@ -1,0 +1,40 @@
+<?xml version="1.0" encoding="UTF-8"?>
+<WebLink xmlns="http://soap.sforce.com/2006/04/metadata">
+    <fullName>CE_Plan_de_Seguimiento</fullName>
+    <availability>online</availability>
+    <displayType>button</displayType>
+    <encodingKey>UTF-8</encodingKey>
+    <hasMenubar>false</hasMenubar>
+    <hasScrollbars>true</hasScrollbars>
+    <hasToolbar>false</hasToolbar>
+    <height>600</height>
+    <isResizable>true</isResizable>
+    <linkType>url</linkType>
+    <masterLabel>CE Plan de Seguimiento</masterLabel>
+    <openType>newWindow</openType>
+    <position>none</position>
+    <protected>false</protected>
+    <showsLocation>false</showsLocation>
+    <showsStatus>false</showsStatus>
+    <url>/apex/APXTConga4__Conga_Composer?SolMgr=1
+&amp;serverUrl={!API.Partner_Server_URL_520}
+&amp;Id={!Contract.Id}
+
+&amp;QueryId=[CEM0]0Q_013UA2654903,
+[CEM1]0Q_009UA2001903,
+[CEM2]0Q_010UA2162312,
+[CEM3]0Q_011UA2354689,
+[CEMP]0Q_005UA2432714,
+[CEPM]0Q_014UA2619354
+
+&amp;TemplateId=0T_058UA2460951
+
+&amp;DefaultPDF=1
+&amp;ESSignatureType=2
+&amp;ESRecipient1={!Account.PersonEmail}
+&amp;OFN=CE_Plan_Seguimeinto_+{!Contract.Account}
+
+&amp;ESVisible=1
+&amp;ESSVBA=1
+&amp;DS7=14</url>
+</WebLink>

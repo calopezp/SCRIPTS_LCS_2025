@@ -1,0 +1,21 @@
+<?xml version="1.0" encoding="UTF-8"?>
+<ListView xmlns="http://soap.sforce.com/2006/04/metadata">
+    <fullName>Cancelled_Contracts</fullName>
+    <columns>CONTRACT.CONTRACT_NUMBER</columns>
+    <columns>SALES.ACCOUNT.NAME</columns>
+    <columns>CONTRACT.STATUS</columns>
+    <columns>CONTRACT.START_DATE</columns>
+    <columns>CONTRACT.END_DATE</columns>
+    <columns>CORE.USERS.ALIAS</columns>
+    <columns>SM_Cancellation_date__c</columns>
+    <columns>SM_Reason_for_cancellation__c</columns>
+    <columns>SM_Payment_methods__c</columns>
+    <columns>CONTRACT.CREATED_DATE</columns>
+    <filterScope>Everything</filterScope>
+    <filters>
+        <field>CONTRACT.STATUS</field>
+        <operation>equals</operation>
+        <value>Discontinued,Cancelled</value>
+    </filters>
+    <label>Cancelled Contracts</label>
+</ListView>

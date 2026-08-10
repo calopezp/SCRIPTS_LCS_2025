@@ -1,0 +1,15 @@
+<?xml version="1.0" encoding="UTF-8"?>
+<CustomField xmlns="http://soap.sforce.com/2006/04/metadata">
+    <fullName>SM_Failed_SB_Fees__c</fullName>
+    <description>This field will save the failed transactions for suscription</description>
+    <externalId>false</externalId>
+    <inlineHelpText>This field will save the failed transactions for suscription</inlineHelpText>
+    <label>Failed Transactions</label>
+    <precision>18</precision>
+    <required>false</required>
+    <scale>0</scale>
+    <trackFeedHistory>false</trackFeedHistory>
+    <trackHistory>false</trackHistory>
+    <type>Number</type>
+    <unique>false</unique>
+</CustomField>

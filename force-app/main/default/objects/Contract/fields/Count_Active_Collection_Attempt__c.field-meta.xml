@@ -1,0 +1,14 @@
+<?xml version="1.0" encoding="UTF-8"?>
+<CustomField xmlns="http://soap.sforce.com/2006/04/metadata">
+    <fullName>Count_Active_Collection_Attempt__c</fullName>
+    <label>Count Active Collection Attempt</label>
+    <summaryFilterItems>
+        <field>Contract_Collection_Attempt__c.Collection_Status__c</field>
+        <operation>equals</operation>
+        <value>TO BE COLLECTED, PROMISE TO PAY (PTP), WAITING FOR PAYMENT APPROVAL</value>
+    </summaryFilterItems>
+    <summaryForeignKey>Contract_Collection_Attempt__c.Contract__c</summaryForeignKey>
+    <summaryOperation>count</summaryOperation>
+    <trackHistory>false</trackHistory>
+    <type>Summary</type>
+</CustomField>

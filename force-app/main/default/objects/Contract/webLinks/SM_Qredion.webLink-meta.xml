@@ -1,0 +1,24 @@
+<?xml version="1.0" encoding="UTF-8"?>
+<WebLink xmlns="http://soap.sforce.com/2006/04/metadata">
+    <fullName>SM_Qredion</fullName>
+    <availability>online</availability>
+    <description>PRODUCTION:
+https://tukgt5yu2hwaeut3e5jfi4z24a0acvuh.lambda-url.us-east-1.on.aws/
+SANDBOX:
+https://pj3ykzbclzqkne5twqhl3ifijm0arkaz.lambda-url.us-east-1.on.aws/</description>
+    <displayType>button</displayType>
+    <encodingKey>UTF-8</encodingKey>
+    <hasMenubar>false</hasMenubar>
+    <hasScrollbars>true</hasScrollbars>
+    <hasToolbar>false</hasToolbar>
+    <height>600</height>
+    <isResizable>true</isResizable>
+    <linkType>url</linkType>
+    <masterLabel>Qredion</masterLabel>
+    <openType>newWindow</openType>
+    <position>none</position>
+    <protected>false</protected>
+    <showsLocation>false</showsLocation>
+    <showsStatus>false</showsStatus>
+    <url>https://tukgt5yu2hwaeut3e5jfi4z24a0acvuh.lambda-url.us-east-1.on.aws/?token=9FA22CB7BF01BAA42365297F93EF158C9135B4421F5F5E0EA2317E3F122495E7&amp;is_account=1&amp;id={!CASESAFEID(Contract.AccountId)}&amp;product=P_Susc_Prem_F</url>
+</WebLink>

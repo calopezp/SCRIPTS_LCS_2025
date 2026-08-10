@@ -1,0 +1,39 @@
+<?xml version="1.0" encoding="UTF-8"?>
+<CustomField xmlns="http://soap.sforce.com/2006/04/metadata">
+    <fullName>Count_Expected_Pymnts_Today__c</fullName>
+    <description>Calculate the number of payments expected to be made until TODAY()</description>
+    <externalId>false</externalId>
+    <formula>IF(SM_Requires_AC_Payment__c,
+  IF(ISPICKVAL(SM_Way_of_AC_Payment__c, &quot;One payment&quot;)
+     ,IF(SM_AC_start_date__c&lt;=TODAY(),1,0)
+     ,IF(
+         SM_AC_Split_Date__c&lt;=TODAY()
+         ,2
+         ,IF(
+             SM_AC_start_date__c&lt;=TODAY()
+             ,1
+             ,0
+           )
+        )
+     )
+  ,0
+)
++
+IF(Contract_Calculated_RC_Start_Date__c&lt;=TODAY(),
+ IF(Contract_End_Date_Calculated__c&lt;=TODAY()
+      ,(YEAR(Contract_End_Date_Calculated__c)-YEAR(Contract_Calculated_RC_Start_Date__c))*12
+         + MONTH(Contract_End_Date_Calculated__c)- MONTH(Contract_Calculated_RC_Start_Date__c)
+      ,(YEAR(TODAY())-YEAR(Contract_Calculated_RC_Start_Date__c))*12
+         + MONTH(TODAY())- MONTH(Contract_Calculated_RC_Start_Date__c)
+   )
+  ,0
+)</formula>
+    <formulaTreatBlanksAs>BlankAsZero</formulaTreatBlanksAs>
+    <label>Count Expected Pymnts Today</label>
+    <precision>18</precision>
+    <required>false</required>
+    <scale>0</scale>
+    <trackHistory>false</trackHistory>
+    <type>Number</type>
+    <unique>false</unique>
+</CustomField>

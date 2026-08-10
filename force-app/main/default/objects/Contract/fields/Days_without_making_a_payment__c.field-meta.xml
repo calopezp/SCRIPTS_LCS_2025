@@ -1,0 +1,20 @@
+<?xml version="1.0" encoding="UTF-8"?>
+<CustomField xmlns="http://soap.sforce.com/2006/04/metadata">
+    <fullName>Days_without_making_a_payment__c</fullName>
+    <label>Days without making a payment</label>
+    <summarizedField>SM_Payment__c.CreatedDate</summarizedField>
+    <summaryFilterItems>
+        <field>SM_Payment__c.SM_Type__c</field>
+        <operation>equals</operation>
+        <value>Late payment fee</value>
+    </summaryFilterItems>
+    <summaryFilterItems>
+        <field>SM_Payment__c.Payment_Status__c</field>
+        <operation>notEqual</operation>
+        <value>ACCEPTED</value>
+    </summaryFilterItems>
+    <summaryForeignKey>SM_Payment__c.SM_Contract__c</summaryForeignKey>
+    <summaryOperation>min</summaryOperation>
+    <trackHistory>false</trackHistory>
+    <type>Summary</type>
+</CustomField>

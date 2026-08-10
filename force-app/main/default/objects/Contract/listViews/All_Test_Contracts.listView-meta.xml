@@ -1,0 +1,33 @@
+<?xml version="1.0" encoding="UTF-8"?>
+<ListView xmlns="http://soap.sforce.com/2006/04/metadata">
+    <fullName>All_Test_Contracts</fullName>
+    <booleanFilter>1 or 2 or 3</booleanFilter>
+    <columns>CONTRACT.CONTRACT_NUMBER</columns>
+    <columns>SALES.ACCOUNT.NAME</columns>
+    <columns>CONTRACT.START_DATE</columns>
+    <columns>CONTRACT.END_DATE</columns>
+    <columns>CONTRACT.STATUS</columns>
+    <columns>CORE.USERS.ALIAS</columns>
+    <columns>SM_Id_Salesforce_LCS__c</columns>
+    <columns>SM_Agreement_Status__c</columns>
+    <columns>CONTRACT.CREATED_DATE</columns>
+    <columns>SM_Process_automation_by_product_family__c</columns>
+    <columns>SM_Billing_status__c</columns>
+    <filterScope>Everything</filterScope>
+    <filters>
+        <field>SALES.ACCOUNT.NAME</field>
+        <operation>contains</operation>
+        <value>TEST</value>
+    </filters>
+    <filters>
+        <field>SALES.ACCOUNT.NAME</field>
+        <operation>contains</operation>
+        <value>PRUEBA</value>
+    </filters>
+    <filters>
+        <field>Is_Test_Contract__c</field>
+        <operation>equals</operation>
+        <value>1</value>
+    </filters>
+    <label>All Test Contracts</label>
+</ListView>

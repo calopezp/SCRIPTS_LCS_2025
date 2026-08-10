@@ -1,0 +1,11 @@
+<?xml version="1.0" encoding="UTF-8"?>
+<ValidationRule xmlns="http://soap.sforce.com/2006/04/metadata">
+    <fullName>PM004_Restrict_Edit_Credit_Card</fullName>
+    <active>true</active>
+    <errorConditionFormula>AND(OR(ISCHANGED(SM_Credit_Card_Number__c),
+		ISCHANGED(SM_Credit_Card_expiration_month__c),
+		ISCHANGED(SM_Credit_Card_expiration_year__c),  
+  		ISCHANGED(SM_Credit_Card_CVV__c)) ,
+ $Profile.Name &lt;&gt; &quot;System Administrator&quot;)</errorConditionFormula>
+    <errorMessage>PM004: You cannot change credit card information, please contact your Coordinator or  System Administrator. Thank you.</errorMessage>
+</ValidationRule>

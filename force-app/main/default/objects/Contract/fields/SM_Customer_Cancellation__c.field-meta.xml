@@ -1,0 +1,10 @@
+<?xml version="1.0" encoding="UTF-8"?>
+<CustomField xmlns="http://soap.sforce.com/2006/04/metadata">
+    <fullName>SM_Customer_Cancellation__c</fullName>
+    <defaultValue>false</defaultValue>
+    <description>Este campo se activara cuando el contrato esta pendiente de CANCELACION, pero no se puede cancelar por tener pagos en proceso</description>
+    <label>Customer Cancellation</label>
+    <trackFeedHistory>false</trackFeedHistory>
+    <trackHistory>true</trackHistory>
+    <type>Checkbox</type>
+</CustomField>

@@ -1,0 +1,31 @@
+<?xml version="1.0" encoding="UTF-8"?>
+<ValidationRule xmlns="http://soap.sforce.com/2006/04/metadata">
+    <fullName>VR015_ValidateOnHoldContractStatusChange</fullName>
+    <active>true</active>
+    <errorConditionFormula>AND(
+ISCHANGED(Status),
+IF(
+ISPICKVAL(PRIORVALUE(Status),&apos;On Hold&apos;),
+AND(
+NOT(ISPICKVAL(Status,&apos;Activated&apos;)),
+NOT(ISPICKVAL(Status,&apos;Cancelled&apos;))
+),
+IF(
+ISPICKVAL(Status,&apos;On Hold&apos;),
+OR(
+ISPICKVAL(PRIORVALUE(Status),&apos;Draft&apos;),
+ISPICKVAL(PRIORVALUE(Status),&apos;Complete information&apos;),
+ISPICKVAL(PRIORVALUE(Status),&apos;Sent for signature&apos;),
+ISPICKVAL(PRIORVALUE(Status),&apos;Payment Process&apos;),
+ISPICKVAL(PRIORVALUE(Status),&apos;In Approval Process&apos;),
+ISPICKVAL(PRIORVALUE(Status),&apos;Finalized&apos;),
+ISPICKVAL(PRIORVALUE(Status),&apos;Discontinued&apos;),
+ISPICKVAL(PRIORVALUE(Status),&apos;Payment Rejection&apos;),
+ISPICKVAL(PRIORVALUE(Status),&apos;Cancelled&apos;)
+),
+false
+)
+)
+)</errorConditionFormula>
+    <errorMessage>You can only change Contract status from On Hold to Activated or Cancelled, or from Activated to On Hold.</errorMessage>
+</ValidationRule>

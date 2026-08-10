@@ -1,0 +1,13 @@
+<?xml version="1.0" encoding="UTF-8"?>
+<CompactLayout xmlns="http://soap.sforce.com/2006/04/metadata">
+    <fullName>Contract_layout</fullName>
+    <fields>ContractNumber</fields>
+    <fields>AccountId</fields>
+    <fields>Status</fields>
+    <fields>SM_Agreement_Status__c</fields>
+    <fields>SM_Dispute_Number__c</fields>
+    <fields>SM_Net_AC__c</fields>
+    <fields>SM_Net_Monthly_offer__c</fields>
+    <fields>SM_Process_automation_by_product_family__c</fields>
+    <label>Contract layout</label>
+</CompactLayout>

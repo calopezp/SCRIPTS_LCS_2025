@@ -1,0 +1,8 @@
+<?xml version="1.0" encoding="UTF-8"?>
+<ValidationRule xmlns="http://soap.sforce.com/2006/04/metadata">
+    <fullName>PaymentMethod001</fullName>
+    <active>false</active>
+    <description>Card Token Must be provided</description>
+    <errorConditionFormula>AND(SM_Card_Token__c==Null, RecordType.DeveloperName =&apos;Credit_Card&apos;)</errorConditionFormula>
+    <errorMessage>This record cannot be created Manually</errorMessage>
+</ValidationRule>

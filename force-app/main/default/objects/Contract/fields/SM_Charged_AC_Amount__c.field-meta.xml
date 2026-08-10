@@ -1,0 +1,15 @@
+<?xml version="1.0" encoding="UTF-8"?>
+<CustomField xmlns="http://soap.sforce.com/2006/04/metadata">
+    <fullName>SM_Charged_AC_Amount__c</fullName>
+    <description>This field will have a Summary of the Ac fees that have been Charged so Far.</description>
+    <externalId>false</externalId>
+    <inlineHelpText>This field will have a Summary of the Ac fees that have been Charged so Far.</inlineHelpText>
+    <label>AC Collected value</label>
+    <precision>16</precision>
+    <required>false</required>
+    <scale>2</scale>
+    <trackFeedHistory>false</trackFeedHistory>
+    <trackHistory>false</trackHistory>
+    <type>Number</type>
+    <unique>false</unique>
+</CustomField>

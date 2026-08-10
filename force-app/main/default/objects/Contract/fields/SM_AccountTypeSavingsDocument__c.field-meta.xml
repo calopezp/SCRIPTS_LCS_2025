@@ -1,0 +1,15 @@
+<?xml version="1.0" encoding="UTF-8"?>
+<CustomField xmlns="http://soap.sforce.com/2006/04/metadata">
+    <fullName>SM_AccountTypeSavingsDocument__c</fullName>
+    <externalId>false</externalId>
+    <formula>IF(
+				 ISPICKVAL( SM_Payment_Method__r.ACH_Account_Type__c , &apos;Savings&apos;),
+				&apos;X&apos;,
+				&apos;&apos;
+)</formula>
+    <label>Account Type (Savings) Document</label>
+    <required>false</required>
+    <trackHistory>false</trackHistory>
+    <type>Text</type>
+    <unique>false</unique>
+</CustomField>

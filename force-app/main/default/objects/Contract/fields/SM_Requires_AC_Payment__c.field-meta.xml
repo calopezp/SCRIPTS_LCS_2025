@@ -1,0 +1,11 @@
+<?xml version="1.0" encoding="UTF-8"?>
+<CustomField xmlns="http://soap.sforce.com/2006/04/metadata">
+    <fullName>SM_Requires_AC_Payment__c</fullName>
+    <defaultValue>false</defaultValue>
+    <description>Marks that based on the product the Ac must be collected</description>
+    <inlineHelpText>Marks that based on the product the Ac must be collected</inlineHelpText>
+    <label>Requires AC Payment</label>
+    <trackFeedHistory>false</trackFeedHistory>
+    <trackHistory>false</trackHistory>
+    <type>Checkbox</type>
+</CustomField>

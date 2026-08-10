@@ -1,0 +1,15 @@
+<?xml version="1.0" encoding="UTF-8"?>
+<ValidationRule xmlns="http://soap.sforce.com/2006/04/metadata">
+    <fullName>FRM50K_02</fullName>
+    <active>true</active>
+    <errorConditionFormula>AND(SM_Process_automation_by_product_family__r.Name = &apos;Multinational Cancer Insurance&apos;,
+				ISCHANGED( Status ), NOT(ISPICKVAL(Status, &quot;Cancelled&quot;)),
+OR(TEXT(Account.PersonBirthdate)==NULL,
+   TEXT(Account.SM_Gender__pc)==NULL,
+   TEXT(Account.SM_Marital_Status__pc)==NULL,
+   Account.SM_birth_place__c==NULL,
+   Account.SM_Weight__c&lt;=0,
+   Account.SM_Height__c&lt;=0
+))</errorConditionFormula>
+    <errorMessage>FRM50K_02: Debe diligenciar información adiciona en la cuenta ( Peso, Estatura, Birth Place, Parentesco, Month Revenue )</errorMessage>
+</ValidationRule>

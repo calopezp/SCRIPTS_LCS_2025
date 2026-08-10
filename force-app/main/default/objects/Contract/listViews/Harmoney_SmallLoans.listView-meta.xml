@@ -1,0 +1,25 @@
+<?xml version="1.0" encoding="UTF-8"?>
+<ListView xmlns="http://soap.sforce.com/2006/04/metadata">
+    <fullName>Harmoney_SmallLoans</fullName>
+    <columns>CONTRACT.CONTRACT_NUMBER</columns>
+    <columns>SALES.ACCOUNT.NAME</columns>
+    <columns>CONTRACT.STATUS</columns>
+    <columns>CONTRACT.START_DATE</columns>
+    <columns>CONTRACT.END_DATE</columns>
+    <columns>SM_Payment_methods__c</columns>
+    <columns>SM_Net_Monthly_offer__c</columns>
+    <columns>SM_Loan_Principal__c</columns>
+    <columns>SM_Loan_Interest__c</columns>
+    <columns>SM_InterestRate__c</columns>
+    <filterScope>Everything</filterScope>
+    <filters>
+        <field>SM_Company_Setting__c</field>
+        <operation>equals</operation>
+        <value>a0s8W0000087A1KQAU</value>
+    </filters>
+    <filters>
+        <field>SM_Loan_Purpose__c</field>
+        <operation>notEqual</operation>
+    </filters>
+    <label>Harmoney SmallLoans</label>
+</ListView>

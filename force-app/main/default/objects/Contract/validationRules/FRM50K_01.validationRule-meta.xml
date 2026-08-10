@@ -1,0 +1,10 @@
+<?xml version="1.0" encoding="UTF-8"?>
+<ValidationRule xmlns="http://soap.sforce.com/2006/04/metadata">
+    <fullName>FRM50K_01</fullName>
+    <active>true</active>
+    <errorConditionFormula>AND(SM_Process_automation_by_product_family__r.Name = &apos;Multinational Cancer Insurance&apos;, 
+				ISCHANGED( Status ),
+				NOT(ISPICKVAL(Status, &quot;Cancelled&quot;)),
+  frm50k__c  =0)</errorConditionFormula>
+    <errorMessage>Por favor valide y diligencie los campos mínimos para el formulario de Seguro Cancer. llenado los datos basicos de la seccion FRM50K</errorMessage>
+</ValidationRule>

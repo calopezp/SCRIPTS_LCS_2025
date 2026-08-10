@@ -1,0 +1,34 @@
+<?xml version="1.0" encoding="UTF-8"?>
+<CustomField xmlns="http://soap.sforce.com/2006/04/metadata">
+    <fullName>SM_Charged_SB_Fees2__c</fullName>
+    <label>Number of fees collected</label>
+    <summaryFilterItems>
+        <field>SM_Payment__c.Payment_Status__c</field>
+        <operation>equals</operation>
+        <value>ACCEPTED, REFERRAL</value>
+    </summaryFilterItems>
+    <summaryFilterItems>
+        <field>SM_Payment__c.SM_Original_Type__c</field>
+        <operation>notEqual</operation>
+        <value>AC</value>
+    </summaryFilterItems>
+    <summaryFilterItems>
+        <field>SM_Payment__c.SM_Fee_value__c</field>
+        <operation>greaterThan</operation>
+        <value>0</value>
+    </summaryFilterItems>
+    <summaryFilterItems>
+        <field>SM_Payment__c.SM_Type__c</field>
+        <operation>notEqual</operation>
+        <value>AC</value>
+    </summaryFilterItems>
+    <summaryFilterItems>
+        <field>SM_Payment__c.SM_Reason_for_refund__c</field>
+        <operation>equals</operation>
+        <value></value>
+    </summaryFilterItems>
+    <summaryForeignKey>SM_Payment__c.SM_Contract__c</summaryForeignKey>
+    <summaryOperation>count</summaryOperation>
+    <trackHistory>false</trackHistory>
+    <type>Summary</type>
+</CustomField>

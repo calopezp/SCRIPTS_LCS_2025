@@ -1,0 +1,15 @@
+<?xml version="1.0" encoding="UTF-8"?>
+<CustomField xmlns="http://soap.sforce.com/2006/04/metadata">
+    <fullName>SM_Chargent_Order__c</fullName>
+    <deleteConstraint>SetNull</deleteConstraint>
+    <description>The Order from which the authorization was made</description>
+    <inlineHelpText>The Order from which the authorization was made</inlineHelpText>
+    <label>Chargent Order</label>
+    <referenceTo>ChargentOrders__ChargentOrder__c</referenceTo>
+    <relationshipLabel>Payments Methods</relationshipLabel>
+    <relationshipName>Payments_Methods</relationshipName>
+    <required>false</required>
+    <trackHistory>true</trackHistory>
+    <trackTrending>false</trackTrending>
+    <type>Lookup</type>
+</CustomField>

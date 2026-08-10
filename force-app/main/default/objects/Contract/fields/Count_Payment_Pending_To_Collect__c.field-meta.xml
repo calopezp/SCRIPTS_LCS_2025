@@ -1,0 +1,14 @@
+<?xml version="1.0" encoding="UTF-8"?>
+<CustomField xmlns="http://soap.sforce.com/2006/04/metadata">
+    <fullName>Count_Payment_Pending_To_Collect__c</fullName>
+    <externalId>false</externalId>
+    <formula>IF(Count_Monthly_Payment_Pending__c - Count_Active_Collection_Attempt__c &lt;0,0,Count_Monthly_Payment_Pending__c - Count_Active_Collection_Attempt__c)</formula>
+    <formulaTreatBlanksAs>BlankAsZero</formulaTreatBlanksAs>
+    <label>Count Payment Pending To Collect</label>
+    <precision>18</precision>
+    <required>false</required>
+    <scale>0</scale>
+    <trackHistory>false</trackHistory>
+    <type>Number</type>
+    <unique>false</unique>
+</CustomField>

@@ -1,0 +1,14 @@
+<?xml version="1.0" encoding="UTF-8"?>
+<CustomField xmlns="http://soap.sforce.com/2006/04/metadata">
+    <fullName>ACH_Orders_Count__c</fullName>
+    <label>ACH Orders Count</label>
+    <summaryFilterItems>
+        <field>SM_ACH_Order__c.SM_Payment_Status__c</field>
+        <operation>equals</operation>
+        <value>Initiated, Pending, Created, Stopped</value>
+    </summaryFilterItems>
+    <summaryForeignKey>SM_ACH_Order__c.SM_Contract__c</summaryForeignKey>
+    <summaryOperation>count</summaryOperation>
+    <trackHistory>false</trackHistory>
+    <type>Summary</type>
+</CustomField>

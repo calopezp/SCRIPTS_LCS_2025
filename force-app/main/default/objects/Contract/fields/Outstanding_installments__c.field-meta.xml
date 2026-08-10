@@ -1,0 +1,38 @@
+<?xml version="1.0" encoding="UTF-8"?>
+<CustomField xmlns="http://soap.sforce.com/2006/04/metadata">
+    <fullName>Outstanding_installments__c</fullName>
+    <externalId>false</externalId>
+    <formula>IF( SM_Full_Payment__c = FALSE,
+ IF(SM_AC_collected__c = TRUE, 
+  IF(SM_Next_installment_date__c &gt; TODAY(), 
+    IF(MONTH(SM_Next_installment_date__c) - 1 = MONTH(TODAY()), 
+      0, 
+     CEILING(MONTH( TODAY()) + (12*(YEAR( TODAY())-YEAR(SM_Next_installment_date__c))) - MONTH(SM_Next_installment_date__c))
+    ), 
+    IF(SM_Plan_Months__c &lt;&gt; 99
+							, SM_Plan_Months__c - SM_Charged_SB_Fees2__c
+       , CEILING(((YEAR(TODAY()) - YEAR(SM_Next_installment_date__c))*12) + (MONTH(TODAY()) - MONTH(SM_Next_installment_date__c)))
+	)
+  ), 
+  IF(SM_AC_start_date__c &gt; TODAY(), 
+    0, 
+    IF(ISNULL(SM_AC_Split_Date__c), 
+      1 - SM_Charged_AC_Fees__c, 
+      IF(SM_AC_Split_Date__c &gt; TODAY(), 
+        0, 
+        2 - SM_Charged_AC_Fees__c
+      )
+    )
+  )
+ )
+ ,0
+)</formula>
+    <formulaTreatBlanksAs>BlankAsZero</formulaTreatBlanksAs>
+    <label>Outstanding installments</label>
+    <precision>18</precision>
+    <required>false</required>
+    <scale>0</scale>
+    <trackHistory>false</trackHistory>
+    <type>Number</type>
+    <unique>false</unique>
+</CustomField>

@@ -1,0 +1,54 @@
+<?xml version="1.0" encoding="UTF-8"?>
+<PermissionSet xmlns="http://soap.sforce.com/2006/04/metadata">
+    <description>Permite a usuarios comerciales validar tarjetas de crédito sin ver datos encriptados</description>
+    <hasActivationRequired>false</hasActivationRequired>
+    <label>Validador de Tarjetas</label>
+    
+    <!-- Acceso a Apex Classes -->
+    <classAccesses>
+        <apexClass>SM_ValidarTarjetaInvocable</apexClass>
+        <enabled>true</enabled>
+    </classAccesses>
+    
+    <!-- Acceso a Chargent Order -->
+    <objectPermissions>
+        <allowCreate>false</allowCreate>
+        <allowDelete>false</allowDelete>
+        <allowEdit>true</allowEdit>
+        <allowRead>true</allowRead>
+        <modifyAllRecords>false</modifyAllRecords>
+        <object>ChargentOrders__ChargentOrder__c</object>
+        <viewAllRecords>false</viewAllRecords>
+    </objectPermissions>
+    
+    <!-- Acceso a Payment Method (SIN campos encriptados) -->
+    <objectPermissions>
+        <allowCreate>false</allowCreate>
+        <allowDelete>false</allowDelete>
+        <allowEdit>false</allowEdit>
+        <allowRead>true</allowRead>
+        <modifyAllRecords>false</modifyAllRecords>
+        <object>ChargentOrders__Payment_Method__c</object>
+        <viewAllRecords>false</viewAllRecords>
+    </objectPermissions>
+    
+    <!-- Field Level Security - DENEGAR campos encriptados -->
+    <fieldPermissions>
+        <editable>false</editable>
+        <field>ChargentOrders__Payment_Method__c.ChargentOrders__Card_Number__c</field>
+        <readable>false</readable>
+    </fieldPermissions>
+    
+    <fieldPermissions>
+        <editable>false</editable>
+        <field>ChargentOrders__Payment_Method__c.ChargentOrders__Tokenization__c</field>
+        <readable>false</readable>
+    </fieldPermissions>
+    
+    <!-- Permitir campos básicos -->
+    <fieldPermissions>
+        <editable>false</editable>
+        <field>ChargentOrders__Payment_Method__c.ChargentOrders__Card_Type__c</field>
+        <readable>true</readable>
+    </fieldPermissions>
+</PermissionSet>

@@ -1,0 +1,13 @@
+<?xml version="1.0" encoding="UTF-8"?>
+<ValidationRule xmlns="http://soap.sforce.com/2006/04/metadata">
+    <fullName>VR014_WayOfACPaymentRequired</fullName>
+    <active>true</active>
+    <description>Validate Way of AC Payment required</description>
+    <errorConditionFormula>AND( 
+NOT($Setup.SM_Bypasser__c.SM_Disable_Validation_Rules__c),
+SM_Requires_AC_Payment__c ,  
+ISBLANK( TEXT(SM_Way_of_AC_Payment__c) ),
+ISPICKVAL( Status ,&apos;Complete information&apos;)  )</errorConditionFormula>
+    <errorDisplayField>SM_Way_of_AC_Payment__c</errorDisplayField>
+    <errorMessage>This field (Way of AC Payment) is required</errorMessage>
+</ValidationRule>

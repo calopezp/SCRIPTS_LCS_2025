@@ -1,0 +1,13 @@
+<?xml version="1.0" encoding="UTF-8"?>
+<CustomField xmlns="http://soap.sforce.com/2006/04/metadata">
+    <fullName>SM_Physical_address__c</fullName>
+    <deleteConstraint>SetNull</deleteConstraint>
+    <label>Physical address</label>
+    <referenceTo>ContactPointAddress</referenceTo>
+    <relationshipLabel>Contracts (Physical address)</relationshipLabel>
+    <relationshipName>PhysicalAddreses</relationshipName>
+    <required>false</required>
+    <trackFeedHistory>false</trackFeedHistory>
+    <trackHistory>true</trackHistory>
+    <type>Lookup</type>
+</CustomField>

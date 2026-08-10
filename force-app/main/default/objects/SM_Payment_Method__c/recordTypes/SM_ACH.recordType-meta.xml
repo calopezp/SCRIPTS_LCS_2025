@@ -1,0 +1,358 @@
+<?xml version="1.0" encoding="UTF-8"?>
+<RecordType xmlns="http://soap.sforce.com/2006/04/metadata">
+    <fullName>SM_ACH</fullName>
+    <active>true</active>
+    <compactLayoutAssignment>ACH_Compact_Layout</compactLayoutAssignment>
+    <label>ACH</label>
+    <picklistValues>
+        <picklist>ACH_Account_Type__c</picklist>
+        <values>
+            <fullName>Checking</fullName>
+            <default>false</default>
+        </values>
+        <values>
+            <fullName>Savings</fullName>
+            <default>false</default>
+        </values>
+    </picklistValues>
+    <picklistValues>
+        <picklist>ACH_Bank_Name__c</picklist>
+        <values>
+            <fullName>ATHOL SAVING BANK</fullName>
+            <default>false</default>
+        </values>
+        <values>
+            <fullName>BANCO POPULAR</fullName>
+            <default>false</default>
+        </values>
+        <values>
+            <fullName>BANCO SANTANDER</fullName>
+            <default>false</default>
+        </values>
+        <values>
+            <fullName>BANK OF AMERICA - HENRICO</fullName>
+            <default>false</default>
+        </values>
+        <values>
+            <fullName>BAXTER CREDIT UNIÓN</fullName>
+            <default>false</default>
+        </values>
+        <values>
+            <fullName>BBT</fullName>
+            <default>false</default>
+        </values>
+        <values>
+            <fullName>CAGUAS COOP</fullName>
+            <default>false</default>
+        </values>
+        <values>
+            <fullName>CAPITAL ONE</fullName>
+            <default>false</default>
+        </values>
+        <values>
+            <fullName>CARIBE FEDERAL CREDIT UNION</fullName>
+            <default>false</default>
+        </values>
+        <values>
+            <fullName>CHASE FLORIDA</fullName>
+            <default>false</default>
+        </values>
+        <values>
+            <fullName>COOP A%2FC  ABRAHM ROSA</fullName>
+            <default>false</default>
+        </values>
+        <values>
+            <fullName>COOP A%2FC DE ADJUNTAS</fullName>
+            <default>false</default>
+        </values>
+        <values>
+            <fullName>COOP A%2FC DE AGUADA</fullName>
+            <default>false</default>
+        </values>
+        <values>
+            <fullName>COOP A%2FC DE AIBONITEÑA</fullName>
+            <default>false</default>
+        </values>
+        <values>
+            <fullName>COOP A%2FC DE CABO ROJO</fullName>
+            <default>false</default>
+        </values>
+        <values>
+            <fullName>COOP A%2FC DE CAMUY %28CAMUYCOOP%29</fullName>
+            <default>false</default>
+        </values>
+        <values>
+            <fullName>COOP A%2FC DE CAPARRA</fullName>
+            <default>false</default>
+        </values>
+        <values>
+            <fullName>COOP A%2FC DE CIALES</fullName>
+            <default>false</default>
+        </values>
+        <values>
+            <fullName>COOP A%2FC DE CUPEY ALTO</fullName>
+            <default>false</default>
+        </values>
+        <values>
+            <fullName>COOP A%2FC DE FLORIDA</fullName>
+            <default>false</default>
+        </values>
+        <values>
+            <fullName>COOP A%2FC DE GUAYANILLA</fullName>
+            <default>false</default>
+        </values>
+        <values>
+            <fullName>COOP A%2FC DE HATILLO</fullName>
+            <default>false</default>
+        </values>
+        <values>
+            <fullName>COOP A%2FC DE ISABELA</fullName>
+            <default>false</default>
+        </values>
+        <values>
+            <fullName>COOP A%2FC DE JUANA DIAZ</fullName>
+            <default>false</default>
+        </values>
+        <values>
+            <fullName>COOP A%2FC DE LAJAS</fullName>
+            <default>false</default>
+        </values>
+        <values>
+            <fullName>COOP A%2FC DE LARES</fullName>
+            <default>false</default>
+        </values>
+        <values>
+            <fullName>COOP A%2FC DE LAS PIEDRAS</fullName>
+            <default>false</default>
+        </values>
+        <values>
+            <fullName>COOP A%2FC DE MANATI</fullName>
+            <default>false</default>
+        </values>
+        <values>
+            <fullName>COOP A%2FC DE PADRE MC DONALD</fullName>
+            <default>false</default>
+        </values>
+        <values>
+            <fullName>COOP A%2FC DE RINCON</fullName>
+            <default>false</default>
+        </values>
+        <values>
+            <fullName>COOP A%2FC GERENCIALES DE LA AEE</fullName>
+            <default>false</default>
+        </values>
+        <values>
+            <fullName>COOP A%2FC HERMANOS UNIDOS</fullName>
+            <default>false</default>
+        </values>
+        <values>
+            <fullName>COOP A%2FC LA CIDREÑA</fullName>
+            <default>false</default>
+        </values>
+        <values>
+            <fullName>COOP A%2FC LA COMERIEÑA</fullName>
+            <default>false</default>
+        </values>
+        <values>
+            <fullName>COOP A%2FC LA PUERTORRIQUEÑA</fullName>
+            <default>false</default>
+        </values>
+        <values>
+            <fullName>COOP A%2FC LA SAGRADA FAMILIA</fullName>
+            <default>false</default>
+        </values>
+        <values>
+            <fullName>COOP A%2FC LOS HERMANOS</fullName>
+            <default>false</default>
+        </values>
+        <values>
+            <fullName>COOP A%2FC MOROVEÑA</fullName>
+            <default>false</default>
+        </values>
+        <values>
+            <fullName>COOP A%2FC NAGUABEÑA</fullName>
+            <default>false</default>
+        </values>
+        <values>
+            <fullName>COOP A%2FC NUESTRA SENORA DE LA CANDELARIA</fullName>
+            <default>false</default>
+        </values>
+        <values>
+            <fullName>COOP A%2FC ORIENTAL %28HUMACAO%29</fullName>
+            <default>false</default>
+        </values>
+        <values>
+            <fullName>COOP A%2FC QUEBRADA COOP</fullName>
+            <default>false</default>
+        </values>
+        <values>
+            <fullName>COOP A%2FC ROOSVELT ROAD %28LUQUILLO%29</fullName>
+            <default>false</default>
+        </values>
+        <values>
+            <fullName>COOP A%2FC SAN BLAS</fullName>
+            <default>false</default>
+        </values>
+        <values>
+            <fullName>COOP A%2FC SAN JOSE</fullName>
+            <default>false</default>
+        </values>
+        <values>
+            <fullName>COOP A%2FC SAN JOSE %28CAYEY%29</fullName>
+            <default>false</default>
+        </values>
+        <values>
+            <fullName>COOP A%2FC SAN RAFAEL</fullName>
+            <default>false</default>
+        </values>
+        <values>
+            <fullName>COOP A%2FC VEGA COOP</fullName>
+            <default>false</default>
+        </values>
+        <values>
+            <fullName>COOP A%2FC VEGABAJEÑA</fullName>
+            <default>false</default>
+        </values>
+        <values>
+            <fullName>COOP A%2FC VILLA COOP</fullName>
+            <default>false</default>
+        </values>
+        <values>
+            <fullName>COOP A%2FC YABUCOEÑA</fullName>
+            <default>false</default>
+        </values>
+        <values>
+            <fullName>COOP A%2FC ZENO GANDIA</fullName>
+            <default>false</default>
+        </values>
+        <values>
+            <fullName>COOP%2E A%2FC PADRE SALVADOR RUFFOLO</fullName>
+            <default>false</default>
+        </values>
+        <values>
+            <fullName>COOPACA</fullName>
+            <default>false</default>
+        </values>
+        <values>
+            <fullName>COOPERATIVA PUEBLO COOP</fullName>
+            <default>false</default>
+        </values>
+        <values>
+            <fullName>COOPERATIVA RODRÍGUEZ HIDALGO</fullName>
+            <default>false</default>
+        </values>
+        <values>
+            <fullName>CREDICENTRO COOP</fullName>
+            <default>false</default>
+        </values>
+        <values>
+            <fullName>DIGITAL FEDERAL CREDIT UNION</fullName>
+            <default>false</default>
+        </values>
+        <values>
+            <fullName>FIRST BANK</fullName>
+            <default>false</default>
+        </values>
+        <values>
+            <fullName>MAUNACOOP %28GUAYAMA%29</fullName>
+            <default>false</default>
+        </values>
+        <values>
+            <fullName>NAVY FEDERAL BANK</fullName>
+            <default>false</default>
+        </values>
+        <values>
+            <fullName>ORIENTAL BANK GROUP</fullName>
+            <default>false</default>
+        </values>
+        <values>
+            <fullName>PENTAGON</fullName>
+            <default>false</default>
+        </values>
+        <values>
+            <fullName>PEOPLE S UNITED BANK</fullName>
+            <default>false</default>
+        </values>
+        <values>
+            <fullName>PR FEDERAL CREDIT UNION</fullName>
+            <default>false</default>
+        </values>
+        <values>
+            <fullName>REGIONS BANK</fullName>
+            <default>false</default>
+        </values>
+        <values>
+            <fullName>SALICOOP</fullName>
+            <default>false</default>
+        </values>
+        <values>
+            <fullName>SCOTIA BANK</fullName>
+            <default>false</default>
+        </values>
+        <values>
+            <fullName>SUNTRUST BANK</fullName>
+            <default>false</default>
+        </values>
+        <values>
+            <fullName>TD BANK</fullName>
+            <default>false</default>
+        </values>
+        <values>
+            <fullName>USAA FEDERAL SAVING BANK</fullName>
+            <default>false</default>
+        </values>
+        <values>
+            <fullName>VAPR FEDERAL CREDIT UNION</fullName>
+            <default>false</default>
+        </values>
+        <values>
+            <fullName>WELLS FARGO</fullName>
+            <default>false</default>
+        </values>
+    </picklistValues>
+    <picklistValues>
+        <picklist>SM_Payment_Type__c</picklist>
+        <values>
+            <fullName>ACH</fullName>
+            <default>false</default>
+        </values>
+        <values>
+            <fullName>Cash</fullName>
+            <default>false</default>
+        </values>
+        <values>
+            <fullName>Checking Account</fullName>
+            <default>false</default>
+        </values>
+        <values>
+            <fullName>Credit Card</fullName>
+            <default>false</default>
+        </values>
+    </picklistValues>
+    <picklistValues>
+        <picklist>SM_Tokenization_status__c</picklist>
+        <values>
+            <fullName>Error</fullName>
+            <default>false</default>
+        </values>
+        <values>
+            <fullName>Pending</fullName>
+            <default>false</default>
+        </values>
+        <values>
+            <fullName>Tokenized</fullName>
+            <default>false</default>
+        </values>
+    </picklistValues>
+    <picklistValues>
+        <picklist>SM_Type__c</picklist>
+        <values>
+            <fullName>MASTERCARD</fullName>
+            <default>false</default>
+        </values>
+        <values>
+            <fullName>VISA</fullName>
+            <default>false</default>
+        </values>
+    </picklistValues>
+</RecordType>

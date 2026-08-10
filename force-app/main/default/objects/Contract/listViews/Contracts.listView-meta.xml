@@ -1,0 +1,19 @@
+<?xml version="1.0" encoding="UTF-8"?>
+<ListView xmlns="http://soap.sforce.com/2006/04/metadata">
+    <fullName>Contracts</fullName>
+    <columns>CONTRACT.CONTRACT_NUMBER</columns>
+    <columns>SALES.ACCOUNT.NAME</columns>
+    <columns>CONTRACT.STATUS</columns>
+    <columns>SM_Payment_methods__c</columns>
+    <columns>SM_Payment_Method__c</columns>
+    <columns>CONTRACT.START_DATE</columns>
+    <columns>CONTRACT.END_DATE</columns>
+    <columns>SM_Way_of_Contract_Payment__c</columns>
+    <columns>SM_Process_automation_by_product_family__c</columns>
+    <columns>CONTRACT.CREATED_DATE</columns>
+    <columns>SM_Dispute_Name__c</columns>
+    <columns>SM_Dispute_Number__c</columns>
+    <columns>SM_Number_of_Refund__c</columns>
+    <filterScope>Everything</filterScope>
+    <label>Contracts</label>
+</ListView>

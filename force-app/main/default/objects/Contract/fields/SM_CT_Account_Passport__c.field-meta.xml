@@ -1,0 +1,15 @@
+<?xml version="1.0" encoding="UTF-8"?>
+<CustomField xmlns="http://soap.sforce.com/2006/04/metadata">
+    <fullName>SM_CT_Account_Passport__c</fullName>
+    <externalId>false</externalId>
+    <formula>IF(
+				ISPICKVAL(Account.PersonContact.SM_Other_Document_Type__c, &apos;Passport&apos;), 
+				Account.PersonContact.SM_Other_Document_Number__c,
+				&apos;&apos;
+)</formula>
+    <label>Account Passport</label>
+    <required>false</required>
+    <trackHistory>false</trackHistory>
+    <type>Text</type>
+    <unique>false</unique>
+</CustomField>

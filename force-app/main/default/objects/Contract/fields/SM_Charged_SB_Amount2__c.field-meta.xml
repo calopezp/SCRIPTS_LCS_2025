@@ -1,0 +1,27 @@
+<?xml version="1.0" encoding="UTF-8"?>
+<CustomField xmlns="http://soap.sforce.com/2006/04/metadata">
+    <fullName>SM_Charged_SB_Amount2__c</fullName>
+    <description>This will store the collected amount of charged Suscriptions</description>
+    <inlineHelpText>This will store the collected amount of charged Suscriptions</inlineHelpText>
+    <label>Value of fees collected</label>
+    <summarizedField>SM_Payment__c.SM_Fee_value__c</summarizedField>
+    <summaryFilterItems>
+        <field>SM_Payment__c.Payment_Status__c</field>
+        <operation>equals</operation>
+        <value>ACCEPTED</value>
+    </summaryFilterItems>
+    <summaryFilterItems>
+        <field>SM_Payment__c.SM_Original_Type__c</field>
+        <operation>notEqual</operation>
+        <value>AC</value>
+    </summaryFilterItems>
+    <summaryFilterItems>
+        <field>SM_Payment__c.SM_Type__c</field>
+        <operation>notEqual</operation>
+        <value>AC</value>
+    </summaryFilterItems>
+    <summaryForeignKey>SM_Payment__c.SM_Contract__c</summaryForeignKey>
+    <summaryOperation>sum</summaryOperation>
+    <trackHistory>false</trackHistory>
+    <type>Summary</type>
+</CustomField>

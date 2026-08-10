@@ -1,0 +1,16 @@
+<?xml version="1.0" encoding="UTF-8"?>
+<ValidationRule xmlns="http://soap.sforce.com/2006/04/metadata">
+    <fullName>VR005_DontAllowUnexpectedPaymentDay</fullName>
+    <active>false</active>
+    <description>This validation rule control that user only set a value between 1 and 30</description>
+    <errorConditionFormula>AND(
+				ISCHANGED(SM_Payment_day__c),
+    NOT($Setup.SM_Bypasser__c.SM_Disable_Validation_Rules__c),
+    OR(
+				    SM_Payment_day__c &lt; 1,
+				    SM_Payment_day__c &gt; 30
+    )				
+)</errorConditionFormula>
+    <errorDisplayField>SM_Payment_day__c</errorDisplayField>
+    <errorMessage>You can only set a value between 1 and 30</errorMessage>
+</ValidationRule>

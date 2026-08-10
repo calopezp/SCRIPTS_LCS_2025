@@ -1,0 +1,80 @@
+<?xml version="1.0" encoding="UTF-8"?>
+<CustomField xmlns="http://soap.sforce.com/2006/04/metadata">
+    <fullName>SM_Loan_Purpose__c</fullName>
+    <label>Loan Purpose</label>
+    <required>false</required>
+    <trackFeedHistory>false</trackFeedHistory>
+    <trackHistory>false</trackHistory>
+    <type>Picklist</type>
+    <valueSet>
+        <restricted>true</restricted>
+        <valueSetDefinition>
+            <sorted>false</sorted>
+            <value>
+                <fullName>Credit Card Refinancing</fullName>
+                <default>false</default>
+                <label>Credit Card Refinancing</label>
+            </value>
+            <value>
+                <fullName>Debt consolidation</fullName>
+                <default>false</default>
+                <label>Debt consolidation</label>
+            </value>
+            <value>
+                <fullName>Home Buying</fullName>
+                <default>false</default>
+                <label>Home Buying</label>
+            </value>
+            <value>
+                <fullName>HomeMajor Purchase</fullName>
+                <default>false</default>
+                <label>HomeMajor Purchase</label>
+            </value>
+            <value>
+                <fullName>Car Buying</fullName>
+                <default>false</default>
+                <label>Car Buying</label>
+            </value>
+            <value>
+                <fullName>Business</fullName>
+                <default>false</default>
+                <label>Business</label>
+            </value>
+            <value>
+                <fullName>Vacation</fullName>
+                <default>false</default>
+                <label>Vacation</label>
+            </value>
+            <value>
+                <fullName>Moving and relocation</fullName>
+                <default>false</default>
+                <label>Moving and relocation</label>
+            </value>
+            <value>
+                <fullName>Medical expenses</fullName>
+                <default>false</default>
+                <label>Medical expenses</label>
+            </value>
+            <value>
+                <fullName>Support a family or friend</fullName>
+                <default>false</default>
+                <label>Support a family or friend</label>
+            </value>
+            <value>
+                <fullName>Other Improvement</fullName>
+                <default>false</default>
+                <label>Other Improvement</label>
+            </value>
+            <value>
+                <fullName>Emergency</fullName>
+                <default>false</default>
+                <label>Emergency</label>
+            </value>
+            <value>
+                <fullName>Credit Consolidated</fullName>
+                <default>false</default>
+                <label>Credit Consolidated</label>
+            </value>
+        </valueSetDefinition>
+    </valueSet>
+</CustomField>

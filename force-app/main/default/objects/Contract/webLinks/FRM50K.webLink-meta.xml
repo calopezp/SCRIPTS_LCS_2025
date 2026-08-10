@@ -1,0 +1,32 @@
+<?xml version="1.0" encoding="UTF-8"?>
+<WebLink xmlns="http://soap.sforce.com/2006/04/metadata">
+    <fullName>FRM50K</fullName>
+    <availability>online</availability>
+    <displayType>button</displayType>
+    <encodingKey>UTF-8</encodingKey>
+    <hasMenubar>false</hasMenubar>
+    <hasScrollbars>true</hasScrollbars>
+    <hasToolbar>false</hasToolbar>
+    <height>600</height>
+    <isResizable>true</isResizable>
+    <linkType>url</linkType>
+    <masterLabel>FRM50K</masterLabel>
+    <openType>newWindow</openType>
+    <position>none</position>
+    <protected>false</protected>
+    <showsLocation>false</showsLocation>
+    <showsStatus>false</showsStatus>
+    <url>/apex/APXTConga4__Conga_Composer?SolMgr=1
+&amp;serverUrl={!API.Partner_Server_URL_370}
+&amp;Id={!Contract.Id}
+
+&amp;QueryId=[FRM]0Q_007UA2084714
+
+&amp;TemplateId=0T_028UA2975522
+
+&amp;OFN=F50K_{!Contract.ContractNumber}-{!Contract.Account}.pdf
+&amp;EmailToId=0038W00001oiTvKQAU
+&amp;DS7=12
+&amp;EmailSubject=MOM+008454+CREAR+EL+CLIENTE
+&amp;DefaultPDF=1</url>
+</WebLink>

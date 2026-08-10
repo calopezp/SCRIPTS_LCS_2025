@@ -1,0 +1,125 @@
+<?xml version="1.0" encoding="UTF-8"?>
+<CustomField xmlns="http://soap.sforce.com/2006/04/metadata">
+    <fullName>SM_Agreement_Status__c</fullName>
+    <label>Agreement Status</label>
+    <required>false</required>
+    <trackFeedHistory>false</trackFeedHistory>
+    <trackHistory>true</trackHistory>
+    <type>Picklist</type>
+    <valueSet>
+        <restricted>true</restricted>
+        <valueSetDefinition>
+            <sorted>false</sorted>
+            <value>
+                <fullName>Draft</fullName>
+                <default>false</default>
+                <label>Draft</label>
+            </value>
+            <value>
+                <fullName>Pre-Send</fullName>
+                <default>false</default>
+                <label>Pre-Send</label>
+            </value>
+            <value>
+                <fullName>Send in Progress</fullName>
+                <default>false</default>
+                <label>Send in Progress</label>
+            </value>
+            <value>
+                <fullName>Cancelled / Declined</fullName>
+                <default>false</default>
+                <label>Cancelled / Declined</label>
+            </value>
+            <value>
+                <fullName>Expired</fullName>
+                <default>false</default>
+                <label>Expired</label>
+            </value>
+            <value>
+                <fullName>Created</fullName>
+                <default>false</default>
+                <label>Created</label>
+            </value>
+            <value>
+                <fullName>Out for Signature</fullName>
+                <default>false</default>
+                <label>Out for Signature</label>
+            </value>
+            <value>
+                <fullName>Waiting for Counter-Signature</fullName>
+                <default>false</default>
+                <label>Waiting for Counter-Signature</label>
+            </value>
+            <value>
+                <fullName>Signed</fullName>
+                <default>false</default>
+                <label>Signed</label>
+            </value>
+            <value>
+                <fullName>Out for Approval</fullName>
+                <default>false</default>
+                <label>Out for Approval</label>
+            </value>
+            <value>
+                <fullName>Waiting for Counter-Approval</fullName>
+                <default>false</default>
+                <label>Waiting for Counter-Approval</label>
+            </value>
+            <value>
+                <fullName>Approved</fullName>
+                <default>false</default>
+                <label>Approved</label>
+            </value>
+            <value>
+                <fullName>Out for Form-Filling</fullName>
+                <default>false</default>
+                <label>Out for Form-Filling</label>
+            </value>
+            <value>
+                <fullName>Waiting for Counter-Form-Filling</fullName>
+                <default>false</default>
+                <label>Waiting for Counter-Form-Filling</label>
+            </value>
+            <value>
+                <fullName>Form-Filled</fullName>
+                <default>false</default>
+                <label>Form-Filled</label>
+            </value>
+            <value>
+                <fullName>Out for Acceptance</fullName>
+                <default>false</default>
+                <label>Out for Acceptance</label>
+            </value>
+            <value>
+                <fullName>Waiting for Counter-Acceptance</fullName>
+                <default>false</default>
+                <label>Waiting for Counter-Acceptance</label>
+            </value>
+            <value>
+                <fullName>Accepted</fullName>
+                <default>false</default>
+                <label>Accepted</label>
+            </value>
+            <value>
+                <fullName>Out for Delivery</fullName>
+                <default>false</default>
+                <label>Out for Delivery</label>
+            </value>
+            <value>
+                <fullName>Waiting for Counter-Delivery</fullName>
+                <default>false</default>
+                <label>Waiting for Counter-Delivery</label>
+            </value>
+            <value>
+                <fullName>Delivered</fullName>
+                <default>false</default>
+                <label>Delivered</label>
+            </value>
+            <value>
+                <fullName>Waiting for my Delegation</fullName>
+                <default>false</default>
+                <label>Waiting for my Delegation</label>
+            </value>
+        </valueSetDefinition>
+    </valueSet>
+</CustomField>

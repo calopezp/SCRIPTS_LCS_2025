@@ -1,0 +1,173 @@
+
+// ============== CONFIGURA AQUÍ ==============
+String contratoId      = '00315957';      // Número de contrato
+// ===========================================
+
+if (String.isBlank(contratoId)) {
+    System.debug(' → ❌ Faltan datos de entrada.');
+    return;
+}
+
+// 1️⃣  Contrato activo
+Contract c;
+try {
+    c = [SELECT Id, AccountId, Status, ContractNumber, SM_Payment_Method__c, SM_Registered_Card_Token__c,
+                SM_Billing_Address__r.State, SM_Billing_Address__r.Country
+         FROM Contract
+         WHERE ContractNumber = :contratoId
+           AND Status NOT IN ('Canceled', 'Finalized')
+         LIMIT 1];
+} catch (QueryException e) {
+    System.debug(' → ❌ Contrato no encontrado o inactivo: ' + e.getMessage());
+    return;
+}
+
+// 2️⃣  Payment Method (activo y de la misma Account)
+SM_Payment_Method__c pm;
+try {
+    pm = [SELECT Id, Name, SM_Active__c, SM_Account__c,
+                 SM_Card_Token__c, SM_Credit_Card_Number__c,
+                 SM_Credit_Card_expiration_month__c, SM_Credit_Card_expiration_year__c, CreatedDate
+          FROM SM_Payment_Method__c
+          WHERE Id = :c.SM_Payment_Method__c
+            AND SM_Account__c = :c.AccountId
+            AND SM_Active__c = TRUE
+          LIMIT 1];
+} catch (QueryException e) {
+    System.debug(' → ❌ Payment Method no válido/inactivo o no pertenece a la cuenta: ' + e.getMessage());
+    return;
+}
+
+// 2️⃣-B  VALIDACIÓN DE TOKEN DUPLICADO (solo token, al final buscaremos con mes y año)
+String tokenOriginal = pm.SM_Card_Token__c; // token actual
+
+// Traemos TODOS los PM de la Account (solo IDs y tokens + datos para comparar)
+List<SM_Payment_Method__c> allPMFinal = [
+    SELECT Id, Name, SM_Card_Token__c, SM_Credit_Card_Number__c,
+           SM_Credit_Card_expiration_month__c, SM_Credit_Card_expiration_year__c,
+           SM_Active__c, CreatedDate
+    FROM   SM_Payment_Method__c
+    WHERE  SM_Account__c = :c.AccountId
+    ORDER BY CreatedDate ASC
+];
+
+// Buscamos duplicados (solo token) y que NO sea el PM solicitado
+Boolean hayDuplicado = false;
+for (SM_Payment_Method__c otro : allPMFinal) {
+    if (otro.Id != pm.Id && // ← NUNCA consideramos el PM que nos solicitan
+        otro.SM_Card_Token__c == tokenOriginal
+        //&& otro.CreatedDate > pm.CreatedDate
+        ) { // ← Solo duplicados POSTERIORES al original
+        hayDuplicado = true;
+        break;
+    }
+}
+String tokenReal=null;
+
+if (hayDuplicado) {
+    // Consultamos TODO el historial de cambios de token de este PM (sin filtrar por valor)
+    List<SM_Payment_Method__History> hist = [
+        SELECT OldValue, NewValue, CreatedDate
+        FROM   SM_Payment_Method__History
+        WHERE  ParentId = :pm.Id
+          AND  Field = 'SM_Card_Token__c'
+        ORDER BY CreatedDate DESC
+        LIMIT 1
+    ];
+
+    if (!hist.isEmpty() && hist[0].OldValue != null) {
+        // Usamos el OldValue más reciente
+        tokenReal = String.valueOf(hist[0].OldValue);
+        System.debug(' → ⚠️  Token duplicado. Usaremos OldValue: ' + tokenReal);
+    } else {
+        // No hay histórico previo → dejamos vacío (no generamos temporal)
+        tokenReal = '';
+        System.debug(' → ⚠️  Token duplicado y sin histórico. Se dejará en blanco.');
+    }
+}
+
+// 3️⃣  Validar últimas 4
+String last4FromPM = pm.SM_Credit_Card_Number__c.right(4);
+
+
+// 4️⃣  Orders TC activos
+List<ChargentOrders__ChargentOrder__c> tcOrds = [
+    SELECT Id, ChargentOrders__Billing_Country__c, ChargentOrders__Tokenization__c,
+           ChargentOrders__Card_Last_4__c, ChargentOrders__Card_Expiration_Month__c,
+           ChargentOrders__Card_Expiration_Year__c, ChargentOrders__Card_Number__c,
+           ChargentOrders__Card_Month_Indicator__c, ChargentOrders__Card_Year_Indicator__c
+    FROM   ChargentOrders__ChargentOrder__c
+    WHERE  Contract__c = :c.Id
+      AND (ChargentOrders__Payment_Status__c = 'Recurring' OR ChargentOrders__Payment_Status__c = 'Stopped')
+];
+if (tcOrds.isEmpty()) {
+    System.debug(' → ✅ No hay Orders TC activos para actualizar.');
+    return;
+}
+
+// 5️⃣  Actualizamos CONTRATO + Orders TC (usamos el PM y token que el usuario seleccionó)
+c.SM_Payment_Method__c         = pm.Id;
+c.SM_Registered_Card_Token__c  = tokenOriginal; // ← puede estar vacío si no hay histórico
+
+for (ChargentOrders__ChargentOrder__c o : tcOrds) {
+    o.ChargentOrders__Billing_Country__c        = c.SM_Billing_Address__r.State == 'Puerto Rico' ? 'PR' : c.SM_Billing_Address__r.Country;
+    o.ChargentOrders__Tokenization__c           = tokenOriginal; // ← puede estar vacío
+    o.ChargentOrders__Card_Last_4__c            = pm.SM_Credit_Card_Number__c.right(4);
+    o.ChargentOrders__Card_Expiration_Month__c  = pm.SM_Credit_Card_expiration_month__c;
+    o.ChargentOrders__Card_Expiration_Year__c   = pm.SM_Credit_Card_expiration_year__c;
+    o.ChargentOrders__Card_Number__c            = pm.SM_Credit_Card_Number__c.right(4);
+    o.ChargentOrders__Card_Month_Indicator__c   = pm.SM_Credit_Card_expiration_month__c;
+    o.ChargentOrders__Card_Year_Indicator__c    = pm.SM_Credit_Card_expiration_year__c;
+}
+
+// 6️⃣  Guardamos TODO
+update tcOrds;
+update c;
+
+// 7️⃣  LIMPIEZA DE DUPLICADOS – elimina SOLO los Payment Methods duplicados (mismo token, últimas 4, mes y año) que NO estén en uso (solo TC y Contratos) y NO sean el PM solicitado
+Set<Id> pmIdsAccount = new Set<Id>();
+for (SM_Payment_Method__c pmLoop : allPMFinal) {
+    pmIdsAccount.add(pmLoop.Id);
+}
+
+Set<Id> pmEnUso = new Set<Id>();
+
+// Contratos
+for (Contract con : [
+    SELECT SM_Payment_Method__c
+    FROM   Contract
+    WHERE  SM_Payment_Method__c IN :pmIdsAccount
+]) {
+    pmEnUso.add(con.SM_Payment_Method__c);
+}
+
+// Orders TC (solo TC, no ACH)
+for (ChargentOrders__ChargentOrder__c ord : [
+    SELECT ChargentOrders__Payment_Method__c
+    FROM   ChargentOrders__ChargentOrder__c
+    WHERE  ChargentOrders__Payment_Method__c IN :pmIdsAccount
+]) {
+    pmEnUso.add(ord.ChargentOrders__Payment_Method__c);
+}
+
+// Buscamos CUALQUIER duplicado con mismo token, últimas 4, mes y año que NO sea el PM solicitado y NO esté en uso
+List<SM_Payment_Method__c> aBorrar = new List<SM_Payment_Method__c>();
+for (SM_Payment_Method__c pmLoop : allPMFinal) {
+    if (pmLoop.Id != pm.Id && // ← NUNCA borramos el PM que nos solicitan
+        pmLoop.SM_Card_Token__c == tokenOriginal &&
+        pmLoop.SM_Credit_Card_Number__c.right(4) == last4FromPM &&
+        pmLoop.SM_Credit_Card_expiration_month__c == pm.SM_Credit_Card_expiration_month__c &&
+        pmLoop.SM_Credit_Card_expiration_year__c == pm.SM_Credit_Card_expiration_year__c &&
+        !pmEnUso.contains(pmLoop.Id)) {
+        aBorrar.add(pmLoop);
+    }
+}
+
+if (!aBorrar.isEmpty()) {
+    delete aBorrar;
+    System.debug(' → 🧹 Duplicados NO en uso y NO solicitados eliminados: ' + aBorrar.size());
+} else {
+    System.debug(' → ✅ No se encontraron duplicados fuera de uso para eliminar.');
+}
+
+System.debug(' → ✅ Contrato y Orders TC actualizados. PM: ' + pm.Name + ' 🔸 Token final: ' + tokenOriginal);

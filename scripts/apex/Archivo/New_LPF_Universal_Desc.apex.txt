@@ -1,0 +1,288 @@
+// ┌──────────────────────────────────────────────────────────────┐
+// │  LPF – TC / ACH  (Anonymous Apex)  –  LISTO PARA EJECUTAR  │
+// └──────────────────────────────────────────────────────────────┘
+
+// ------------- CONFIGURAR -------------  :)
+String  contratoId          = '00315204';
+Date    fechaCobro          = Date.newInstance(2025, 09, 15);
+String  PTP_Msg             = ''; //x DESCUENTO
+Boolean penalty             = false;
+String  ordType             = 'Late Payment fee';   //'Subscription';  //'Late Payment fee';   //'Subscription';  // se usa en el debug
+
+// --- PARÁMETROS DE DESCUENTO (opcional) ---
+Boolean applyDiscount       = false;                // <<<< cambiar a true si aplica
+String  discountType        = applyDiscount ? 'Value' : null;   // Value / Percentage
+String  discountReason      = applyDiscount ? 'Referidos Contratos 00315201 y 00315202' : null;
+Decimal discountPercentage  = (applyDiscount && discountType == 'Percentage') ? 10 : 0;  // %
+Decimal discountValue       = (applyDiscount && discountType == 'Value') ? 50 : 0;       // $
+String  userReqDiscount     = applyDiscount ? 'Elba Mantilla' : null;
+String  userApprDiscount    = applyDiscount ? 'Elba Mantilla' : null;
+// ------------------------------------------
+
+if (String.isBlank(contratoId)) {
+    System.debug('❌ No se proporcionó ID de contrato.');
+    return;
+}
+
+// 1️⃣  CONTRATO + CAMPOS EXTRAS (Account.Name para billing)
+Contract c;
+try {
+    c = [
+        SELECT Id, AccountId, SM_Monthly_offer__c, SM_Payment_Method__c,
+               SM_Payment_methods__c, SM_Email_to_send_contract__c,
+               GatewayId__c, 
+               SM_Start_date__c, SM_AC_Split_Date__c,
+               Account.FirstName, Account.LastName,
+               ContractNumber
+        FROM Contract
+        WHERE ContractNumber = :contratoId
+        LIMIT 1
+    ];
+} catch (QueryException qe) {
+    System.debug('❌ Contrato no existe: ' + qe.getMessage());
+    return;
+}
+
+// 2️⃣  PAYMENT METHOD
+SM_Payment_Method__c pm;
+try {
+    pm = [
+        SELECT Id, SM_Credit_Card_Number__c, SM_Credit_Card_expiration_month__c,
+               SM_Credit_Card_expiration_year__c, SM_Credit_Card_Franchise__c,
+               SM_Card_Token__c, SM_Bank__c, SM_ACH_Account_Number__c
+        FROM SM_Payment_Method__c
+        WHERE Id = :c.SM_Payment_Method__c
+        LIMIT 1
+    ];
+} catch (QueryException qe) {
+    System.debug('❌ Payment Method no encontrado: ' + qe.getMessage());
+    return;
+}
+
+// 3️⃣  BILLING ADDRESS
+ContactPointAddress billAddr;
+try {
+    billAddr = [
+        SELECT Street, City, State, PostalCode, Country
+        FROM ContactPointAddress
+        WHERE ParentId = :c.AccountId
+          AND SM_Type__c = 'Billing Address'
+        LIMIT 1
+    ];
+} catch (QueryException qe) {
+    System.debug('❌ Billing Address no encontrado: se usarán valores del contrato.');
+}
+
+// 4️⃣  CÁLCULO DE MONTOS
+Decimal base         = c.SM_Monthly_offer__c.setScale(2);
+Decimal penaltyValue = penalty ? 25.00 : 0;
+base += penaltyValue;
+
+Decimal subtotal     = (base / 1.115).setScale(2);
+Decimal tax          = (base * 0.115).setScale(2);
+Decimal total        = (base + tax).setScale(2);
+
+System.debug('→ Base: ' + base + ' | Tax: ' + tax + ' | Total: ' + total);
+
+// 5️⃣  FUNCIONES AUXILIARES
+String cleanCard(String src){
+    return String.isBlank(src) ? '' : src.replaceAll('\\s+','');
+}
+String cardClean = cleanCard(pm.SM_Credit_Card_Number__c);
+
+// 6️⃣  DISCOUNT BUILDER (devuelve Map para reutilizar)
+Map<String, Decimal> applyDiscLogic(){
+    Map<String, Decimal> m = new Map<String, Decimal>();
+    if (!applyDiscount) {
+        m.put('subtotal', base);
+        m.put('tax',      tax);
+        m.put('total',    total);
+        return m;
+    }
+    Decimal subDisc;
+    if (discountType == 'Value') {
+        subDisc = base - discountValue;
+    } else { // Percentage
+        subDisc = base * (1 - discountPercentage/100);
+    }
+    subDisc = subDisc.setScale(2);
+    Decimal taxDisc = subDisc * 0.115;
+    m.put('subtotal', subDisc);
+    m.put('tax',      taxDisc.setScale(2));
+    m.put('total',    (subDisc + taxDisc).setScale(2));
+    return m;
+}
+Map<String, Decimal> discMap = applyDiscLogic();
+
+// 7️⃣  RAMA – TARJETA DE CRÉDITO
+if (c.SM_Payment_methods__c == 'Credit Card') {
+   /*
+    ChargentOrders__ChargentOrder__c orderSub;
+    try {
+        orderSub = [
+            SELECT ChargentOrders__Billing_First_Name__c,
+                   ChargentOrders__Billing_Last_Name__c,
+                   ChargentOrders__Billing_Email__c,
+                   ChargentOrders__Billing_Address__c,
+                   ChargentOrders__Billing_City__c,
+                   ChargentOrders__Billing_State__c,
+                   ChargentOrders__Billing_Zip_Postal__c,
+                   ChargentOrders__Billing_Country__c
+            FROM ChargentOrders__ChargentOrder__c
+            WHERE Contract__c = :c.Id
+              AND SM_Payment_Type__c = 'Subscription'
+            LIMIT 1
+        ];
+    } catch (QueryException qe) {
+        System.debug('❌ No existe orden TC de suscripción: ' + qe.getMessage());
+        return;
+    }
+*/
+    ChargentOrders__ChargentOrder__c newLPF = new ChargentOrders__ChargentOrder__c(
+        Contract__c = c.Id,
+        SM_PTP_Montly__c = ordType == 'Subscription' ? null : PTP_Msg,
+        ChargentOrders__Account__c = c.AccountId,
+        SM_Payment_Type__c = ordType,
+        ChargentOrders__Payment_Method__c = 'Credit Card',
+        SM_Purpose_of_Payment__c = 'Contract fee',
+        SM_Fee_to_collect__c = 1,
+        ChargentOrders__Payment_Frequency__c = ordType == 'Subscription' ? 'Monthly' : 'Once',
+        ChargentOrders__Payment_Status__c = 'Recurring',
+        ChargentOrders__Payment_Stop__c = ordType == 'Subscription' ? 'Unending' : 'Count',
+        ChargentOrders__Payment_Count__c = ordType == 'Subscription' ? null :  1,
+        SM_IsApplyingDaysCollectedPenalty__c = true,
+        SM_Apply_Penalty__c = penalty,
+        SM_Penalty_Value__c = penaltyValue,
+        ChargentOrders__Subtotal__c = discMap.get('subtotal'),
+        SM_P_IVU_Municipal_Amount__c = 1,
+        SM_P_IVU_State_Amount__c = 10.5,
+        ChargentOrders__Tax__c = discMap.get('tax'),
+        ChargentOrders__Charge_Amount__c = discMap.get('total'),
+        ChargentOrders__Payment_Start_Date__c = ordType == 'Subscription' ? c.SM_Start_date__c : fechaCobro,
+        ChargentOrders__Payment_End_Date__c = ordType == 'Subscription' ? c.SM_Start_date__c : fechaCobro,
+        ChargentOrders__Next_Transaction_Date__c = ordType == 'Subscription' ? c.SM_Start_date__c : fechaCobro,
+        ChargentOrders__Card_Last_4__c = cardClean.left(4),
+        ChargentOrders__Card_Number__c = cardClean,
+        ChargentOrders__Card_Expiration_Month__c = pm.SM_Credit_Card_expiration_month__c,
+        ChargentOrders__Card_Expiration_Year__c = pm.SM_Credit_Card_expiration_year__c,
+        ChargentOrders__Card_Type__c = pm.SM_Credit_Card_Franchise__c,
+        ChargentOrders__Gateway__c = c.GatewayId__c,
+        SM_Migrated__c = false,
+        SM_Id_Salesforce_LCS__c = 'Manual_lpf_' + Date.today().format(),
+        // Billing – preferimos ContactPointAddress; si falta usamos la Subscription
+        ChargentOrders__Billing_First_Name__c = c.Account.FirstName,
+        ChargentOrders__Billing_Last_Name__c  = c.Account.LastName,
+        ChargentOrders__Billing_Email__c      = c.SM_Email_to_send_contract__c,
+        ChargentOrders__Billing_Address__c    = billAddr?.Street,
+        ChargentOrders__Billing_City__c       = billAddr?.City,
+        ChargentOrders__Billing_State__c      = billAddr?.State,
+        ChargentOrders__Billing_Zip_Postal__c = billAddr?.PostalCode,
+        ChargentOrders__Billing_Country__c    = (billAddr?.State == 'Puerto Rico' ? 'PR' : billAddr?.Country),
+        ChargentOrders__Tokenization__c = pm.SM_Card_Token__c,
+        SM_IsRegisterToken__c = false
+    );
+
+    // ✅ Asignar descuento FUERA del constructor
+    if (applyDiscount) {
+        newLPF.SM_Apply_Discount__c            = true;
+        newLPF.SM_Discount_Status__c           = 'Accepted';
+        newLPF.SM_Discount_Reason__c           = discountReason;
+        newLPF.Discount_Original_Subtotal__c   = c.SM_Monthly_offer__c + penaltyValue;
+        newLPF.SM_Discount_Type__c             = discountType;
+        newLPF.SM_Discount_Percentage__c       = discountPercentage;
+        newLPF.SM_Discount_Value__c            = discountValue;
+        newLPF.SM_User_Who_Request_Discount__c = userReqDiscount;
+        newLPF.User_Who_Approve_Discount__c    = userApprDiscount;
+    }
+
+    try {
+        insert newLPF;
+        System.debug('✅ LPF TC creado: ' + newLPF.Id + ' ( ' + newLPF.Name + ' ) ');
+    } catch (Exception e) {
+        System.debug('❌ Error insertando LPF TC: ' + e.getMessage());
+    }
+
+// 8️⃣  RAMA – ACH
+} else if (c.SM_Payment_methods__c == 'ACH') {
+  /*
+    SM_ACH_Order__c achSub;
+    try {
+        achSub = [
+            SELECT SM_Billing_Email__c, SM_Bank__c
+            FROM SM_ACH_Order__c
+            WHERE SM_Contract__c = :c.Id
+              AND SM_Payment_Type__c = 'Subscription'
+            LIMIT 1
+        ];
+    } catch (QueryException qe) {
+        System.debug('❌ No existe orden ACH de suscripción: ' + qe.getMessage());
+        return;
+    }
+*/
+    SM_ACH_Order__c newACH = new SM_ACH_Order__c(
+        SM_Contract__c = c.Id,
+        SM_Payment_Type__c = ordType,
+        
+        SM_Payment_Frequency__c = ordType == 'Subscription' ? 'Monthly' : 'Once',
+        SM_Payment_Start_Date__c = ordType == 'Subscription' ? c.SM_Start_date__c : fechaCobro,
+        SM_Payment_End_Date__c = ordType == 'Subscription' ? c.SM_Start_date__c : fechaCobro,
+        SM_Next_Transaction_Date__c = ordType == 'Subscription' ? c.SM_Start_date__c : fechaCobro,
+
+        SM_Payment_Status__c = 'Pending',
+        SM_Payment_Condition__c = 'Fixed value',
+        SM_Billing_Email__c = c.SM_Email_to_send_contract__c,
+        SM_Payment_Count__c = 1,
+        SM_Fee_to_collect__c = 1,
+        SM_Apply_Penalty__c = penalty,
+        SM_Penalty_Value__c = penaltyValue,
+        SM_Payment_Method__c = c.SM_Payment_Method__c,
+        SM_Total__c = discMap.get('subtotal')
+    );
+
+    // ✅ Asignar descuento FUERA del constructor
+    if (applyDiscount) {
+        newACH.SM_Discount_Status__c           = 'Accepted';
+        newACH.SM_Discount_Reason__c           = discountReason;
+        newACH.Discount_Original_Subtotal__c   = c.SM_Monthly_offer__c + penaltyValue;
+        newACH.SM_Discount_Type__c             = discountType;
+        newACH.SM_Discount_Percentage__c       = discountPercentage;
+        newACH.SM_Discount_Value__c            = discountValue;
+        newACH.SM_User_Who_Request_Discount__c = userReqDiscount;
+        newACH.User_Who_Approve_Discount__c    = userApprDiscount;
+        newACH.SM_Apply_Discount__c            = true;
+    }
+
+    try {
+        insert newACH;
+        System.debug('✅ LPF ACH creado: ' + newACH.Id + ' ( ' + newACH.Name + ' ) ');
+    } catch (Exception e) {
+        System.debug('❌ Error insertando LPF ACH: ' + e.getMessage());
+    }
+
+    //  solo aplica para los subscription de ACH y marcar el cotnrato como Activated
+    if (ordType == 'Subscription'){
+        c.Status = 'Activated';
+
+        // Verificar si el campo SM_AC_Split_Date__c es null y aplicar los cambios correspondientes
+        if (c.SM_AC_Split_Date__c == null) {
+                c.SM_Charged_AC_Fees__c = 1;  // Asignar el valor 1 al campo de tarifas
+            }else
+			{
+				c.SM_Charged_AC_Fees__c = 2;
+				}	
+            c.SM_Charged_AC_Amount__c = c.SM_Monthly_offer__c;
+			c.SM_AC_collected__c = true ;
+			c.SM_Payment_Received__c = true;
+            if (c.SM_Charged_AC_Fees__c > 0){
+                update c;
+                System.debug('Contrato actualizado: ' + c.ContractNumber);
+            }
+            else {
+                System.debug('Contrato ' + c.ContractNumber + ' NO Actualizado, Validar pagos de AC');
+            }
+            
+    }
+
+} else {
+    System.debug('❌ Tipo de pago no soportado: ' + c.SM_Payment_methods__c);
+}

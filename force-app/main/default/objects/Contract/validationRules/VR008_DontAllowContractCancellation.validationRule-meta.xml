@@ -1,0 +1,12 @@
+<?xml version="1.0" encoding="UTF-8"?>
+<ValidationRule xmlns="http://soap.sforce.com/2006/04/metadata">
+    <fullName>VR008_DontAllowContractCancellation</fullName>
+    <active>true</active>
+    <description>You don&apos;t have permissions to cancel contracts</description>
+    <errorConditionFormula>AND(
+    ISCHANGED(Status),
+				ISPICKVAL(Status, &apos;Cancelled&apos;),
+				NOT($User.SM_Contract_cancellation__c)
+)</errorConditionFormula>
+    <errorMessage>You don&apos;t have permissions to cancel contracts</errorMessage>
+</ValidationRule>

@@ -1,0 +1,10 @@
+<?xml version="1.0" encoding="UTF-8"?>
+<ValidationRule xmlns="http://soap.sforce.com/2006/04/metadata">
+    <fullName>VR010_ReadyForCollectionRequired</fullName>
+    <active>true</active>
+    <errorConditionFormula>and (NOT(CONTAINS($Profile.Name, &quot;Administrator&quot;)),
+AND(ISPICKVAL(Status, &apos;Complete information&apos;),
+      Not(ISPICKVAL( Collection_Main_Contract__c , &apos;Ready for collection&apos;)),   ISPICKVAL( Contract_Type__c ,&apos;Master&apos;) 
+ ))</errorConditionFormula>
+    <errorMessage>VR010 :: You can&apos;t change contract status to &apos;Complete information&apos; , if Collection Main Contract” field is not Ready for collection</errorMessage>
+</ValidationRule>

@@ -1,0 +1,557 @@
+<?xml version="1.0" encoding="UTF-8"?>
+<RecordType xmlns="http://soap.sforce.com/2006/04/metadata">
+    <fullName>SM_SEGURO_DE_DESEMPLEO</fullName>
+    <active>true</active>
+    <label>Seguro de Desempleo</label>
+    <picklistValues>
+        <picklist>Collection_Main_Contract__c</picklist>
+        <values>
+            <fullName>Pending data capture</fullName>
+            <default>true</default>
+        </values>
+        <values>
+            <fullName>Ready for collection</fullName>
+            <default>false</default>
+        </values>
+    </picklistValues>
+    <picklistValues>
+        <picklist>Commissions_Payment_Status__c</picklist>
+        <values>
+            <fullName>NOT PAID</fullName>
+            <default>false</default>
+        </values>
+        <values>
+            <fullName>PAID</fullName>
+            <default>false</default>
+        </values>
+        <values>
+            <fullName>PENDING</fullName>
+            <default>true</default>
+        </values>
+        <values>
+            <fullName>TO BE PAID</fullName>
+            <default>false</default>
+        </values>
+    </picklistValues>
+    <picklistValues>
+        <picklist>Contract_Type__c</picklist>
+        <values>
+            <fullName>Dependent</fullName>
+            <default>false</default>
+        </values>
+        <values>
+            <fullName>Master</fullName>
+            <default>false</default>
+        </values>
+        <values>
+            <fullName>Unique</fullName>
+            <default>false</default>
+        </values>
+    </picklistValues>
+    <picklistValues>
+        <picklist>Contract_activation_form__c</picklist>
+        <values>
+            <fullName>Future activation with conditions</fullName>
+            <default>false</default>
+        </values>
+        <values>
+            <fullName>Immediate activation</fullName>
+            <default>true</default>
+        </values>
+    </picklistValues>
+    <picklistValues>
+        <picklist>Gateway__c</picklist>
+        <values>
+            <fullName>LCS</fullName>
+            <default>false</default>
+        </values>
+        <values>
+            <fullName>US</fullName>
+            <default>false</default>
+        </values>
+    </picklistValues>
+    <picklistValues>
+        <picklist>Reasons_for_change__c</picklist>
+        <values>
+            <fullName>Change Payment Date Contract</fullName>
+            <default>false</default>
+        </values>
+        <values>
+            <fullName>Changed Payment Method</fullName>
+            <default>false</default>
+        </values>
+        <values>
+            <fullName>ChargeBee Subscription PTP</fullName>
+            <default>false</default>
+        </values>
+        <values>
+            <fullName>Date Restored %28Weekend%29</fullName>
+            <default>false</default>
+        </values>
+        <values>
+            <fullName>Death of a relative</fullName>
+            <default>false</default>
+        </values>
+        <values>
+            <fullName>House Payment</fullName>
+            <default>false</default>
+        </values>
+        <values>
+            <fullName>IT Support</fullName>
+            <default>false</default>
+        </values>
+        <values>
+            <fullName>Personal Emergency</fullName>
+            <default>false</default>
+        </values>
+        <values>
+            <fullName>Promises to Pay %28PTP%29</fullName>
+            <default>false</default>
+        </values>
+        <values>
+            <fullName>Rent Payment</fullName>
+            <default>false</default>
+        </values>
+        <values>
+            <fullName>Unemployment</fullName>
+            <default>false</default>
+        </values>
+        <values>
+            <fullName>Weekend Updated</fullName>
+            <default>false</default>
+        </values>
+        <values>
+            <fullName>Weekend pay date update</fullName>
+            <default>false</default>
+        </values>
+        <values>
+            <fullName>Weekend pay date update %28resend%29</fullName>
+            <default>false</default>
+        </values>
+    </picklistValues>
+    <picklistValues>
+        <picklist>SM_Agreement_Status__c</picklist>
+        <values>
+            <fullName>Accepted</fullName>
+            <default>false</default>
+        </values>
+        <values>
+            <fullName>Approved</fullName>
+            <default>false</default>
+        </values>
+        <values>
+            <fullName>Cancelled %2F Declined</fullName>
+            <default>false</default>
+        </values>
+        <values>
+            <fullName>Created</fullName>
+            <default>false</default>
+        </values>
+        <values>
+            <fullName>Delivered</fullName>
+            <default>false</default>
+        </values>
+        <values>
+            <fullName>Draft</fullName>
+            <default>false</default>
+        </values>
+        <values>
+            <fullName>Expired</fullName>
+            <default>false</default>
+        </values>
+        <values>
+            <fullName>Form-Filled</fullName>
+            <default>false</default>
+        </values>
+        <values>
+            <fullName>Out for Acceptance</fullName>
+            <default>false</default>
+        </values>
+        <values>
+            <fullName>Out for Approval</fullName>
+            <default>false</default>
+        </values>
+        <values>
+            <fullName>Out for Delivery</fullName>
+            <default>false</default>
+        </values>
+        <values>
+            <fullName>Out for Form-Filling</fullName>
+            <default>false</default>
+        </values>
+        <values>
+            <fullName>Out for Signature</fullName>
+            <default>false</default>
+        </values>
+        <values>
+            <fullName>Pre-Send</fullName>
+            <default>false</default>
+        </values>
+        <values>
+            <fullName>Send in Progress</fullName>
+            <default>false</default>
+        </values>
+        <values>
+            <fullName>Signed</fullName>
+            <default>false</default>
+        </values>
+        <values>
+            <fullName>Waiting for Counter-Acceptance</fullName>
+            <default>false</default>
+        </values>
+        <values>
+            <fullName>Waiting for Counter-Approval</fullName>
+            <default>false</default>
+        </values>
+        <values>
+            <fullName>Waiting for Counter-Delivery</fullName>
+            <default>false</default>
+        </values>
+        <values>
+            <fullName>Waiting for Counter-Form-Filling</fullName>
+            <default>false</default>
+        </values>
+        <values>
+            <fullName>Waiting for Counter-Signature</fullName>
+            <default>false</default>
+        </values>
+        <values>
+            <fullName>Waiting for my Delegation</fullName>
+            <default>false</default>
+        </values>
+    </picklistValues>
+    <picklistValues>
+        <picklist>SM_Currently_payment_status__c</picklist>
+        <values>
+            <fullName>Being in default</fullName>
+            <default>false</default>
+        </values>
+        <values>
+            <fullName>Fine paid</fullName>
+            <default>false</default>
+        </values>
+        <values>
+            <fullName>In arrears</fullName>
+            <default>false</default>
+        </values>
+        <values>
+            <fullName>Up to date</fullName>
+            <default>false</default>
+        </values>
+    </picklistValues>
+    <picklistValues>
+        <picklist>SM_Frecuency__c</picklist>
+        <values>
+            <fullName>Anual</fullName>
+            <default>false</default>
+        </values>
+        <values>
+            <fullName>Monthly</fullName>
+            <default>true</default>
+        </values>
+    </picklistValues>
+    <picklistValues>
+        <picklist>SM_Loan_Purpose__c</picklist>
+        <values>
+            <fullName>Business</fullName>
+            <default>false</default>
+        </values>
+        <values>
+            <fullName>Car Buying</fullName>
+            <default>false</default>
+        </values>
+        <values>
+            <fullName>Credit Card Refinancing</fullName>
+            <default>false</default>
+        </values>
+        <values>
+            <fullName>Credit Consolidated</fullName>
+            <default>false</default>
+        </values>
+        <values>
+            <fullName>Debt consolidation</fullName>
+            <default>false</default>
+        </values>
+        <values>
+            <fullName>Emergency</fullName>
+            <default>false</default>
+        </values>
+        <values>
+            <fullName>Home Buying</fullName>
+            <default>false</default>
+        </values>
+        <values>
+            <fullName>HomeMajor Purchase</fullName>
+            <default>false</default>
+        </values>
+        <values>
+            <fullName>Medical expenses</fullName>
+            <default>false</default>
+        </values>
+        <values>
+            <fullName>Moving and relocation</fullName>
+            <default>false</default>
+        </values>
+        <values>
+            <fullName>Other Improvement</fullName>
+            <default>false</default>
+        </values>
+        <values>
+            <fullName>Support a family or friend</fullName>
+            <default>false</default>
+        </values>
+        <values>
+            <fullName>Vacation</fullName>
+            <default>false</default>
+        </values>
+    </picklistValues>
+    <picklistValues>
+        <picklist>SM_Payment_Condition__c</picklist>
+        <values>
+            <fullName>Dynamic</fullName>
+            <default>false</default>
+        </values>
+        <values>
+            <fullName>Fixed</fullName>
+            <default>false</default>
+        </values>
+    </picklistValues>
+    <picklistValues>
+        <picklist>SM_Payment_methods__c</picklist>
+        <values>
+            <fullName>ACH</fullName>
+            <default>false</default>
+        </values>
+        <values>
+            <fullName>Credit Card</fullName>
+            <default>false</default>
+        </values>
+    </picklistValues>
+    <picklistValues>
+        <picklist>SM_Reason_for_cancellation__c</picklist>
+        <values>
+            <fullName>CUSTOMER NOT COMPLY DOCUMENTS %2F CLAIM REFUND</fullName>
+            <default>false</default>
+        </values>
+        <values>
+            <fullName>Cancelation Notice Received%2F Not retention contact%2E</fullName>
+            <default>false</default>
+        </values>
+        <values>
+            <fullName>Cancellation Notice Received</fullName>
+            <default>false</default>
+        </values>
+        <values>
+            <fullName>Change Inactive to Cancel</fullName>
+            <default>false</default>
+        </values>
+        <values>
+            <fullName>Closed Account</fullName>
+            <default>false</default>
+        </values>
+        <values>
+            <fullName>Contract not signed</fullName>
+            <default>false</default>
+        </values>
+        <values>
+            <fullName>Customer Deceased</fullName>
+            <default>false</default>
+        </values>
+        <values>
+            <fullName>Customer Dissatisfaction</fullName>
+            <default>false</default>
+        </values>
+        <values>
+            <fullName>Customer complaint in DACO</fullName>
+            <default>false</default>
+        </values>
+        <values>
+            <fullName>Customer disatisfaction -Collect Claim</fullName>
+            <default>false</default>
+        </values>
+        <values>
+            <fullName>Customer dissatisfaction  %2F Case work but Not Results Expected</fullName>
+            <default>false</default>
+        </values>
+        <values>
+            <fullName>DOES NOT WISH TO EXTEND CONTRACT 6 MONTHS</fullName>
+            <default>false</default>
+        </values>
+        <values>
+            <fullName>Does not comply with payments</fullName>
+            <default>false</default>
+        </values>
+        <values>
+            <fullName>Does not comply with the obligations of the Contract</fullName>
+            <default>false</default>
+        </values>
+        <values>
+            <fullName>Draft Contract Cancel</fullName>
+            <default>false</default>
+        </values>
+        <values>
+            <fullName>Economic Reasons</fullName>
+            <default>false</default>
+        </values>
+        <values>
+            <fullName>Evidence not complete</fullName>
+            <default>false</default>
+        </values>
+        <values>
+            <fullName>Invalid Account Number</fullName>
+            <default>false</default>
+        </values>
+        <values>
+            <fullName>Lack of contactability</fullName>
+            <default>false</default>
+        </values>
+        <values>
+            <fullName>Migrate Savera</fullName>
+            <default>false</default>
+        </values>
+        <values>
+            <fullName>No funds in Bank Account</fullName>
+            <default>false</default>
+        </values>
+        <values>
+            <fullName>Non-compliance with the obligations of the customer stipulated in the contract</fullName>
+            <default>false</default>
+        </values>
+        <values>
+            <fullName>Not Adverse account</fullName>
+            <default>false</default>
+        </values>
+        <values>
+            <fullName>Overdue with more than 120 days</fullName>
+            <default>false</default>
+        </values>
+        <values>
+            <fullName>PTP Cancellation - Bad Reviews</fullName>
+            <default>false</default>
+        </values>
+        <values>
+            <fullName>PTP Cancellation - Better offer from Other Company</fullName>
+            <default>false</default>
+        </values>
+        <values>
+            <fullName>PTP Cancellation - Customers Retracts</fullName>
+            <default>false</default>
+        </values>
+        <values>
+            <fullName>PTP Cancellation - Declined transaction</fullName>
+            <default>false</default>
+        </values>
+        <values>
+            <fullName>PTP Cancellation - No Money</fullName>
+            <default>false</default>
+        </values>
+        <values>
+            <fullName>PTP Cancellation - No job %2F less Working Hours</fullName>
+            <default>false</default>
+        </values>
+        <values>
+            <fullName>PTP Cancellation - Sickness</fullName>
+            <default>false</default>
+        </values>
+        <values>
+            <fullName>Sales Dissatisfaction</fullName>
+            <default>false</default>
+        </values>
+        <values>
+            <fullName>Satisfied Customer %2F  does not want to continue</fullName>
+            <default>false</default>
+        </values>
+        <values>
+            <fullName>Stop Payment</fullName>
+            <default>false</default>
+        </values>
+        <values>
+            <fullName>Suspect criminal actions</fullName>
+            <default>false</default>
+        </values>
+        <values>
+            <fullName>Training cancellation</fullName>
+            <default>false</default>
+        </values>
+        <values>
+            <fullName>Upgrade CE</fullName>
+            <default>false</default>
+        </values>
+    </picklistValues>
+    <picklistValues>
+        <picklist>SM_Way_of_AC_Payment__c</picklist>
+        <values>
+            <fullName>Fees</fullName>
+            <default>false</default>
+        </values>
+        <values>
+            <fullName>One payment</fullName>
+            <default>false</default>
+        </values>
+    </picklistValues>
+    <picklistValues>
+        <picklist>SM_Way_of_Contract_Payment__c</picklist>
+        <values>
+            <fullName>Fix Term</fullName>
+            <default>false</default>
+        </values>
+        <values>
+            <fullName>Subscription</fullName>
+            <default>false</default>
+        </values>
+    </picklistValues>
+    <picklistValues>
+        <picklist>Status</picklist>
+        <values>
+            <fullName>Activated</fullName>
+            <default>false</default>
+        </values>
+        <values>
+            <fullName>Cancelled</fullName>
+            <default>false</default>
+        </values>
+        <values>
+            <fullName>Complete information</fullName>
+            <default>false</default>
+        </values>
+        <values>
+            <fullName>Discontinued</fullName>
+            <default>false</default>
+        </values>
+        <values>
+            <fullName>Draft</fullName>
+            <default>false</default>
+        </values>
+        <values>
+            <fullName>Finalized</fullName>
+            <default>false</default>
+        </values>
+        <values>
+            <fullName>In Approval Process</fullName>
+            <default>false</default>
+        </values>
+        <values>
+            <fullName>Payment Process</fullName>
+            <default>false</default>
+        </values>
+        <values>
+            <fullName>Payment Rejection</fullName>
+            <default>false</default>
+        </values>
+        <values>
+            <fullName>Sent for signature</fullName>
+            <default>false</default>
+        </values>
+    </picklistValues>
+    <picklistValues>
+        <picklist>Validation_of_conditions__c</picklist>
+        <values>
+            <fullName>Meets the Conditions</fullName>
+            <default>false</default>
+        </values>
+        <values>
+            <fullName>Waiting for conditions to be met</fullName>
+            <default>false</default>
+        </values>
+    </picklistValues>
+</RecordType>

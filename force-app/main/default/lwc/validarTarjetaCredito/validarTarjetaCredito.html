@@ -1,0 +1,177 @@
+<template>
+    <lightning-card title="🔒 Validar Tarjeta de Crédito" icon-name="standard:payment_gateway">
+        
+        <!-- FORMULARIO -->
+        <template if:false={showResult}>
+            <div class="slds-p-around_medium">
+                
+                <!-- Instrucciones -->
+                <div class="slds-box slds-theme_info slds-m-bottom_medium">
+                    <p class="slds-text-heading_small slds-m-bottom_small">
+                        <lightning-icon icon-name="utility:info" size="x-small" class="slds-m-right_x-small"></lightning-icon>
+                        Instrucciones
+                    </p>
+                    <p>Complete los datos de la tarjeta a validar. Los campos se pre-poblan automáticamente con los datos del contrato.</p>
+                </div>
+                
+                <!-- Campos del formulario -->
+                <lightning-input
+                    label="Número de Contrato"
+                    value={numeroContrato}
+                    onchange={handleNumeroContratoChange}
+                    required
+                    class="slds-m-bottom_small"
+                    placeholder="Ej: 00316772">
+                </lightning-input>
+                
+                <lightning-input
+                    label="Payment Method Name"
+                    value={paymentMethodName}
+                    onchange={handlePaymentMethodChange}
+                    required
+                    class="slds-m-bottom_small"
+                    placeholder="Ej: PM-204801">
+                </lightning-input>
+                
+                <lightning-input
+                    label="Últimas 4 dígitos de la tarjeta"
+                    value={ultimasCuatro}
+                    onchange={handleUltimasCuatroChange}
+                    type="text"
+                    pattern="[0-9]{4}"
+                    maxlength="4"
+                    required
+                    class="slds-m-bottom_small"
+                    placeholder="Ej: 7303"
+                    field-level-help="Ingrese las últimas 4 dígitos de la tarjeta del cliente">
+                </lightning-input>
+                
+                <!-- Advertencia de seguridad -->
+                <div class="slds-box slds-theme_warning slds-m-top_medium">
+                    <p class="slds-text-body_small">
+                        <lightning-icon icon-name="utility:lock" size="xx-small" class="slds-m-right_x-small"></lightning-icon>
+                        <strong>Seguridad:</strong> Usted no verá datos sensibles de la tarjeta. Solo verá el token parcialmente enmascarado.
+                    </p>
+                </div>
+                
+            </div>
+            
+            <!-- Botones de acción -->
+            <div slot="footer" class="slds-clearfix">
+                <div class="slds-float_right">
+                    <lightning-button
+                        label="Cancelar"
+                        onclick={handleCancelar}
+                        class="slds-m-right_small">
+                    </lightning-button>
+                    <lightning-button
+                        variant="brand"
+                        label="Validar Tarjeta"
+                        onclick={handleValidar}
+                        disabled={isLoading}
+                        icon-name="utility:check"
+                        class="slds-m-right_small">
+                    </lightning-button>
+                </div>
+            </div>
+        </template>
+        
+        <!-- RESULTADO -->
+        <template if:true={showResult}>
+            <div class="slds-p-around_medium">
+                
+                <!-- Box de resultado -->
+                <div class={resultClass}>
+                    <div class="slds-media">
+                        <div class="slds-media__figure">
+                            <lightning-icon 
+                                icon-name={iconName} 
+                                variant={iconVariant}
+                                size="large">
+                            </lightning-icon>
+                        </div>
+                        <div class="slds-media__body">
+                            <h2 class="slds-text-heading_medium slds-m-bottom_small">
+                                <template if:true={validacionExitosa}>
+                                    ✅ Validación Exitosa
+                                </template>
+                                <template if:false={validacionExitosa}>
+                                    ❌ Error en la Validación
+                                </template>
+                            </h2>
+                            <p class="slds-text-body_regular slds-m-bottom_medium">
+                                {mensajeResultado}
+                            </p>
+                            
+                            <!-- Detalles del resultado exitoso -->
+                            <template if:true={validacionExitosa}>
+                                <dl class="slds-dl_horizontal">
+                                    <dt class="slds-dl_horizontal__label">
+                                        <p class="slds-truncate">Token:</p>
+                                    </dt>
+                                    <dd class="slds-dl_horizontal__detail">
+                                        <p class="slds-truncate"><code>{tokenParcial}</code></p>
+                                    </dd>
+                                    
+                                    <dt class="slds-dl_horizontal__label">
+                                        <p class="slds-truncate">Payment Method ID:</p>
+                                    </dt>
+                                    <dd class="slds-dl_horizontal__detail">
+                                        <p class="slds-truncate"><code>{paymentMethodId}</code></p>
+                                    </dd>
+                                    
+                                    <dt class="slds-dl_horizontal__label">
+                                        <p class="slds-truncate">Orders Actualizados:</p>
+                                    </dt>
+                                    <dd class="slds-dl_horizontal__detail">
+                                        <p class="slds-truncate"><strong>{ordersActualizados}</strong></p>
+                                    </dd>
+                                    
+                                    <template if:true={pmsEliminados}>
+                                        <dt class="slds-dl_horizontal__label">
+                                            <p class="slds-truncate">PMs Duplicados Eliminados:</p>
+                                        </dt>
+                                        <dd class="slds-dl_horizontal__detail">
+                                            <p class="slds-truncate"><strong>{pmsEliminados}</strong></p>
+                                        </dd>
+                                    </template>
+                                </dl>
+                            </template>
+                            
+                            <!-- Detalles del error -->
+                            <template if:false={validacionExitosa}>
+                                <template if:true={errores}>
+                                    <div class="slds-box slds-box_x-small slds-theme_shade slds-m-top_small">
+                                        <p class="slds-text-body_small">
+                                            <strong>Detalles del error:</strong>
+                                        </p>
+                                        <pre class="slds-text-body_small" style="white-space: pre-wrap;">{errores}</pre>
+                                    </div>
+                                </template>
+                            </template>
+                        </div>
+                    </div>
+                </div>
+                
+            </div>
+            
+            <!-- Botón cerrar -->
+            <div slot="footer" class="slds-clearfix">
+                <div class="slds-float_right">
+                    <lightning-button
+                        variant="brand"
+                        label="Cerrar"
+                        onclick={handleCerrar}
+                        icon-name="utility:close">
+                    </lightning-button>
+                </div>
+            </div>
+        </template>
+        
+        <!-- Spinner de carga -->
+        <template if:true={isLoading}>
+            <lightning-spinner alternative-text="Validando tarjeta..." size="large"></lightning-spinner>
+        </template>
+        
+    </lightning-card>
+</template>

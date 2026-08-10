@@ -1,0 +1,183 @@
+// ============================================
+// CONSULTAS SOQL PARA ANÁLISIS DE SOAP API
+// ============================================
+
+// 1. LOGIN HISTORY - SOAP API (Últimos 30 días)
+SELECT 
+    Id,
+    UserId,
+    User.Name,
+    User.Username,
+    User.Email,
+    User.Profile.Name,
+    LoginTime,
+    LoginType,
+    SourceIp,
+    LoginUrl,
+    Application,
+    Browser,
+    Platform,
+    Status,
+    ApiType,
+    ApiVersion,
+    ClientVersion
+FROM LoginHistory 
+WHERE LoginTime = LAST_N_DAYS:30
+AND ApiType LIKE '%SOAP%'
+ORDER BY LoginTime DESC
+LIMIT 2000
+
+// 2. USUARIOS DE INTEGRACIÓN ACTIVOS
+SELECT 
+    Id, 
+    Name, 
+    Username, 
+    Email, 
+    Profile.Name, 
+    IsActive, 
+    LastLoginDate, 
+    CreatedDate, 
+    UserType,
+    LastModifiedDate
+FROM User
+WHERE (
+    Profile.Name LIKE '%Integration%' 
+    OR Profile.Name LIKE '%API%'
+    OR Username LIKE '%integration%'
+    OR Username LIKE '%api%'
+    OR Username LIKE '%service%'
+)
+AND IsActive = true
+ORDER BY LastLoginDate DESC NULLS LAST
+
+// 3. CONNECTED APPS
+SELECT 
+    Id, 
+    Name, 
+    ContactEmail, 
+    CreatedDate,
+    CreatedBy.Name,
+    MobileStartUrl,
+    OptionsAllowAdminApprovedUsersOnly,
+    OptionsRefreshTokenValidityMetric
+FROM ConnectedApplication
+ORDER BY CreatedDate DESC
+
+// 4. REMOTE SITE SETTINGS
+SELECT 
+    Id,
+    DeveloperName, 
+    MasterLabel, 
+    EndpointUrl, 
+    IsActive, 
+    Description,
+    CreatedDate,
+    CreatedBy.Name
+FROM RemoteSiteSetting
+WHERE IsActive = true
+ORDER BY CreatedDate DESC
+
+// 5. NAMED CREDENTIALS
+SELECT 
+    Id,
+    DeveloperName, 
+    MasterLabel, 
+    Endpoint,
+    PrincipalType,
+    CreatedDate
+FROM NamedCredential
+ORDER BY CreatedDate DESC
+
+// 6. SETUP AUDIT TRAIL - Cambios relacionados con API
+SELECT 
+    Id,
+    Action,
+    Section,
+    CreatedBy.Name,
+    CreatedDate,
+    Display
+FROM SetupAuditTrail
+WHERE (
+    Action LIKE '%API%'
+    OR Action LIKE '%Integration%'
+    OR Action LIKE '%Connected%'
+    OR Section = 'Connected Apps'
+)
+AND CreatedDate = LAST_N_DAYS:90
+ORDER BY CreatedDate DESC
+
+// 7. API USAGE - Event Log (Si está habilitado)
+// Nota: Requiere Event Monitoring o Shield
+SELECT 
+    Id,
+    EventType,
+    UserId,
+    User.Name,
+    User.Username,
+    CreatedDate,
+    ApiType,
+    ApiVersion,
+    ClientName,
+    Uri
+FROM EventLogFile
+WHERE EventType IN ('API', 'ApiTotalUsage')
+AND CreatedDate = LAST_N_DAYS:30
+ORDER BY CreatedDate DESC
+
+// 8. PERMISSION SET ASSIGNMENTS - Usuarios con permisos API
+SELECT 
+    Id,
+    PermissionSetId,
+    PermissionSet.Name,
+    PermissionSet.Label,
+    AssigneeId,
+    Assignee.Name,
+    Assignee.Username,
+    Assignee.Email,
+    Assignee.Profile.Name
+FROM PermissionSetAssignment
+WHERE PermissionSet.Name LIKE '%API%'
+   OR PermissionSet.Name LIKE '%Integration%'
+ORDER BY Assignee.Name
+
+// 9. APEX CLASSES CON WEBSERVICE O CALLOUTS
+// Esta consulta busca clases Apex que puedan estar haciendo integraciones
+SELECT 
+    Id,
+    Name,
+    ApiVersion,
+    Body,
+    CreatedDate,
+    CreatedBy.Name,
+    LastModifiedDate,
+    LastModifiedBy.Name,
+    Status,
+    IsValid
+FROM ApexClass
+WHERE (
+    Body LIKE '%webservice%'
+    OR Body LIKE '%HttpRequest%'
+    OR Body LIKE '%HttpResponse%'
+    OR Body LIKE '%Soap%'
+    OR Body LIKE '%SforceService%'
+    OR Body LIKE '%PartnerConnection%'
+    OR Body LIKE '%@RestResource%'
+)
+ORDER BY LastModifiedDate DESC
+
+// 10. USUARIOS CON ÚLTIMO LOGIN VÍA API
+SELECT 
+    Id,
+    Name,
+    Username,
+    Email,
+    Profile.Name,
+    UserType,
+    IsActive,
+    LastLoginDate,
+    CreatedDate
+FROM User
+WHERE LastLoginDate != null
+AND IsActive = true
+ORDER BY LastLoginDate DESC
+LIMIT 200

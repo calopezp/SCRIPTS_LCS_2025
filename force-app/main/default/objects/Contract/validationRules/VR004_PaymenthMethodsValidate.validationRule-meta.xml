@@ -1,0 +1,12 @@
+<?xml version="1.0" encoding="UTF-8"?>
+<ValidationRule xmlns="http://soap.sforce.com/2006/04/metadata">
+    <fullName>VR004_PaymenthMethodsValidate</fullName>
+    <active>false</active>
+    <description>“It is not possible to relate a Payment method other than the one defined in the contract, check the Payment Method and Payment Methods fields”</description>
+    <errorConditionFormula>AND(OR(ISCHANGED(SM_Payment_methods__c),ISCHANGED( SM_Payment_Method__c )),
+TEXT(SM_Payment_methods__c) &lt;&gt; &quot;--None--&quot;,
+SM_Payment_Method__r.RecordType.Name &lt;&gt; &quot;&quot;,
+TEXT(SM_Payment_methods__c) &lt;&gt; SM_Payment_Method__r.RecordType.Name)</errorConditionFormula>
+    <errorDisplayField>SM_Payment_Method__c</errorDisplayField>
+    <errorMessage>It is not possible to relate a payment method other than the one defined in the&quot; Type of payment method &quot;field of the contract, check the fields Payment method and Payment methods</errorMessage>
+</ValidationRule>

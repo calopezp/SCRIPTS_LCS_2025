@@ -1,0 +1,9 @@
+<?xml version="1.0" encoding="UTF-8"?>
+<CustomField xmlns="http://soap.sforce.com/2006/04/metadata">
+    <fullName>Contract_To_Be_Collected__c</fullName>
+    <formula>IF(AND(OR(ISPICKVAL(Contract_Type__c , &apos;Master&apos;),ISPICKVAL(Contract_Type__c , &apos;Unique&apos;),ISPICKVAL(Contract_Type__c , &apos;&apos;)),Count_Payment_Pending_To_Collect__c&gt;0,OR(ISPICKVAL(Status , &apos;Payment Process&apos;),ISPICKVAL(Status , &apos;Activated&apos;)), SM_Full_Payment__c =FALSE),TRUE,FALSE)</formula>
+    <formulaTreatBlanksAs>BlankAsZero</formulaTreatBlanksAs>
+    <label>Contract To Be Collected</label>
+    <trackHistory>false</trackHistory>
+    <type>Checkbox</type>
+</CustomField>

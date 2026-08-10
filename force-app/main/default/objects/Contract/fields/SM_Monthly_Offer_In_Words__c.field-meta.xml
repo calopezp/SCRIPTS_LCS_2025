@@ -1,0 +1,17 @@
+<?xml version="1.0" encoding="UTF-8"?>
+<CustomField xmlns="http://soap.sforce.com/2006/04/metadata">
+    <fullName>SM_Monthly_Offer_In_Words__c</fullName>
+    <externalId>false</externalId>
+    <formula>SM_Monthly_offer_Whole_Text__c &amp;
+IF(
+    ROUND((SM_Monthly_offer__c - FLOOR(SM_Monthly_offer__c)) * 100, 0) &gt; 0,
+    &quot; con &quot; &amp; SM_Monthly_Offer_Decimals_Text__c,
+    &quot;&quot;
+)</formula>
+    <formulaTreatBlanksAs>BlankAsZero</formulaTreatBlanksAs>
+    <label>Monthly Offer In Words</label>
+    <required>false</required>
+    <trackHistory>false</trackHistory>
+    <type>Text</type>
+    <unique>false</unique>
+</CustomField>

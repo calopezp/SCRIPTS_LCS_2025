@@ -1,0 +1,109 @@
+<template>
+    <lightning-card title="Marcar Customer Cancellation" icon-name="standard:contract">
+
+        <template if:true={isLoading}>
+            <div class="slds-p-around_medium slds-align_absolute-center">
+                <lightning-spinner alternative-text="Cargando..." size="medium"></lightning-spinner>
+            </div>
+        </template>
+
+        <template if:false={isLoading}>
+
+            <!-- PASO 1: PREVIEW -->
+            <template if:false={showResult}>
+                <div class="slds-p-around_medium">
+
+                    <div class="slds-box slds-theme_warning slds-m-bottom_medium">
+                        <p>
+                            Este contrato pasara a <strong>Customer Cancellation</strong>.
+                            <template if:true={hayOrdenesAfectadas}>
+                                Se van a detener <strong>{cantidadOrdenes}</strong> ACH Order(s) (pasan a Stopped).
+                            </template>
+                            <template if:false={hayOrdenesAfectadas}>
+                                No hay ACH Orders activos para detener en este momento.
+                            </template>
+                            <template if:true={hayPaymentsAfectados}>
+                                <template if:false={requiereAdministrador}>
+                                    Se van a eliminar <strong>{cantidadPayments}</strong> payment(s) en ACH PENDING.
+                                </template>
+                            </template>
+                        </p>
+                    </div>
+
+                    <template if:true={requiereAdministrador}>
+                        <div class="slds-box slds-theme_error slds-m-bottom_medium">
+                            <p>
+                                ⚠ Este contrato tiene <strong>{cantidadPayments}</strong> payment(s) en ACH PENDING ya generado(s) por el batch.
+                                Solo un <strong>administrador</strong> puede eliminarlos. Si confirmas, el contrato y las ordenes se marcaran igual,
+                                pero estos payments quedaran intactos para revision manual.
+                            </p>
+                        </div>
+                    </template>
+
+                    <template if:true={hayOrdenesAfectadas}>
+                        <table class="slds-table slds-table_bordered slds-table_cell-buffer">
+                            <thead>
+                                <tr class="slds-line-height_reset">
+                                    <th scope="col"><div class="slds-truncate">Nombre</div></th>
+                                    <th scope="col"><div class="slds-truncate">Estatus anterior</div></th>
+                                    <th scope="col"><div class="slds-truncate">Contrato</div></th>
+                                    <th scope="col"><div class="slds-truncate">Estatus contrato</div></th>
+                                </tr>
+                            </thead>
+                            <tbody>
+                                <template for:each={ordenes} for:item="ord">
+                                    <tr key={ord.nombre}>
+                                        <td><div class="slds-truncate">{ord.nombre}</div></td>
+                                        <td><div class="slds-truncate">{ord.estatusAnterior}</div></td>
+                                        <td><div class="slds-truncate">{ord.contrato}</div></td>
+                                        <td><div class="slds-truncate">{ord.estatusContrato}</div></td>
+                                    </tr>
+                                </template>
+                            </tbody>
+                        </table>
+                    </template>
+
+                </div>
+
+                <div slot="footer" class="slds-clearfix">
+                    <div class="slds-float_right">
+                        <lightning-button
+                            label="Cancelar"
+                            onclick={handleCancelar}
+                            disabled={isConfirming}
+                            class="slds-m-right_small">
+                        </lightning-button>
+                        <lightning-button
+                            variant="destructive"
+                            label="Confirmar"
+                            onclick={handleConfirmar}
+                            disabled={isConfirming}>
+                        </lightning-button>
+                    </div>
+                </div>
+            </template>
+
+            <!-- PASO 2: RESULTADO -->
+            <template if:true={showResult}>
+                <div class="slds-p-around_medium">
+                    <div class={resultClass}>
+                        <p>{mensajeResultado}</p>
+                    </div>
+                </div>
+                <div slot="footer" class="slds-clearfix">
+                    <div class="slds-float_right">
+                        <lightning-button variant="brand" label="Cerrar" onclick={handleCerrar}></lightning-button>
+                    </div>
+                </div>
+            </template>
+
+            <template if:true={isConfirming}>
+                <div class="slds-p-around_medium slds-align_absolute-center">
+                    <lightning-spinner alternative-text="Procesando..." size="medium"></lightning-spinner>
+                </div>
+            </template>
+
+        </template>
+
+    </lightning-card>
+</template>

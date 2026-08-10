@@ -1,0 +1,47 @@
+<?xml version="1.0" encoding="UTF-8"?>
+<ListView xmlns="http://soap.sforce.com/2006/04/metadata">
+    <fullName>Credit_Elevator</fullName>
+    <booleanFilter>((1 OR 4) AND 2 AND 3) OR 5</booleanFilter>
+    <columns>CONTRACT.CONTRACT_NUMBER</columns>
+    <columns>SALES.ACCOUNT.NAME</columns>
+    <columns>CONTRACT.STATUS</columns>
+    <columns>CONTRACT.START_DATE</columns>
+    <columns>CONTRACT.END_DATE</columns>
+    <columns>SM_Process_automation_by_product_family__c</columns>
+    <columns>CONTRACT.RECORDTYPE</columns>
+    <columns>SM_Agreement_Status__c</columns>
+    <columns>SM_Payment_methods__c</columns>
+    <columns>SM_Dispute_Number__c</columns>
+    <columns>CORE.USERS.ALIAS</columns>
+    <columns>CONTRACT.CREATED_DATE</columns>
+    <columns>CREATEDBY_USER.ALIAS</columns>
+    <columns>CONTRACT.LAST_UPDATE</columns>
+    <columns>Contract_Type__c</columns>
+    <filterScope>Everything</filterScope>
+    <filters>
+        <field>SM_Process_automation_by_product_family__c</field>
+        <operation>contains</operation>
+        <value>Elevator</value>
+    </filters>
+    <filters>
+        <field>SALES.ACCOUNT.NAME</field>
+        <operation>notContain</operation>
+        <value>Test</value>
+    </filters>
+    <filters>
+        <field>CONTRACT.STATUS</field>
+        <operation>notEqual</operation>
+        <value>Cancelled</value>
+    </filters>
+    <filters>
+        <field>SM_Process_automation_by_product_family__c</field>
+        <operation>contains</operation>
+        <value>Bundle</value>
+    </filters>
+    <filters>
+        <field>CONTRACT.RECORDTYPE</field>
+        <operation>equals</operation>
+        <value>Contract.SM_DESEMBOLSO_PRESTAMO</value>
+    </filters>
+    <label>Credit Elevator</label>
+</ListView>
