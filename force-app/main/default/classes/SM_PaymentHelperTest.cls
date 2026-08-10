@@ -54,6 +54,9 @@ public without sharing class SM_PaymentHelperTest {
             SM_Payment__c payment  = SM_TestSmartDataFactory.getPayment(ct.Id);
             payment.Payment_Status__c = 'ACCEPTED';
             insert payment;
+            //calp Aug 2026 :: direct call to cover the @Future sendPaymentReceipts path,
+            //which isn't reached by any trigger in this test.
+            SM_PaymentHelper.sendPaymentReceipts('[]');
         Test.stopTest();
     }
 
