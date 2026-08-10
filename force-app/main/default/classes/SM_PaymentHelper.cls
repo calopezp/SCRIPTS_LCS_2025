@@ -240,10 +240,10 @@ public without sharing class SM_PaymentHelper {
     **/
     public static void setFeeToCollectFromFailetPayment(SObject[] sObjects) {
 
-        if (!hasChargentObjectAccess()) {
-            return;
-        }
-
+        //calp Aug 2026 :: removed the Chargent-access guard that used to gate this whole
+        //method — this branch also handles plain ACH late-payment records and never touches
+        //ChargentOrder itself; the actual Chargent DML is already guarded inside
+        //updateFeeToCollect() below.
         Set<String> failedPaymentIds = new Set<String>();
         Set<String> chargenIds = new Set<String>();
 
