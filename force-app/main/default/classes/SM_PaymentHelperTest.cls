@@ -314,14 +314,18 @@ public without sharing class SM_PaymentHelperTest {
         );
         insert chargent;
 
+        //calp Aug 2026 :: capture the value right after insert (other automation on the
+        //ChargentOrder object may set it) instead of assuming null.
+        Decimal feeToCollectBeforeCall = [SELECT SM_Fee_to_collect__c FROM ChargentOrders__ChargentOrder__c WHERE Id = :chargent.Id].SM_Fee_to_collect__c;
+
         Test.startTest();
             SM_PaymentHelper.updateFeeToCollect(new Set<String>{chargent.Id});
         Test.stopTest();
 
         //calp Aug 2026 :: Chargent app is permanently disabled; updateFeeToCollect() no-ops now,
-        //so the Chargent order's SM_Fee_to_collect__c should stay untouched.
+        //so the Chargent order's SM_Fee_to_collect__c should stay exactly as it was before the call.
         ChargentOrders__ChargentOrder__c updatedChargent = [SELECT SM_Fee_to_collect__c FROM ChargentOrders__ChargentOrder__c WHERE Id = :chargent.Id];
-        System.assertEquals(null, updatedChargent.SM_Fee_to_collect__c, 'Chargent is disabled; fee to collect should not be updated');
+        System.assertEquals(feeToCollectBeforeCall, updatedChargent.SM_Fee_to_collect__c, 'Chargent is disabled; fee to collect should not be updated');
     }
 
     @IsTest
