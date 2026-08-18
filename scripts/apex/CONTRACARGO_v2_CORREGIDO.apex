@@ -2,7 +2,11 @@
 // Autor: CARLOS LOPEZ
 // Fecha: JUNIO 2026    
 
-String AutorizacionCode = '050652';
+// ---------------- CONFIG ----------------
+Boolean modoDryRun = true;   // true = simula, false = ejecuta
+// ----------------------------------------
+
+String AutorizacionCode = '084868';
 
 System.debug(' \u2192 =====================================');
 System.debug(' \u2192 INICIO PROCESO CONTRACARGO');

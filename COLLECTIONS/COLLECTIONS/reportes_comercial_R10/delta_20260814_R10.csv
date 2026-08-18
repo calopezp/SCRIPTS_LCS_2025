@@ -1,0 +1,2 @@
+Payment_Name,Payment_Status__c,SM_Check_Collection_Date__c,SM_Check_Collection__c,SM_Check_Collection_Status__c,Section,Drawee_Name,Check_Number,Reference_Number,Amount,Reason
+PY-01859726,REJECTED,2026-08-11,TRUE,PENDING,PENDING,NATIVIDAD RODRIGUEZ,00001859726,0000217446903,99.00,R10 CUST ADV NOT

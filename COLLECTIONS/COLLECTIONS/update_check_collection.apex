@@ -18,6 +18,11 @@
  *   - Corre primero con DRY_RUN = true  -> solo imprime el preview, NO actualiza nada.
  *   - Revisa el debug log completo.
  *   - Si todo está correcto, cambia DRY_RUN = false y corre de nuevo -> aplica el UPDATE real.
+ *
+ * NOTA: si el CSV trae mas de un cheque para la misma orden ACH (mismo
+ * SM_ACH_Order__c), solo se actualiza el mas reciente por
+ * SM_Check_Collection_Date__c; los demas quedan pendientes para la
+ * siguiente corrida (ver "Registros superados" en el debug log).
  */
 
 // ============ CONFIGURACIÓN ============
@@ -59,6 +64,7 @@ class RowData {
     Boolean coll;
     String collStatus;
     Id matchedPaymentId;
+    Id achOrderId;
 }
 
 List<RowData> rows = new List<RowData>();
@@ -82,26 +88,63 @@ for (Integer i = 1; i < lines.size(); i++) {
 System.debug(' \u2192 Total filas leídas del CSV: ' + rows.size());
 
 // 3) Buscar los registros SM_Payment__c que hagan match por Name
-Map<String, Id> nameToId = new Map<String, Id>();
+Map<String, SM_Payment__c> paymentByName = new Map<String, SM_Payment__c>();
 for (SM_Payment__c p : [
-    SELECT Id, Name
+    SELECT Id, Name, SM_ACH_Order__c
     FROM SM_Payment__c
     WHERE Name IN :paymentNames
 ]) {
-    nameToId.put(p.Name, p.Id);
+    paymentByName.put(p.Name, p);
 }
 
-// 4) Armar preview + lista de update, separando lo que no matcheó
-List<SM_Payment__c> toUpdate = new List<SM_Payment__c>();
+// 4) Separar lo que matcheo de lo que no
+List<RowData> matchedRows = new List<RowData>();
 List<String> notFound = new List<String>();
 
 for (RowData r : rows) {
-    if (!nameToId.containsKey(r.paymentName)) {
+    SM_Payment__c match = paymentByName.get(r.paymentName);
+    if (match == null) {
         notFound.add(r.paymentName);
         continue;
     }
-    r.matchedPaymentId = nameToId.get(r.paymentName);
+    r.matchedPaymentId = match.Id;
+    r.achOrderId = match.SM_ACH_Order__c;
+    matchedRows.add(r);
+}
 
+// 4b) Dedupe por SM_ACH_Order__c: si varios cheques del mismo archivo
+// pertenecen a la misma orden ACH, actualizarlos todos en el mismo DML
+// hace que SM_PaymentHandler (trigger AfterUpdate) intente actualizar esa
+// misma orden ACH dos veces en la misma lista y falle con
+// "Duplicate id in list". Por eso aca, antes de tocar Salesforce, solo se
+// deja pasar el registro mas reciente (por SM_Check_Collection_Date__c) de
+// cada orden ACH repetida; los demas quedan para la siguiente corrida,
+// donde ya no habra colision.
+Map<Id, RowData> winnerByAchOrder = new Map<Id, RowData>();
+List<RowData> supersededRows = new List<RowData>();
+List<RowData> toApply = new List<RowData>();
+
+for (RowData r : matchedRows) {
+    if (r.achOrderId == null) {
+        toApply.add(r);
+        continue;
+    }
+    RowData current = winnerByAchOrder.get(r.achOrderId);
+    if (current == null) {
+        winnerByAchOrder.put(r.achOrderId, r);
+    } else if (r.collDate > current.collDate) {
+        supersededRows.add(current);
+        winnerByAchOrder.put(r.achOrderId, r);
+    } else {
+        supersededRows.add(r);
+    }
+}
+toApply.addAll(winnerByAchOrder.values());
+
+// 5) Armar preview + lista de update final
+List<SM_Payment__c> toUpdate = new List<SM_Payment__c>();
+
+for (RowData r : toApply) {
     System.debug(
         'PREVIEW -> ' + r.paymentName +
         ' | Payment_Status__c: ' + r.status +
@@ -120,14 +163,21 @@ for (RowData r : rows) {
 }
 
 System.debug(' \u2192 ======================================================');
-System.debug(' \u2192 Registros con match encontrado (listos para update): ' + toUpdate.size());
+System.debug(' \u2192 Registros con match encontrado: ' + matchedRows.size());
 System.debug(' \u2192 Registros SIN match (PY-XXXX no existe como Payment): ' + notFound.size());
 if (!notFound.isEmpty()) {
     System.debug(' \u2192   -> Nombres no encontrados: ' + notFound);
 }
+System.debug(' \u2192 Registros superados por otro pago mas reciente de la misma orden ACH (quedan para la siguiente corrida): ' + supersededRows.size());
+if (!supersededRows.isEmpty()) {
+    List<String> supersededNames = new List<String>();
+    for (RowData r : supersededRows) { supersededNames.add(r.paymentName); }
+    System.debug(' \u2192   -> Nombres pospuestos: ' + supersededNames);
+}
+System.debug(' \u2192 Registros a actualizar en esta corrida: ' + toUpdate.size());
 System.debug(' \u2192 ======================================================');
 
-// 5) Ejecutar el update SOLO si DRY_RUN = false
+// 6) Ejecutar el update SOLO si DRY_RUN = false
 if (!DRY_RUN) {
     if (toUpdate.isEmpty()) {
         System.debug(' \u2192 No hay registros para actualizar.');

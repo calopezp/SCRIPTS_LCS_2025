@@ -500,13 +500,38 @@ CancelGroup GRUP10 = new CancelGroup(
     }
 );
 
+CancelGroup GRUP11 = new CancelGroup(
 
+    'Does not comply with payments',
+    'Cliente no cumple con los pagos, Solicitado y Autorizado por ELba Mantilla',
+    new Set<String>{
+        // 12 Ago (25/50)
+        
+        '00264042','00300131','00304403','00308741','00308911','00311156','00312102','00312747','00312996','00313051',
+        '00313441','00313562','00313840','00313841','00313920','00313963','00314008','00314062','00314267','00314335',
+        '00314406','00314501','00314554','00314555','00314559'
+        // TOTAL: 50
+    }
+);
+CancelGroup GRUP12 = new CancelGroup(
+
+    'Does not comply with payments',
+    'Cliente no cumple con los pagos, Solicitado y Autorizado por ELba Mantilla',
+    new Set<String>{
+        // 12 Ago (25/50)
+        '00314621','00314784','00314888','00314950','00315073',
+        '00315142','00315140','00315148','00315183','00315264','00315426','00315452','00315499','00315571','00315574',
+        '00315638','00315725','00315870','00316032','00316307','00316338','00316391','00316485','00316735','00313315'
+
+        // TOTAL: 50
+    }
+);
 // ============================================================
 //  EJECUCIÓN — cambia el grupo según lo que vayas a correr
 // ============================================================
 List<ResultRow> outcome =
     new CancelarContratosPorNumberRunner().runAll(
-        new List<CancelGroup>{ GRUP10 }  // ← cambia aquí
+        new List<CancelGroup>{ GRUP12 }  // ← cambia aquí
     );
 
 Integer ok = 0, fail = 0;

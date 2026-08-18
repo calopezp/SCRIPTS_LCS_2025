@@ -34,12 +34,7 @@ Boolean isPTP(String ptp) {
 //#endregion Utilidades
 // ====================== SCRIPT MULTI-CONTRATO OPTIMIZADO ======================
 List<String> contractNumbers = new List<String>{
-'00317431',
-'00317499',
-'00308911',
-'00313562',
-'00314950',
-'00316708'
+'00317944'
 
 }; 
 Boolean confirmarActualizacion = true;
