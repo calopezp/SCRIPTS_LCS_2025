@@ -222,6 +222,7 @@ public class CancelarContratosPorNumberRunner {
               AND  SM_Payment_Status__c IN :ORDER_STATES_TO_CANCEL
         ];
         for (SM_ACH_Order__c o : achOrdersToCancel) o.SM_Payment_Status__c = 'Canceled';
+        Map<Id, String> achOrderErrors = saveAndCollectErrors(achOrdersToCancel);
 
         // NOTA: Chargent App fue retirada/deshabilitada en este org.
         // ChargentOrders__ChargentOrder__c ya no es consultable via SOQL, se omite.
@@ -239,9 +240,13 @@ public class CancelarContratosPorNumberRunner {
             if (!achOrdersToStop.isEmpty()) Database.update(achOrdersToStop, false);
         }
 
-        // ── 7. Contratos => Cancelled ─────────────────────────
+        // ── 7. Contratos => Cancelled ──────────────────────────
+        // Solo se marca Cancelled si su(s) ACH Order(s) se cancelaron con éxito;
+        // si el ACH Order falló (p. ej. validation rule de pago pendiente de transmitir),
+        // el contrato se deja intacto para no quedar Cancelled con una orden aún activa.
         List<Contract> contractsToUpdate = new List<Contract>();
         for (Id cid : cancelableIds) {
+            if (achOrderErrors.containsKey(cid)) continue;
             Contract c = activeAchContracts.get(cid);
             c.Status                        = 'Cancelled';
             c.SM_Reason_for_cancellation__c = numberToReason.get(c.ContractNumber);
@@ -250,7 +255,6 @@ public class CancelarContratosPorNumberRunner {
         }
 
         // ── 8. DML en bloque ─────────────────────────────────
-        Map<Id, String> achOrderErrors      = saveAndCollectErrors(achOrdersToCancel);
         Map<Id, String> contractErrors      = saveAndCollectErrors(contractsToUpdate);
 
         // ── 9. Tasks + ResultRows ─────────────────────────────
@@ -263,8 +267,8 @@ public class CancelarContratosPorNumberRunner {
             String grp      = numberToReason.get(c.ContractNumber);
             List<String> errors = new List<String>();
 
-            if (contractErrors.containsKey(cid))      errors.add('Contract: '        + contractErrors.get(cid));
             if (achOrderErrors.containsKey(cid))      errors.add('ACH Orders: '      + achOrderErrors.get(cid));
+            if (contractErrors.containsKey(cid))      errors.add('Contract: '        + contractErrors.get(cid));
 
             ResultRow row = makeRow(cid, c.ContractNumber,
                 errors.isEmpty() ? 'CANCELLED'    : 'PARTIAL/ERROR',
