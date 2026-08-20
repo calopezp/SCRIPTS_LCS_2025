@@ -35,6 +35,9 @@ public class CancelarContratosPorNumberRunner {
         'COLLECTED','COLECTED','Collected',
         'REJECTED'
     };
+    private final Set<String> BLOCKING_PAYMENT_STATUSES = new Set<String>{
+        'REJECTED', 'ACH TRANSMITTED'
+    };
     private final Set<String> ORDER_STATES_TO_CANCEL = new Set<String>{
         'Pending','Iniciated','Stopped','Recurring','X CANCELED'
     };
@@ -154,13 +157,13 @@ public class CancelarContratosPorNumberRunner {
         }
         if (activeAchContracts.isEmpty()) return allResults;
 
-        // ── 4. Pagos REJECTED ─────────────────────────────────
+        // ── 4. Pagos REJECTED / ACH TRANSMITTED ───────────────
         Map<Id, List<SM_Payment__c>> paymentsByContract = new Map<Id, List<SM_Payment__c>>();
         for (SM_Payment__c p : [
             SELECT Id, Name, SM_Contract__c, SM_Check_Collection_Status__c,
                    RecordTypeId, SM_Date_ACH_Transmitted__c, SM_Check_Collection_Date__c, Payment_Status__c
             FROM   SM_Payment__c
-            WHERE  Payment_Status__c = 'REJECTED'
+            WHERE  Payment_Status__c IN :BLOCKING_PAYMENT_STATUSES
               AND  SM_Contract__c IN :activeAchContracts.keySet()
         ]) {
             if (!paymentsByContract.containsKey(p.SM_Contract__c))
