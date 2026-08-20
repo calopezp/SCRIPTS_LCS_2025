@@ -25,7 +25,7 @@ public class ResultRow {
 public class CancelarContratosPorNumberRunner {
 
     private final String  ACH_RT_ID     = '0121U000000KZPsQAO';
-    private final String  TASK_OWNER_ID = '0051U000001MRFeQAO';
+    private final String  TASK_OWNER_ID = '0051U000001MRFeQAO';  //Legal Credit Solutions
     private final String  TASK_RT_ID    = '0121U00000085XiQAI';
     private final String  TASK_SUBJECT  = 'Customer Service-Effective Cancellation';
 
@@ -204,7 +204,7 @@ public class CancelarContratosPorNumberRunner {
                         );
                     }
                 }
-                allResults.add(makeRow(' \u2192 ' + c.Id, c.ContractNumber, 'SKIP',
+                allResults.add(makeRow(c.Id, c.ContractNumber, 'SKIP',
                     'Payment ACH bloqueante \u2192 ' + String.join(blocking, ' 🔸 '),
                     false, numberToReason.get(c.ContractNumber)));
             }
@@ -220,14 +220,8 @@ public class CancelarContratosPorNumberRunner {
         ];
         for (SM_ACH_Order__c o : achOrdersToCancel) o.SM_Payment_Status__c = 'Canceled';
 
-        List<ChargentOrders__ChargentOrder__c> chargentOrdersToCancel = [
-            SELECT Id, ChargentOrders__Payment_Status__c, Contract__c
-            FROM   ChargentOrders__ChargentOrder__c
-            WHERE  Contract__c IN :cancelableIds
-              AND  ChargentOrders__Payment_Status__c IN :ORDER_STATES_TO_CANCEL
-        ];
-        for (ChargentOrders__ChargentOrder__c co : chargentOrdersToCancel)
-            co.ChargentOrders__Payment_Status__c = 'Canceled';
+        // NOTA: Chargent App fue retirada/deshabilitada en este org.
+        // ChargentOrders__ChargentOrder__c ya no es consultable via SOQL, se omite.
 
         Set<Id> nonCancelableIds = new Set<Id>(activeAchContracts.keySet());
         nonCancelableIds.removeAll(cancelableIds);
@@ -254,7 +248,6 @@ public class CancelarContratosPorNumberRunner {
 
         // ── 8. DML en bloque ─────────────────────────────────
         Map<Id, String> achOrderErrors      = saveAndCollectErrors(achOrdersToCancel);
-        Map<Id, String> chargentOrderErrors = saveAndCollectErrors(chargentOrdersToCancel);
         Map<Id, String> contractErrors      = saveAndCollectErrors(contractsToUpdate);
 
         // ── 9. Tasks + ResultRows ─────────────────────────────
@@ -269,7 +262,6 @@ public class CancelarContratosPorNumberRunner {
 
             if (contractErrors.containsKey(cid))      errors.add('Contract: '        + contractErrors.get(cid));
             if (achOrderErrors.containsKey(cid))      errors.add('ACH Orders: '      + achOrderErrors.get(cid));
-            if (chargentOrderErrors.containsKey(cid)) errors.add('Chargent Orders: ' + chargentOrderErrors.get(cid));
 
             ResultRow row = makeRow(cid, c.ContractNumber,
                 errors.isEmpty() ? 'CANCELLED'    : 'PARTIAL/ERROR',
@@ -526,12 +518,66 @@ CancelGroup GRUP12 = new CancelGroup(
         // TOTAL: 50
     }
 );
+
+CancelGroup GRUP13 = new CancelGroup(
+
+    'Does not comply with payments',
+    'Cliente no cumple con los pagos, Solicitado y Autorizado por ELba Mantilla',
+    new Set<String>{
+        // 13 Ago (25/70)
+        '00317923','00304403','00264042','00300131','00308741','00308911','00311156','00312102','00312747','00313051',
+        '00312996','00313441','00313315','00313562','00313840','00313841','00314062','00313920','00314267','00314335',
+        '00314008','00313963','00314406','00314501','00314554'
+
+        // TOTAL: 70
+    }
+);
+CancelGroup GRUP14 = new CancelGroup(
+
+    'Does not comply with payments',
+    'Cliente no cumple con los pagos, Solicitado y Autorizado por ELba Mantilla',
+    new Set<String>{
+        // 13 Ago (25/70)
+        '00314559','00314555','00314621','00314784','00315867','00315871','00314888','00315797','00315796','00315073',
+        '00315183','00316036','00316206','00315820','00315148','00314950','00315140','00315934','00315142','00315886',
+        '00316060','00315499','00316079','00315426','00316032'
+
+        // TOTAL: 70
+    }
+);
+
+CancelGroup GRUP15 = new CancelGroup(
+
+    'Does not comply with payments',
+    'Cliente no cumple con los pagos, Solicitado y Autorizado por ELba Mantilla',
+    new Set<String>{
+        // 13 Ago (19/69)
+        '00315638','00315870','00315452','00315264','00315725','00315574','00316391','00314635','00316616','00316651',
+        '00316338','00316722','00316485','00317730','00316735','00315571','00316307','00316967','00310747'
+        // TOTAL: 69
+    }
+);
+
+CancelGroup GRUP16 = new CancelGroup(
+
+    'Does not comply with payments',
+    'Cliente no cumple con los pagos, Solicitado y Autorizado por ELba Mantilla',
+    new Set<String>{
+        // 13 Ago (19/69)
+'00264042','00300131','00304403','00308741','00308911','00311156','00312102','00312747','00312996','00313051','00313315','00313441','00313562','00313841','00313920','00313963','00314008','00314267','00314554','00314555','00314784','00314888','00314950','00315140','00315142','00315264','00315452','00315571','00315574','00315867','00315870','00315871','00315886','00316338','00316485','00316722','00317730'
+
+       // TOTAL: 69
+    }
+);
+
+
+
 // ============================================================
 //  EJECUCIÓN — cambia el grupo según lo que vayas a correr
 // ============================================================
 List<ResultRow> outcome =
     new CancelarContratosPorNumberRunner().runAll(
-        new List<CancelGroup>{ GRUP12 }  // ← cambia aquí
+        new List<CancelGroup>{ GRUP16 }  // ← cambia aquí
     );
 
 Integer ok = 0, fail = 0;
