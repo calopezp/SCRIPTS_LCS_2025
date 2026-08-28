@@ -9,8 +9,10 @@ List<String> contratosAProcesar = new List<String>{
         SELECT SM_Contract__r.ContractNumber, SM_Contract__r.SM_AC_Split_Date__c, SM_Contract__r.CB_Subscription__c,SM_Contract__r.SM_Payment_methods__c FROM SM_Payment__c WHERE Payment_Status__c ='ACCEPTED' AND SM_Type__c = 'AC' 
                 AND SM_Contract__c IN (SELECT Id FROM Contract WHERE Status = 'Payment Process'  AND Is_Test_Contract__c =false AND Is_VIP_Contract__c = false )     
    */
-'00318012'
-
+'00318017','00318019','00318023',
+'00318043','00318047','00318050','00318056','00318061','00318065','00318073','00318075','00318071','00318074','00318084','00318085',
+'00318086','00318089','00318096','00318098','00318099','00318110','00318112','00318130','00318140','00318150','00318155','00318158',
+'00318160','00318177','00318187','00318326'
 
 };
 // Estados que NO deben procesarse

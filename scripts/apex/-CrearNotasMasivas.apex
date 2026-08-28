@@ -1,4 +1,4 @@
-date fecha = Date.newInstance(2026, 08, 14);
+date fecha = Date.newInstance(2026, 08, 28);
 // Tipo de mensaje (1 a 7 según tu tabla)
 Integer itemType = 11; // cambia según el caso que quieras usar
 
