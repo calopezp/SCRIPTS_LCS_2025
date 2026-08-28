@@ -35,9 +35,6 @@ public class CancelarContratosPorNumberRunner {
         'COLLECTED','COLECTED','Collected',
         'REJECTED'
     };
-    private final Set<String> BLOCKING_PAYMENT_STATUSES = new Set<String>{
-        'REJECTED', 'ACH TRANSMITTED'
-    };
     private final Set<String> ORDER_STATES_TO_CANCEL = new Set<String>{
         'Pending','Iniciated','Stopped','Recurring','X CANCELED'
     };
@@ -86,7 +83,7 @@ public class CancelarContratosPorNumberRunner {
             for (Integer i = 0; i < allToMarkCancellation.size(); i++) {
                 if (!markSaves[i].isSuccess()) {
                     System.debug('⚠️ Error marcando SM_Customer_Cancellation__c en Id: '
-                        + allToMarkCancellation[i].Id + ' → ' + collectSaveErrors(markSaves[i]));
+                        + allToMarkCancellation[i].Id + ' \u2192 ' + collectSaveErrors(markSaves[i]));
                 }
             }
         }
@@ -104,16 +101,16 @@ public class CancelarContratosPorNumberRunner {
 
         // ── ChargeBee: solo Task ──────────────────────────────
         if (!chargebeeContracts.isEmpty()) {
-            System.debug(' → ═════════════════════════════════════════════════════');
-            System.debug(' → ⚠️  CONTRATOS CHARGEBEE (SM_Customer_Cancellation__c ya marcado, creando Task):');
+            System.debug(' \u2192 ═════════════════════════════════════════════════════');
+            System.debug(' \u2192 ⚠️  CONTRATOS CHARGEBEE (SM_Customer_Cancellation__c ya marcado, creando Task):');
 
             List<Task> cbTasksToInsert = new List<Task>();
             List<Id>   cbContractIds   = new List<Id>();
 
             for (Contract c : chargebeeContracts.values()) {
                 if (c.status != 'Cancelled') {
-
-                    System.debug('  → ' + c.ContractNumber + '▫️Id: ' + c.Id + '▫️CB: ' + c.CB_Subscription__c);
+               
+                    System.debug('  \u2192 ' + c.ContractNumber + '▫️Id: ' + c.Id + '▫️CB: ' + c.CB_Subscription__c);
                     Task t         = new Task();
                     t.Subject      = TASK_SUBJECT;
                     t.WhatId       = c.Id;
@@ -146,7 +143,7 @@ public class CancelarContratosPorNumberRunner {
                     numberToReason.get(c.ContractNumber)
                 ));
             }
-            System.debug(' → ══════════════════════════════════════════════════════');
+            System.debug(' \u2192 ══════════════════════════════════════════════════════');
         }
         if (achContracts.isEmpty()) return allResults;
 
@@ -157,13 +154,13 @@ public class CancelarContratosPorNumberRunner {
         }
         if (activeAchContracts.isEmpty()) return allResults;
 
-        // ── 4. Pagos REJECTED / ACH TRANSMITTED ───────────────
+        // ── 4. Pagos REJECTED ─────────────────────────────────
         Map<Id, List<SM_Payment__c>> paymentsByContract = new Map<Id, List<SM_Payment__c>>();
         for (SM_Payment__c p : [
             SELECT Id, Name, SM_Contract__c, SM_Check_Collection_Status__c,
                    RecordTypeId, SM_Date_ACH_Transmitted__c, SM_Check_Collection_Date__c, Payment_Status__c
             FROM   SM_Payment__c
-            WHERE  Payment_Status__c IN :BLOCKING_PAYMENT_STATUSES
+            WHERE  Payment_Status__c = 'REJECTED'
               AND  SM_Contract__c IN :activeAchContracts.keySet()
         ]) {
             if (!paymentsByContract.containsKey(p.SM_Contract__c))
@@ -173,8 +170,6 @@ public class CancelarContratosPorNumberRunner {
 
         // ── 5. Clasificar cancelable vs bloqueado ─────────────
         Set<Id> cancelableIds = new Set<Id>();
-        Map<Id, Integer> resultRowIndexByContract = new Map<Id, Integer>();
-
         for (Contract c : activeAchContracts.values()) {
             List<SM_Payment__c> related = paymentsByContract.get(c.Id);
             Boolean canCancel = true;
@@ -201,34 +196,38 @@ public class CancelarContratosPorNumberRunner {
                 for (SM_Payment__c p : related) {
                     if (p.RecordTypeId == ACH_RT_ID
                         && !ALLOWED_ACH_STATUSES.contains(p.SM_Check_Collection_Status__c)) {
-                        String statusLabel = String.isNotBlank(p.SM_Check_Collection_Status__c)
-                            ? p.SM_Check_Collection_Status__c
-                            : p.Payment_Status__c;
-                        blocking.add(p.Name + ' en ' + statusLabel);
+                        blocking.add(
+                            p.Name
+                            + '▫️Status: '         + (p.SM_Check_Collection_Status__c != null ? p.SM_Check_Collection_Status__c : 'NULL')
+                            + '▫️CollDate: '       + (p.SM_Check_Collection_Date__c   != null ? String.valueOf(p.SM_Check_Collection_Date__c) : 'NULL')
+                            + '▫️ACHTransmitted: ' + (p.SM_Date_ACH_Transmitted__c    != null ? String.valueOf(p.SM_Date_ACH_Transmitted__c)  : 'NULL')
+                        );
                     }
                 }
-                allResults.add(makeRow(c.Id, c.ContractNumber, 'SKIP',
-                    String.join(blocking, '; '),
+                allResults.add(makeRow(' \u2192 ' + c.Id, c.ContractNumber, 'SKIP',
+                    'Payment ACH bloqueante \u2192 ' + String.join(blocking, ' 🔸 '),
                     false, numberToReason.get(c.ContractNumber)));
-                resultRowIndexByContract.put(c.Id, allResults.size() - 1);
             }
         }
+        if (cancelableIds.isEmpty()) return allResults;
 
-        // ── 6. ACH Orders => Canceled (solo contratos cancelables) ──
-        Map<Id, String> achOrderErrors = new Map<Id, String>();
-        if (!cancelableIds.isEmpty()) {
-            List<SM_ACH_Order__c> achOrdersToCancel = [
-                SELECT Id, SM_Payment_Status__c, SM_Contract__c
-                FROM   SM_ACH_Order__c
-                WHERE  SM_Contract__c IN :cancelableIds
-                  AND  SM_Payment_Status__c IN :ORDER_STATES_TO_CANCEL
-            ];
-            for (SM_ACH_Order__c o : achOrdersToCancel) o.SM_Payment_Status__c = 'Canceled';
-            achOrderErrors = saveAndCollectErrors(achOrdersToCancel);
-        }
+        // ── 6. ACH Orders => Canceled ─────────────────────────
+        List<SM_ACH_Order__c> achOrdersToCancel = [
+            SELECT Id, SM_Payment_Status__c, SM_Contract__c
+            FROM   SM_ACH_Order__c
+            WHERE  SM_Contract__c IN :cancelableIds
+              AND  SM_Payment_Status__c IN :ORDER_STATES_TO_CANCEL
+        ];
+        for (SM_ACH_Order__c o : achOrdersToCancel) o.SM_Payment_Status__c = 'Canceled';
 
-        // NOTA: Chargent App fue retirada/deshabilitada en este org.
-        // ChargentOrders__ChargentOrder__c ya no es consultable via SOQL, se omite.
+        List<ChargentOrders__ChargentOrder__c> chargentOrdersToCancel = [
+            SELECT Id, ChargentOrders__Payment_Status__c, Contract__c
+            FROM   ChargentOrders__ChargentOrder__c
+            WHERE  Contract__c IN :cancelableIds
+              AND  ChargentOrders__Payment_Status__c IN :ORDER_STATES_TO_CANCEL
+        ];
+        for (ChargentOrders__ChargentOrder__c co : chargentOrdersToCancel)
+            co.ChargentOrders__Payment_Status__c = 'Canceled';
 
         Set<Id> nonCancelableIds = new Set<Id>(activeAchContracts.keySet());
         nonCancelableIds.removeAll(cancelableIds);
@@ -243,52 +242,53 @@ public class CancelarContratosPorNumberRunner {
             if (!achOrdersToStop.isEmpty()) Database.update(achOrdersToStop, false);
         }
 
-        // ── 7. Contratos => Cancelled ──────────────────────────
-        // Solo se marca Cancelled si su(s) ACH Order(s) se cancelaron con éxito;
-        // si el ACH Order falló (p. ej. validation rule de pago pendiente de transmitir),
-        // el contrato se deja intacto para no quedar Cancelled con una orden aún activa.
+        // ── 7. Contratos => Cancelled ─────────────────────────
         List<Contract> contractsToUpdate = new List<Contract>();
         for (Id cid : cancelableIds) {
-            if (achOrderErrors.containsKey(cid)) continue;
             Contract c = activeAchContracts.get(cid);
             c.Status                        = 'Cancelled';
             c.SM_Reason_for_cancellation__c = numberToReason.get(c.ContractNumber);
             c.SM_Cancellation_Date__c       = Date.today();
             contractsToUpdate.add(c);
         }
-        Map<Id, String> contractErrors = saveAndCollectErrors(contractsToUpdate);
 
-        // ── 8. ResultRows para contratos cancelables ──────────
+        // ── 8. DML en bloque ─────────────────────────────────
+        Map<Id, String> achOrderErrors      = saveAndCollectErrors(achOrdersToCancel);
+        Map<Id, String> chargentOrderErrors = saveAndCollectErrors(chargentOrdersToCancel);
+        Map<Id, String> contractErrors      = saveAndCollectErrors(contractsToUpdate);
+
+        // ── 9. Tasks + ResultRows ─────────────────────────────
+        List<Task>    tasksToInsert     = new List<Task>();
+        List<Integer> taskResultIndexes = new List<Integer>();
+
         for (Id cid : cancelableIds) {
-            Contract c = activeAchContracts.get(cid);
+            Contract c      = activeAchContracts.get(cid);
+            String taskDesc = numberToTaskDesc.get(c.ContractNumber);
+            String grp      = numberToReason.get(c.ContractNumber);
             List<String> errors = new List<String>();
 
-            if (achOrderErrors.containsKey(cid)) errors.add('ACH Orders: ' + achOrderErrors.get(cid));
-            if (contractErrors.containsKey(cid)) errors.add('Contract: '   + contractErrors.get(cid));
+            if (contractErrors.containsKey(cid))      errors.add('Contract: '        + contractErrors.get(cid));
+            if (achOrderErrors.containsKey(cid))      errors.add('ACH Orders: '      + achOrderErrors.get(cid));
+            if (chargentOrderErrors.containsKey(cid)) errors.add('Chargent Orders: ' + chargentOrderErrors.get(cid));
 
             ResultRow row = makeRow(cid, c.ContractNumber,
                 errors.isEmpty() ? 'CANCELLED'    : 'PARTIAL/ERROR',
                 errors.isEmpty() ? 'Contrato y órdenes actualizados correctamente.' : String.join(errors, ' 🔸 '),
-                errors.isEmpty(), numberToReason.get(c.ContractNumber)
+                errors.isEmpty(), grp
             );
             allResults.add(row);
-            resultRowIndexByContract.put(cid, allResults.size() - 1);
-        }
 
-        // ── 9. Tasks: TODOS los contratos ACH activos (cancelados o bloqueados) ──
-        List<Task>    tasksToInsert     = new List<Task>();
-        List<Integer> taskResultIndexes = new List<Integer>();
-
-        for (Contract c : activeAchContracts.values()) {
-            Task t         = new Task();
-            t.Subject      = TASK_SUBJECT;
-            t.WhatId       = c.Id;
-            t.Description  = numberToTaskDesc.get(c.ContractNumber);
-            t.OwnerId      = TASK_OWNER_ID;
-            t.RecordTypeId = TASK_RT_ID;
-            t.ActivityDate = Date.today();
-            tasksToInsert.add(t);
-            taskResultIndexes.add(resultRowIndexByContract.get(c.Id));
+            if (errors.isEmpty()) {
+                Task t         = new Task();
+                t.Subject      = TASK_SUBJECT;
+                t.WhatId       = cid;
+                t.Description  = taskDesc;
+                t.OwnerId      = TASK_OWNER_ID;
+                t.RecordTypeId = TASK_RT_ID;
+                t.ActivityDate = Date.today();
+                tasksToInsert.add(t);
+                taskResultIndexes.add(allResults.size() - 1);
+            }
         }
 
         // ── 10. Insertar Tasks ────────────────────────────────
@@ -300,6 +300,7 @@ public class CancelarContratosPorNumberRunner {
                 if (taskSave[i].isSuccess()) {
                     rr.detail += ' 🔸 Task creada.';
                 } else {
+                    rr.action  = 'PARTIAL/ERROR';
                     rr.success = false;
                     rr.detail += ' 🔸 Task error: ' + collectSaveErrors(taskSave[i]);
                 }
@@ -464,7 +465,7 @@ CancelGroup GRUP08 = new CancelGroup(
     'Cliente no cumple con los pagos, Solicitado y Autorizado por ELba Mantilla',
     new Set<String>{
         // 06 Jul (25)
-
+       
         '00315682','00315771','00315943','00261363','00309080','00309290','00313510','00313586','00313656','00314049',
         '00314593','00314743','00314848','00315220','00315302','00315412','00315524','00315817','00315818','00250379',
         '00311899','00312321','00312796','00312806','00312849','00313848','00314625','00314695','00314836','00314946'
@@ -491,7 +492,7 @@ CancelGroup GRUP10 = new CancelGroup(
     'Cliente no cumple con los pagos, Solicitado y Autorizado por ELba Mantilla',
     new Set<String>{
         // 06 Jul (25)
-
+        
         '00315391','00315652','00315723','00315742','00315988','00315993','00316046','00316073','00316637','00312234',
         '00316059','00316417','00316451','00316461','00316515','00316585'
 
@@ -505,7 +506,7 @@ CancelGroup GRUP11 = new CancelGroup(
     'Cliente no cumple con los pagos, Solicitado y Autorizado por ELba Mantilla',
     new Set<String>{
         // 12 Ago (25/50)
-
+        
         '00264042','00300131','00304403','00308741','00308911','00311156','00312102','00312747','00312996','00313051',
         '00313441','00313562','00313840','00313841','00313920','00313963','00314008','00314062','00314267','00314335',
         '00314406','00314501','00314554','00314555','00314559'
@@ -584,20 +585,20 @@ CancelGroup GRUP16 = new CancelGroup(
 // ============================================================
 List<ResultRow> outcome =
     new CancelarContratosPorNumberRunner().runAll(
-        new List<CancelGroup>{ GRUP11 }  // ← cambia aquí
+        new List<CancelGroup>{ GRUP16 }  // ← cambia aquí
     );
 
 Integer ok = 0, fail = 0;
-System.debug(' → ══════════════════════════════════════════════════════');
-System.debug(' → 📋  REPORTE DE PROBLEMAS Y RESTRICCIONES');
-System.debug(' → ══════════════════════════════════════════════════════');
+System.debug(' \u2192 ══════════════════════════════════════════════════════');
+System.debug(' \u2192 📋  REPORTE DE PROBLEMAS Y RESTRICCIONES');
+System.debug(' \u2192 ══════════════════════════════════════════════════════');
 for (ResultRow r : outcome) {
     if (!r.success) {
         System.debug(
-            ' → ❌ [' + r.action + '] '
+            ' \u2192 ❌ [' + r.action + '] '
             +  r.contractNumber
-           // + '▫️Id: '      + (r.contractId != null ? String.valueOf(r.contractId) : 'N/A')
-          //  + '▫️Grupo: '   + r.groupName
+            + '▫️Id: '      + (r.contractId != null ? String.valueOf(r.contractId) : 'N/A')
+            + '▫️Grupo: '   + r.groupName
             + '▫️Detalle: ' + r.detail
         );
         fail++;
@@ -605,6 +606,6 @@ for (ResultRow r : outcome) {
         ok++;
     }
 }
-System.debug(' → ══════════════════════════════════════════════════════');
-System.debug(' → ✅ Cancelados: ' + ok + '   ❌ Fallidos/Bloqueados: ' + fail);
-System.debug(' → ══════════════════════════════════════════════════════');
+System.debug(' \u2192 ══════════════════════════════════════════════════════');
+System.debug(' \u2192 ✅ Cancelados: ' + ok + '   ❌ Fallidos/Bloqueados: ' + fail);
+System.debug(' \u2192 ══════════════════════════════════════════════════════');

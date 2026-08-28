@@ -37,7 +37,7 @@ System.debug('\u2192  ⚠ Trigger SM_PaymentTrigger DESACTIVADO temporalmente');
 Id ownerId         = '0051U000001MRFeQAO';
 Id logRecordTypeId = '0121U000000KY48QAG';
 String fileName    = 'Cargue Manual scr';
-Date dateValue     = System.today().addDays(-1);
+Date dateValue     = System.today().addDays(0);
 String dateStr     = dateValue.format(); //DateTime.newInstance(System.today(), Time.newInstance(18,0,0,0)).format('yyyy-MM-dd');
 
 
@@ -50,7 +50,7 @@ List<SM_Payment__c> pagos = [
     SELECT Id, SM_ACH_Account_Routing_Number__c, SM_Payment_Method__r.SM_ACH_Account_Number__c,
            SM_ACH_Account_Type_Code__c, SM_Person_Account_Name__c, Name, SM_Net_Amount__c,
            SM_ACH_Order__r.Name, SM_Payment_Method__r.Name, Payment_Status__c, SM_Contract__r.Name,
-           SM_Transmission_Date_ACH_File__c
+           SM_Transmission_Date_ACH_File__c, SM_Payment_Date__c
     FROM   SM_Payment__c
     WHERE  (Payment_Status__c = 'ACH PENDING' OR Payment_Status__c = 'ACH PENDING REFUND')
       AND  SM_Contract__r.SM_Customer_Cancellation__c = false
@@ -166,7 +166,8 @@ for (Integer i = 0; i < pagos.size(); i++) {
         Payment_Status__c        = p.Payment_Status__c.contains('REFUND') ? 'ACH TRANSMITTED REFUND' : 'ACH TRANSMITTED',
         SM_Nacha_File__c         = nacha.Id,
         SM_Date_ACH_Transmitted__c = DateTime.newInstance(dateValue, Time.newInstance(18,0,0,0)), //DateTime.newInstance(System.today(), Time.newInstance(18,0,0,0))
-        SM_Transmission_Date_ACH_File__c = dateValue
+        SM_Transmission_Date_ACH_File__c = dateValue,
+        SM_Payment_Date__c = dateValue
     ));
 
     procesados++;
@@ -183,7 +184,8 @@ for (Integer i = 0; i < pagos.size(); i++) {
    // UPDATE
     updBatch.add(new SM_Payment__c(
         Id                       = p.Id,
-        SM_Date_ACH_Transmitted__c = DateTime.newInstance(dateValue, Time.newInstance(18,0,0,0)) //DateTime.newInstance(System.today(), Time.newInstance(18,0,0,0))
+        SM_Date_ACH_Transmitted__c = DateTime.newInstance(dateValue, Time.newInstance(18,0,0,0)), //DateTime.newInstance(System.today(), Time.newInstance(18,0,0,0))
+        SM_Payment_Date__c = dateValue
     ));
      update updBatch;
 

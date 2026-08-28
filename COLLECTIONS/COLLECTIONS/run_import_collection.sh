@@ -20,6 +20,10 @@ set -e
 #   ./run_import_collection.sh apply                -> escanea, aplica todo lo nuevo (real)
 #   ./run_import_collection.sh <ruta_al_pdf>         -> procesa SOLO ese PDF, DRY RUN
 #   ./run_import_collection.sh <ruta_al_pdf> apply   -> procesa SOLO ese PDF (real)
+#
+# SKIP_SCAN=1 ./run_import_collection.sh apply  -> omite el build_index.py y usa
+#   el delta ya generado (lo usa run_all_imports.sh, que comparte el mismo
+#   build_index.py con run_import_return.sh y solo lo corre una vez).
 # ============================================================
 
 ORG_ALIAS="MONEE"
@@ -58,8 +62,12 @@ if [ -n "$FILE_ARG" ]; then
         echo "Reporte para Comercial guardado en: $R10_DIR/${PDF_BASENAME}_R10.csv"
     fi
 else
-    echo "== 1) Escaneando carpetas de OneDrive por PDFs nuevos =="
-    python3 "$SCRIPT_DIR/../build_index.py"
+    if [ "$SKIP_SCAN" = "1" ]; then
+        echo "== 1) Scan omitido (SKIP_SCAN=1) -- usando el delta ya generado =="
+    else
+        echo "== 1) Escaneando carpetas de OneDrive por PDFs nuevos =="
+        python3 "$SCRIPT_DIR/../build_index.py"
+    fi
     if [ ! -s "$DELTA_CSV" ] || [ "$(tail -n +2 "$DELTA_CSV" | wc -l)" -eq 0 ]; then
         echo ""
         echo "== Nada nuevo que aplicar hoy en Check Collection. =="

@@ -4,7 +4,7 @@
 // └───────────────────────────────────────────────────────────────┘
 
 // ---------------- CONFIG ----------------
-Boolean modoDryRun = true;   // true = simula, false = ejecuta
+Boolean modoDryRun = false;   // true = simula, false = ejecuta
 // ----------------------------------------
 
 // 1️⃣ Query única — contratos ACH candidatos
@@ -34,7 +34,7 @@ List<Contract> contratos = [
 SELECT Id, ContractNumber, SM_Payment_methods__c, Status, CB_Subscription__c, Is_Test_Contract__c, Is_VIP_Contract__c,
        SM_Email_to_send_contract__c, SM_Payment_Method__c, SM_Payment_Method__r.RecordType.Name, SM_AC_start_date__c,
        SM_Net_AC__c, SM_AC_collected__c, SM_Start_date__c, SM_Net_Monthly_offer__c, SM_Requires_AC_Payment__c,
-       Contract_Type__c, SM_Billing_status__c, RecordType.Name, SM_Customer_Cancellation__c
+       Contract_Type__c, SM_Billing_status__c, RecordType.Name, SM_Customer_Cancellation__c, CreatedDate
 FROM Contract
 WHERE Status IN ('Payment Process','Activated')
 AND SM_Payment_methods__c = 'ACH'
@@ -74,7 +74,7 @@ List<Contract> contratosACorregir = new List<Contract>();
 // 2️⃣ Procesamiento
 for (Contract c : contratos) {
 
-    System.debug('\u2192 ↳ Procesando contrato: ' + c.ContractNumber);
+    System.debug('\u2192 ↳ Procesando contrato: ' + c.ContractNumber + ' ' + c.CreatedDate);
 
     // Validación: Payment Method debe existir
     if (c.SM_Payment_Method__c == null) {

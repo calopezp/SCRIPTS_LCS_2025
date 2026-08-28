@@ -1,7 +1,7 @@
 """
 Busqueda rapida de un Payment (PY-xxxxx): valida si fue reportado en
-Returns (ACH) o en Collections (Check Collection Daily), y trae estados
-y fechas -- combinando:
+Returns (ACH), Collections (Check Collection Daily) o ACH Reportados
+(transmission), y trae estados y fechas -- combinando:
 
   1) Salesforce en vivo (SM_Payment__c, fuente de verdad): los campos
      SM_Check_Collection_Status__c / SM_Return_code__c / etc. quedan
@@ -11,9 +11,14 @@ y fechas -- combinando:
      (COMPILADO COLLECTIONS/ACH Returns y /Check Collection, ver
      build_index.py), asi que encuentra el payment sin importar el mes
      en que fue reportado -- no solo el ultimo import del dia.
+  3) El indice historico de transmision ACH (COMPILADO COLLECTIONS/ACH
+     Reportados + Files de Salesforce, ver ACH_REPORTADOS/build_index.py),
+     que registra cuando un payment fue transmitido (no si fue
+     retornado/cobrado).
 
-El indice se actualiza automaticamente (de forma incremental, solo PDFs
-nuevos) antes de cada busqueda. Usa --no-update para saltar ese paso.
+El indice se actualiza automaticamente (de forma incremental, solo
+archivos nuevos) antes de cada busqueda. Usa --no-update para saltar ese
+paso.
 
 Requisitos: sf CLI instalado y autenticado contra la org (alias MONEE).
 
@@ -32,18 +37,20 @@ import sys
 from pathlib import Path
 
 import build_index
+import ACH_REPORTADOS.build_index as transmission_build_index
 
 ORG_ALIAS = "MONEE"
 SCRIPT_DIR = Path(__file__).resolve().parent
 RETURNS_INDEX_CSV = build_index.RETURNS_INDEX_CSV
 COLLECTIONS_INDEX_CSV = build_index.COLLECTIONS_INDEX_CSV
+TRANSMISSION_INDEX_CSV = transmission_build_index.INDEX_CSV
 
 SOQL_FIELDS = [
     "Id", "Name", "Payment_Status__c", "SM_Amount__c",
     "SM_Contract__r.ContractNumber",
     "SM_Check_Collection__c", "SM_Check_Collection_Status__c",
     "SM_Check_Collection_Date__c", "SM_Return_code__c",
-    "SM_Return_Change__c", "LastModifiedDate", "CreatedDate"
+    "SM_Return_Change__c", "LastModifiedDate", "CreatedDate", "SM_Date_ACH_Transmitted__c", "SM_Transmission_Date_ACH_File__c"
 ]
 
 RETURN_STATUSES = {"RETURN"}
@@ -127,10 +134,16 @@ def print_result(payment_name: str):
                     print(f"    SM_Return_Change__c: {rec.get('SM_Return_Change__c') or '(vacio)'}")
             else:
                 print("    No reportado en Returns ni en Collections (SM_Check_Collection__c = false/null).")
-            print(f"    LastModifiedDate: {rec.get('LastModifiedDate')}")
+            print(f"    LastModifiedDate                     : {rec.get('LastModifiedDate')}")
+            print(f"    CreatedDate                          : {rec.get('CreatedDate')}")
+            print(f"    SM_Date_ACH_Transmitted__c           : {rec.get('SM_Date_ACH_Transmitted__c')}")
+            print(f"    SM_Transmission_Date_ACH_File__c     : {rec.get('SM_Transmission_Date_ACH_File__c')}")
+
+
 
     returns_rows = search_index(RETURNS_INDEX_CSV, payment_name)
     coll_rows = search_index(COLLECTIONS_INDEX_CSV, payment_name)
+    transmission_rows = search_index(TRANSMISSION_INDEX_CSV, payment_name)
 
     if returns_rows:
         print(f"  [Indice historico RETURNS] {len(returns_rows)} coincidencia(s):")
@@ -152,6 +165,15 @@ def print_result(payment_name: str):
     else:
         print("  [Indice historico COLLECTIONS] no aparece en ningun PDF indexado")
 
+    if transmission_rows:
+        print(f"  [Indice historico ACH REPORTADOS (Transmission)] {len(transmission_rows)} coincidencia(s):")
+        for row in transmission_rows:
+            print(f"    - {row.get('SM_Transmission_Date_ACH_File__c')}"
+                  f"  |  Monto: {row.get('Amount')}"
+                  f"  |  Fuente: {row.get('Source_File')}")
+    else:
+        print("  [Indice historico ACH REPORTADOS (Transmission)] no aparece en ningun archivo indexado")
+
     print()
 
 
@@ -167,8 +189,12 @@ def main():
         sys.exit(1)
 
     if update:
-        print("Actualizando indice historico (solo PDFs nuevos)...")
+        print("Actualizando indice historico (solo archivos nuevos)...")
         build_index.update_indexes(quiet=True)
+        try:
+            transmission_build_index.update_index(quiet=True)
+        except Exception as exc:
+            print(f"  AVISO: no se pudo actualizar el indice de ACH Reportados: {exc}")
         print()
 
     for raw in args:

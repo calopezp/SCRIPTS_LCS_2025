@@ -9,7 +9,8 @@ List<String> contratosAProcesar = new List<String>{
         SELECT SM_Contract__r.ContractNumber, SM_Contract__r.SM_AC_Split_Date__c, SM_Contract__r.CB_Subscription__c,SM_Contract__r.SM_Payment_methods__c FROM SM_Payment__c WHERE Payment_Status__c ='ACCEPTED' AND SM_Type__c = 'AC' 
                 AND SM_Contract__c IN (SELECT Id FROM Contract WHERE Status = 'Payment Process'  AND Is_Test_Contract__c =false AND Is_VIP_Contract__c = false )     
    */
-'00317944'
+'00318012'
+
 
 };
 // Estados que NO deben procesarse

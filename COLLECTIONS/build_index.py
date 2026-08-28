@@ -118,13 +118,15 @@ def update_indexes(rebuild=False, quiet=False):
     for p in _find_pdfs(RETURNS_SOURCE_DIR) + _find_pdfs(COLLECTIONS_SOURCE_DIR):
         all_pdfs[p.name] = p
 
-    pending = [
-        p for name, p in all_pdfs.items()
-        if name not in returns_seen or name not in collections_seen
-    ]
-    # Un PDF ya indexado en AMBOS (o en el que le corresponde) no hace falta
-    # volver a abrirlo; solo reprocesamos los que faltan en su indice.
-    pending = [p for p in pending if not (p.name in returns_seen and p.name in collections_seen)]
+    # Cada PDF solo puede pertenecer a UNO de los dos indices (segun su
+    # contenido), nunca a ambos -- asi que "ya procesado" es estar en
+    # cualquiera de los dos sets, no en los dos a la vez. Comparar contra
+    # returns_seen y collections_seen por separado dejaba a los PDFs de
+    # returns atrapados como "pendientes" para siempre (nunca entran a
+    # collections_seen), lo que vaciaba el delta en la corrida siguiente
+    # aunque el PDF ya estuviera indexado.
+    already_seen = returns_seen | collections_seen
+    pending = [p for name, p in all_pdfs.items() if name not in already_seen]
 
     if not pending:
         if not quiet:
