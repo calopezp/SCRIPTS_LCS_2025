@@ -79,14 +79,15 @@ public class CancelarContratosPorNumberRunner {
             allToMarkCancellation.add(new Contract(
                 Id                          = c.Id,
                 SM_Customer_Cancellation__c = true
+                
             ));
         }
         if (!allToMarkCancellation.isEmpty()) {
             Database.SaveResult[] markSaves = Database.update(allToMarkCancellation, false);
             for (Integer i = 0; i < allToMarkCancellation.size(); i++) {
                 if (!markSaves[i].isSuccess()) {
-                    System.debug('⚠️ Error marcando SM_Customer_Cancellation__c en Id: '
-                        + allToMarkCancellation[i].Id + ' → ' + collectSaveErrors(markSaves[i]));
+                    System.debug('\u2192 ⚠️ Error marcando SM_Customer_Cancellation__c en Id: '
+                        + allToMarkCancellation[i].Id + ' \u2192 ' + collectSaveErrors(markSaves[i]));
                 }
             }
         }
@@ -102,18 +103,20 @@ public class CancelarContratosPorNumberRunner {
             }
         }
 
-        // ── ChargeBee: solo Task ──────────────────────────────
+        // ── ChargeBee: Contract (SM_Customer_Cancellation__c / CANCELAR_CONTRATO__c) + Task ──
         if (!chargebeeContracts.isEmpty()) {
-            System.debug(' → ═════════════════════════════════════════════════════');
-            System.debug(' → ⚠️  CONTRATOS CHARGEBEE (SM_Customer_Cancellation__c ya marcado, creando Task):');
+            List<String> cbLogLines = new List<String>();
+            cbLogLines.add('\u2192 ══════════════════════════════════════════════════════');
+            cbLogLines.add('\u2192 ⚠️  CONTRATOS CHARGEBEE (SM_Customer_Cancellation__c / CANCELAR_CONTRATO__c, creando Task):');
 
-            List<Task> cbTasksToInsert = new List<Task>();
-            List<Id>   cbContractIds   = new List<Id>();
+            List<Task>     cbTasksToInsert     = new List<Task>();
+            List<Id>       cbContractIds       = new List<Id>();
+            List<Contract> cbContractsToUpdate = new List<Contract>();
 
             for (Contract c : chargebeeContracts.values()) {
                 if (c.status != 'Cancelled') {
 
-                    System.debug('  → ' + c.ContractNumber + '▫️Id: ' + c.Id + '▫️CB: ' + c.CB_Subscription__c);
+                    cbLogLines.add('\u2192 ' + c.ContractNumber + '▫️Id: ' + c.Id + '▫️CB: ' + c.CB_Subscription__c);
                     Task t         = new Task();
                     t.Subject      = TASK_SUBJECT;
                     t.WhatId       = c.Id;
@@ -123,8 +126,19 @@ public class CancelarContratosPorNumberRunner {
                     t.ActivityDate = Date.today();
                     cbTasksToInsert.add(t);
                     cbContractIds.add(c.Id);
+
+                    cbContractsToUpdate.add(new Contract(
+                        Id                          = c.Id,
+                        SM_Customer_Cancellation__c = true,
+                        CANCELAR_CONTRATO__c        = numberToReason.get(c.ContractNumber)
+                    ));
                  }
             }
+
+            cbLogLines.add('\u2192 ══════════════════════════════════════════════════════');
+            System.debug('\u2192 \n' + String.join(cbLogLines, '\n'));
+
+            Map<Id, String> cbContractErrors = saveAndCollectErrors(cbContractsToUpdate);
 
             Database.SaveResult[] cbTaskSaves = Database.insert(cbTasksToInsert, false);
             Map<Id, String> cbTaskErrors      = new Map<Id, String>();
@@ -134,19 +148,21 @@ public class CancelarContratosPorNumberRunner {
             }
 
             for (Contract c : chargebeeContracts.values()) {
-                Boolean taskOk = !cbTaskErrors.containsKey(c.Id);
+                Boolean taskOk     = !cbTaskErrors.containsKey(c.Id);
+                Boolean contractOk = !cbContractErrors.containsKey(c.Id);
                 List<String> details = new List<String>{ 'CB_Subscription__c: ' + c.CB_Subscription__c };
-                if (taskOk) details.add('SM_Customer_Cancellation__c = true ▫️ Task creada.');
+                if (contractOk) details.add('SM_Customer_Cancellation__c = true ▫️ CANCELAR_CONTRATO__c actualizado.');
+                else            details.add('Contract error: ' + cbContractErrors.get(c.Id));
+                if (taskOk) details.add('Task creada.');
                 else        details.add('Task error: ' + cbTaskErrors.get(c.Id));
                 allResults.add(makeRow(
                     c.Id, c.ContractNumber,
-                    taskOk ? 'CHARGEBEE_OK' : 'PARTIAL/ERROR',
+                    (taskOk && contractOk) ? 'CHARGEBEE_OK' : 'PARTIAL/ERROR',
                     String.join(details, ' 🔸 '),
-                    taskOk,
+                    taskOk && contractOk,
                     numberToReason.get(c.ContractNumber)
                 ));
             }
-            System.debug(' → ══════════════════════════════════════════════════════');
         }
         if (achContracts.isEmpty()) return allResults;
 
@@ -253,6 +269,7 @@ public class CancelarContratosPorNumberRunner {
             Contract c = activeAchContracts.get(cid);
             c.Status                        = 'Cancelled';
             c.SM_Reason_for_cancellation__c = numberToReason.get(c.ContractNumber);
+            c.CANCELAR_CONTRATO__c          = numberToReason.get(c.ContractNumber);
             c.SM_Cancellation_Date__c       = Date.today();
             contractsToUpdate.add(c);
         }
@@ -335,9 +352,8 @@ public class CancelarContratosPorNumberRunner {
     }
 
     private Id getContractRef(SObject rec) {
-        if (rec instanceof SM_ACH_Order__c)                  return (Id) rec.get('SM_Contract__c');
-        if (rec instanceof ChargentOrders__ChargentOrder__c) return (Id) rec.get('Contract__c');
-        if (rec instanceof Contract)                         return (Id) rec.get('Id');
+        if (rec instanceof SM_ACH_Order__c) return (Id) rec.get('SM_Contract__c');
+        if (rec instanceof Contract)        return (Id) rec.get('Id');
         return null;
     }
 
@@ -577,27 +593,37 @@ CancelGroup GRUP16 = new CancelGroup(
     }
 );
 
+CancelGroup GRUP17 = new CancelGroup(
 
+    'Does not comply with payments',
+    'Cliente no cumple con los pagos, Solicitado y Autorizado por ELba Mantilla',
+    new Set<String>{
+        // 13 Ago (19/69)
+'00317106','00317233','00317179','00317313','00317332','00317312','00317315','00317346','00317304','00317438','00317480','00317387','00317484','00317293','00317553','00317557','00317391','00317478','00317536','00317556','00317614','00317408','00317634','00317674','00317468','00317598','00317683','00317701','00317585','00317558','00317700','00317771','00317731','00317733','00317800','00317467'
+
+
+       // TOTAL: 69
+    }
+);
 
 // ============================================================
 //  EJECUCIÓN — cambia el grupo según lo que vayas a correr
 // ============================================================
 List<ResultRow> outcome =
     new CancelarContratosPorNumberRunner().runAll(
-        new List<CancelGroup>{ GRUP11 }  // ← cambia aquí
+        new List<CancelGroup>{ GRUP17 }  // ← cambia aquí
     );
 
 Integer ok = 0, fail = 0;
-System.debug(' → ══════════════════════════════════════════════════════');
-System.debug(' → 📋  REPORTE DE PROBLEMAS Y RESTRICCIONES');
-System.debug(' → ══════════════════════════════════════════════════════');
+List<String> reportLines = new List<String>();
+reportLines.add('\u2192 ══════════════════════════════════════════════════════');
+reportLines.add('\u2192📋  REPORTE DE PROBLEMAS Y RESTRICCIONES');
+reportLines.add('\u2192 ══════════════════════════════════════════════════════');
 for (ResultRow r : outcome) {
     if (!r.success) {
-        System.debug(
-            ' → ❌ [' + r.action + '] '
+        reportLines.add(
+            '\u2192 ❌ [' + r.action + '] '
             +  r.contractNumber
-           // + '▫️Id: '      + (r.contractId != null ? String.valueOf(r.contractId) : 'N/A')
-          //  + '▫️Grupo: '   + r.groupName
             + '▫️Detalle: ' + r.detail
         );
         fail++;
@@ -605,6 +631,7 @@ for (ResultRow r : outcome) {
         ok++;
     }
 }
-System.debug(' → ══════════════════════════════════════════════════════');
-System.debug(' → ✅ Cancelados: ' + ok + '   ❌ Fallidos/Bloqueados: ' + fail);
-System.debug(' → ══════════════════════════════════════════════════════');
+reportLines.add('\u2192 ══════════════════════════════════════════════════════');
+reportLines.add('\u2192 ✅ Cancelados: ' + ok + '   ❌ Fallidos/Bloqueados: ' + fail);
+reportLines.add('\u2192 ══════════════════════════════════════════════════════');
+System.debug('\u2192 \n' + String.join(reportLines, '\n'));
