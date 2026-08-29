@@ -17,17 +17,22 @@
  * MODO DE USO:
  *   - Corre primero con DRY_RUN = true  -> solo imprime el preview, NO actualiza nada.
  *   - Revisa el debug log completo.
- *   - Si todo está correcto, cambia DRY_RUN = false y corre de nuevo -> aplica el UPDATE real.
+ *   - Si todo esta correcto, cambia DRY_RUN a false y corre de nuevo -> aplica el UPDATE real.
+ *
+ * Antes de armar el update, compara cada fila del CSV contra el estado
+ * ACTUAL del Payment en Salesforce -- si ya coincide en todos los campos,
+ * se salta (no se re-aplica). Asi el CSV puede traer el historico completo
+ * de un mes (no solo lo nuevo de hoy) sin re-tocar lo que ya quedo bien.
  */
 
-// ============ CONFIGURACIÓN ============
+// ============ CONFIGURACION ============
 Boolean DRY_RUN = true; // <-- cambiar a false para ejecutar el update real
 String STATIC_RESOURCE_NAME = 'ACHReturnsImport';
 // ========================================
 
-System.debug(' \u2192 ======================================================');
-System.debug(' \u2192 MODO: ' + (DRY_RUN ? 'DRY RUN (solo preview, sin cambios)' : 'EJECUCIÓN REAL (se va a actualizar)'));
-System.debug(' \u2192 ======================================================');
+System.debug(' -> ======================================================');
+System.debug(' -> MODO: ' + (DRY_RUN ? 'DRY RUN (solo preview, sin cambios)' : 'EJECUCION REAL (se va a actualizar)'));
+System.debug(' -> ======================================================');
 
 // 1) Leer el Static Resource (CSV generado por el script Python)
 StaticResource sr = [
@@ -38,7 +43,7 @@ StaticResource sr = [
 ];
 String csvBody = sr.Body.toString();
 
-// 2) Parsear el CSV (sin comas dentro de los valores, así que split simple es seguro)
+// 2) Parsear el CSV (sin comas dentro de los valores, asi que split simple es seguro)
 List<String> lines = csvBody.split('\r\n');
 if (lines.size() == 1) {
     lines = csvBody.split('\n'); // por si el line ending viene distinto
@@ -63,6 +68,7 @@ class RowData {
     String returnCode;
     String returnChange;
     Id matchedPaymentId;
+    Id achOrderId;
 }
 
 List<RowData> rows = new List<RowData>();
@@ -85,29 +91,78 @@ for (Integer i = 1; i < lines.size(); i++) {
     paymentNames.add(r.paymentName);
 }
 
-System.debug(' \u2192 Total filas leídas del CSV: ' + rows.size());
+System.debug(' -> Total filas leidas del CSV: ' + rows.size());
 
-// 3) Buscar los registros SM_Payment__c que hagan match por Name
-Map<String, Id> nameToId = new Map<String, Id>();
+// 3) Buscar los registros SM_Payment__c que hagan match por Name (trayendo
+// tambien el estado ACTUAL de los campos que vamos a actualizar, para poder
+// comparar contra el target del CSV).
+Map<String, SM_Payment__c> paymentByName = new Map<String, SM_Payment__c>();
 for (SM_Payment__c p : [
-    SELECT Id, Name
+    SELECT Id, Name, SM_ACH_Order__c, Payment_Status__c, SM_Check_Collection_Date__c,
+           SM_Check_Collection__c, SM_Check_Collection_Status__c, SM_Return_code__c, SM_Return_Change__c
     FROM SM_Payment__c
     WHERE Name IN :paymentNames
 ]) {
-    nameToId.put(p.Name, p.Id);
+    paymentByName.put(p.Name, p);
 }
 
-// 4) Armar preview + lista de update, separando lo que no matcheó
-List<SM_Payment__c> toUpdate = new List<SM_Payment__c>();
+// 4) Separar: sin match / ya aplicado (no necesita cambios) / pendiente de aplicar
+List<RowData> matchedRows = new List<RowData>();
+List<RowData> alreadyAppliedRows = new List<RowData>();
 List<String> notFound = new List<String>();
 
 for (RowData r : rows) {
-    if (!nameToId.containsKey(r.paymentName)) {
+    SM_Payment__c match = paymentByName.get(r.paymentName);
+    if (match == null) {
         notFound.add(r.paymentName);
         continue;
     }
-    r.matchedPaymentId = nameToId.get(r.paymentName);
+    r.matchedPaymentId = match.Id;
+    r.achOrderId = match.SM_ACH_Order__c;
 
+    String currentChange = match.SM_Return_Change__c == null ? '' : match.SM_Return_Change__c;
+    String targetChange = r.returnChange == null ? '' : r.returnChange;
+
+    Boolean alreadyApplied =
+        match.Payment_Status__c == r.status &&
+        match.SM_Check_Collection_Date__c == r.collDate &&
+        match.SM_Check_Collection__c == r.coll &&
+        match.SM_Check_Collection_Status__c == r.collStatus &&
+        match.SM_Return_code__c == r.returnCode &&
+        currentChange == targetChange;
+
+    if (alreadyApplied) {
+        alreadyAppliedRows.add(r);
+    } else {
+        matchedRows.add(r);
+    }
+}
+
+// 4b) Agrupar en OLEADAS por SM_ACH_Order__c: si varios returns del batch
+// pertenecen a la misma orden ACH (ej. Fee + Late Fee del mismo contrato),
+// actualizarlos todos en el mismo DML hace que SM_PaymentHandler (trigger
+// AfterUpdate) intente actualizar esa misma orden ACH dos veces en la misma
+// lista y falle con "Duplicate id in list", tumbando el batch completo.
+// Cada orden ACH repetida se reparte en oleadas (1 registro por orden por
+// oleada) y cada oleada se aplica con su propio Database.update() dentro de
+// esta misma ejecucion -- asi TODOS quedan aplicados, no solo el primero.
+Map<Id, Integer> waveByAchOrder = new Map<Id, Integer>();
+Map<Integer, List<RowData>> waves = new Map<Integer, List<RowData>>();
+Integer maxWave = 0;
+
+for (RowData r : matchedRows) {
+    Integer wave = 0;
+    if (r.achOrderId != null) {
+        wave = waveByAchOrder.containsKey(r.achOrderId) ? waveByAchOrder.get(r.achOrderId) + 1 : 0;
+        waveByAchOrder.put(r.achOrderId, wave);
+    }
+    if (wave > maxWave) { maxWave = wave; }
+    if (!waves.containsKey(wave)) { waves.put(wave, new List<RowData>()); }
+    waves.get(wave).add(r);
+}
+
+// 5) Preview (solo lo que realmente se va a tocar, en el orden original del CSV)
+for (RowData r : matchedRows) {
     System.debug(
         'PREVIEW -> ' + r.paymentName +
         ' | Payment_Status__c: ' + r.status +
@@ -115,52 +170,68 @@ for (RowData r : rows) {
         ' | SM_Check_Collection__c: ' + r.coll +
         ' | SM_Check_Collection_Status__c: ' + r.collStatus +
         ' | SM_Return_code__c: ' + r.returnCode +
-        ' | SM_Return_Change__c: ' + (String.isBlank(r.returnChange) ? '(vacío)' : r.returnChange)
+        ' | SM_Return_Change__c: ' + (String.isBlank(r.returnChange) ? '(vacio)' : r.returnChange)
     );
-
-    toUpdate.add(new SM_Payment__c(
-        Id = r.matchedPaymentId,
-        Payment_Status__c = r.status,
-        SM_Check_Collection_Date__c = r.collDate,
-        SM_Check_Collection__c = r.coll,
-        SM_Check_Collection_Status__c = r.collStatus,
-        SM_Return_code__c = r.returnCode,
-        SM_Return_Change__c = r.returnChange
-    ));
 }
 
-System.debug(' \u2192 ======================================================');
-System.debug(' \u2192 Registros con match encontrado (listos para update): ' + toUpdate.size());
-System.debug(' \u2192 Registros SIN match (PY-XXXX no existe como Payment): ' + notFound.size());
+System.debug(' -> ======================================================');
+System.debug(' -> Total filas del CSV: ' + rows.size());
+System.debug(' -> Registros SIN match (PY-XXXX no existe como Payment): ' + notFound.size());
 if (!notFound.isEmpty()) {
-    System.debug(' \u2192   -> Nombres no encontrados: ' + notFound);
+    System.debug(' ->   -> Nombres no encontrados: ' + notFound);
 }
-System.debug(' \u2192 ======================================================');
+System.debug(' -> Ya aplicados anteriormente (sin cambios, se omiten): ' + alreadyAppliedRows.size());
+System.debug(' -> Pendientes de aplicar en esta corrida: ' + matchedRows.size());
+System.debug(' -> Oleadas necesarias por colisiones de orden ACH repetida: ' + (matchedRows.isEmpty() ? 0 : (maxWave + 1)));
+for (Integer w = 0; w <= maxWave && !matchedRows.isEmpty(); w++) {
+    System.debug(' ->   -> Oleada ' + (w + 1) + ': ' + waves.get(w).size() + ' registro(s)');
+}
+System.debug(' -> ======================================================');
 
-// 5) Ejecutar el update SOLO si DRY_RUN = false
+// 6) Ejecutar el update SOLO si DRY_RUN = false -- una oleada a la vez
 if (!DRY_RUN) {
-    if (toUpdate.isEmpty()) {
-        System.debug(' \u2192 No hay registros para actualizar.');
+    if (matchedRows.isEmpty()) {
+        System.debug(' -> No hay registros pendientes de aplicar.');
     } else {
-        List<Database.SaveResult> results = Database.update(toUpdate, false);
-        Integer okCount = 0;
-        Integer errCount = 0;
-        for (Integer i = 0; i < results.size(); i++) {
-            Database.SaveResult res = results[i];
-            if (res.isSuccess()) {
-                okCount++;
-            } else {
-                errCount++;
-                System.debug(
-                    'ERROR actualizando ' + toUpdate[i].Id + ': ' +
-                    res.getErrors()[0].getMessage()
-                );
+        Integer totalOk = 0;
+        Integer totalErr = 0;
+        for (Integer w = 0; w <= maxWave; w++) {
+            List<RowData> waveRows = waves.get(w);
+            List<SM_Payment__c> waveUpdate = new List<SM_Payment__c>();
+            for (RowData r : waveRows) {
+                waveUpdate.add(new SM_Payment__c(
+                    Id = r.matchedPaymentId,
+                    Payment_Status__c = r.status,
+                    SM_Check_Collection_Date__c = r.collDate,
+                    SM_Check_Collection__c = r.coll,
+                    SM_Check_Collection_Status__c = r.collStatus,
+                    SM_Return_code__c = r.returnCode,
+                    SM_Return_Change__c = r.returnChange
+                ));
             }
+            List<Database.SaveResult> results = Database.update(waveUpdate, false);
+            Integer okCount = 0;
+            Integer errCount = 0;
+            for (Integer i = 0; i < results.size(); i++) {
+                Database.SaveResult res = results[i];
+                if (res.isSuccess()) {
+                    okCount++;
+                } else {
+                    errCount++;
+                    System.debug(
+                        'ERROR actualizando ' + waveUpdate[i].Id + ': ' +
+                        res.getErrors()[0].getMessage()
+                    );
+                }
+            }
+            System.debug(' ->   -> Oleada ' + (w + 1) + ' completada -> Exitos: ' + okCount + ' | Errores: ' + errCount);
+            totalOk += okCount;
+            totalErr += errCount;
         }
-        System.debug(' \u2192 ======================================================');
-        System.debug(' \u2192 UPDATE COMPLETADO -> Éxitos: ' + okCount + ' | Errores: ' + errCount);
-        System.debug(' \u2192 ======================================================');
+        System.debug(' -> ======================================================');
+        System.debug(' -> UPDATE COMPLETADO -> Exitos: ' + totalOk + ' | Errores: ' + totalErr);
+        System.debug(' -> ======================================================');
     }
 } else {
-    System.debug(' \u2192 DRY RUN activo: no se ejecutó ningún UPDATE. Cambia DRY_RUN a false para aplicar los cambios.');
+    System.debug(' -> DRY RUN activo: no se ejecuto ningun UPDATE. Cambia DRY_RUN a false para aplicar los cambios.');
 }
