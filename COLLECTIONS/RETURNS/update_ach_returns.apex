@@ -23,11 +23,19 @@
  * ACTUAL del Payment en Salesforce -- si ya coincide en todos los campos,
  * se salta (no se re-aplica). Asi el CSV puede traer el historico completo
  * de un mes (no solo lo nuevo de hoy) sin re-tocar lo que ya quedo bien.
+ *
+ * Cada vez que un Payment SI cambia (no para los que se saltan por ya
+ * estar aplicados), se antepone una marca al campo
+ * SM_Historical_Collection_Status__c: "PRC_AUT: <STATUS> //" + lo que ya
+ * habia (se conserva el historico, nunca se pisa). El campo es Text(150),
+ * asi que si no alcanza se trunca desde el final (se pierde el historico
+ * mas viejo, se conserva siempre lo mas reciente).
  */
 
 // ============ CONFIGURACION ============
 Boolean DRY_RUN = true; // <-- cambiar a false para ejecutar el update real
 String STATIC_RESOURCE_NAME = 'ACHReturnsImport';
+Integer HISTORICAL_MAX_LENGTH = 150; // Text(150) -- SM_Historical_Collection_Status__c
 // ========================================
 
 System.debug(' -> ======================================================');
@@ -69,6 +77,7 @@ class RowData {
     String returnChange;
     Id matchedPaymentId;
     Id achOrderId;
+    String newHistorical;
 }
 
 List<RowData> rows = new List<RowData>();
@@ -99,7 +108,8 @@ System.debug(' -> Total filas leidas del CSV: ' + rows.size());
 Map<String, SM_Payment__c> paymentByName = new Map<String, SM_Payment__c>();
 for (SM_Payment__c p : [
     SELECT Id, Name, SM_ACH_Order__c, Payment_Status__c, SM_Check_Collection_Date__c,
-           SM_Check_Collection__c, SM_Check_Collection_Status__c, SM_Return_code__c, SM_Return_Change__c
+           SM_Check_Collection__c, SM_Check_Collection_Status__c, SM_Return_code__c, SM_Return_Change__c,
+           SM_Historical_Collection_Status__c
     FROM SM_Payment__c
     WHERE Name IN :paymentNames
 ]) {
@@ -134,6 +144,13 @@ for (RowData r : rows) {
     if (alreadyApplied) {
         alreadyAppliedRows.add(r);
     } else {
+        String tag = 'PRC_AUT: ' + r.collStatus.replace(' ', '_') + ' //';
+        String previousHistorical = match.SM_Historical_Collection_Status__c == null ? '' : match.SM_Historical_Collection_Status__c;
+        String newHistorical = tag + previousHistorical;
+        if (newHistorical.length() > HISTORICAL_MAX_LENGTH) {
+            newHistorical = newHistorical.substring(0, HISTORICAL_MAX_LENGTH);
+        }
+        r.newHistorical = newHistorical;
         matchedRows.add(r);
     }
 }
@@ -170,7 +187,8 @@ for (RowData r : matchedRows) {
         ' | SM_Check_Collection__c: ' + r.coll +
         ' | SM_Check_Collection_Status__c: ' + r.collStatus +
         ' | SM_Return_code__c: ' + r.returnCode +
-        ' | SM_Return_Change__c: ' + (String.isBlank(r.returnChange) ? '(vacio)' : r.returnChange)
+        ' | SM_Return_Change__c: ' + (String.isBlank(r.returnChange) ? '(vacio)' : r.returnChange) +
+        ' | SM_Historical_Collection_Status__c -> [' + r.newHistorical + ']'
     );
 }
 
@@ -206,7 +224,8 @@ if (!DRY_RUN) {
                     SM_Check_Collection__c = r.coll,
                     SM_Check_Collection_Status__c = r.collStatus,
                     SM_Return_code__c = r.returnCode,
-                    SM_Return_Change__c = r.returnChange
+                    SM_Return_Change__c = r.returnChange,
+                    SM_Historical_Collection_Status__c = r.newHistorical
                 ));
             }
             List<Database.SaveResult> results = Database.update(waveUpdate, false);
