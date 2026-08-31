@@ -126,11 +126,13 @@ for (SM_Payment__c p : [
     paymentByName.put(p.Name, p);
 }
 
-// 4) Separar: sin match / ya aplicado (no necesita cambios) / superado por
-// un evento mas reciente (se salta, no se revierte) / pendiente de aplicar
+// 4) Separar: sin match / ya aplicado (no necesita cambios) / bloqueado por
+// regresion (COLLECTED/ACCEPTED -> NOT COLLECTED, nunca automatico) /
+// superado por un evento mas reciente (se salta) / pendiente de aplicar
 List<RowData> matchedRows = new List<RowData>();
 List<RowData> alreadyAppliedRows = new List<RowData>();
 List<RowData> supersededRows = new List<RowData>();
+List<RowData> regressionBlockedRows = new List<RowData>();
 List<String> notFound = new List<String>();
 
 for (RowData r : rows) {
@@ -150,6 +152,18 @@ for (RowData r : rows) {
 
     if (alreadyApplied) {
         alreadyAppliedRows.add(r);
+        continue;
+    }
+
+    // Un pago que ya esta COLLECTED/ACCEPTED nunca se revierte
+    // automaticamente a RETURN/NOT COLLECTED -- sin importar fechas, eso
+    // siempre queda para revision manual (regla de negocio explicita).
+    Boolean isCurrentlySuccess =
+        match.Payment_Status__c == 'ACCEPTED' || match.SM_Check_Collection_Status__c == 'COLLECTED';
+    Boolean isTargetRegression = r.collStatus == 'RETURN' || r.collStatus == 'NOT COLLECTED';
+
+    if (isCurrentlySuccess && isTargetRegression) {
+        regressionBlockedRows.add(r);
         continue;
     }
 
@@ -213,6 +227,14 @@ if (!notFound.isEmpty()) {
     System.debug(' ->   -> Nombres no encontrados: ' + notFound);
 }
 System.debug(' -> Ya aplicados anteriormente (sin cambios, se omiten): ' + alreadyAppliedRows.size());
+if (!regressionBlockedRows.isEmpty()) {
+    List<String> regressionNames = new List<String>();
+    for (RowData r : regressionBlockedRows) { regressionNames.add(r.paymentName); }
+    System.debug(' -> ***** ALERTA: ' + regressionBlockedRows.size() + ' pago(s) ya COLLECTED/ACCEPTED que este reporte queria pasar a RETURN/NOT COLLECTED -- NO SE APLICARON, ANALIZAR MANUALMENTE *****');
+    System.debug(' ->   -> Nombres bloqueados por regresion: ' + regressionNames);
+} else {
+    System.debug(' -> Bloqueados por regresion (COLLECTED/ACCEPTED -> RETURN/NOT COLLECTED, nunca automatico): 0');
+}
 System.debug(' -> Superados por un evento mas reciente en Salesforce (se saltan, revisar manualmente): ' + supersededRows.size());
 if (!supersededRows.isEmpty()) {
     List<String> supersededNames = new List<String>();

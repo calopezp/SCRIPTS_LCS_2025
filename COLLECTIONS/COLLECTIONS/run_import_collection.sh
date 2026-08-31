@@ -205,11 +205,34 @@ fi
 
 echo "== 5) Ejecutando Anonymous Apex en $ORG_ALIAS =="
 set +e
-sf apex run --file "$TMP_APEX" -o "$ORG_ALIAS"
+APEX_OUTPUT="$(sf apex run --file "$TMP_APEX" -o "$ORG_ALIAS" 2>&1)"
 APEX_EXIT=$?
 set -e
+echo "$APEX_OUTPUT"
 
 rm -f "$TMP_APEX"
+
+# Pagos ya COLLECTED/ACCEPTED que este reporte queria revertir a
+# RETURN/NOT COLLECTED -- nunca se aplican solos, se avisan aca (ademas
+# del debug log) y quedan guardados en un log aparte para no perderse
+# entre corridas.
+if echo "$APEX_OUTPUT" | grep "USER_DEBUG" | grep -q "ALERTA:"; then
+    REGRESSION_LOG="$SCRIPT_DIR/../regresiones_manual_review.log"
+    ALERT_LINE="$(echo "$APEX_OUTPUT" | grep "USER_DEBUG" | grep "ALERTA:" | sed -E 's/^.*DEBUG\|//' | head -1)"
+    NAMES_LINE="$(echo "$APEX_OUTPUT" | grep "USER_DEBUG" | grep "Nombres bloqueados por regresion" | sed -E 's/^.*DEBUG\|//' | head -1)"
+    echo ""
+    echo "!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!"
+    echo "!!! $ALERT_LINE"
+    echo "!!! $NAMES_LINE"
+    echo "!!! Guardado en: $REGRESSION_LOG -- revisar manualmente"
+    echo "!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!"
+    {
+        echo "[$(date '+%Y-%m-%d %H:%M:%S')] ($STATIC_RESOURCE_NAME)"
+        echo "  $ALERT_LINE"
+        echo "  $NAMES_LINE"
+        echo ""
+    } >> "$REGRESSION_LOG"
+fi
 
 if [ $APEX_EXIT -ne 0 ]; then
     echo ""
