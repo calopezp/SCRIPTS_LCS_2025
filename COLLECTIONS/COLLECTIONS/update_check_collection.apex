@@ -85,20 +85,29 @@ class RowData {
 
 List<RowData> rows = new List<RowData>();
 Set<String> paymentNames = new Set<String>();
+List<String> malformedRows = new List<String>();
 
 for (Integer i = 1; i < lines.size(); i++) {
     if (String.isBlank(lines[i])) { continue; }
     List<String> cols = lines[i].split(',');
 
-    RowData r = new RowData();
-    r.paymentName = cols[idxPaymentName].trim();
-    r.status      = cols[idxStatus].trim();
-    r.collDate    = Date.valueOf(cols[idxCollDate].trim());
-    r.coll        = Boolean.valueOf(cols[idxColl].trim());
-    r.collStatus  = cols[idxCollStatus].trim();
+    // Una fila con un valor que no parsea (ej. fecha vacia -- caso raro de
+    // extraccion en el PDF de origen) no debe tumbar el batch completo: se
+    // salta y se reporta, no se aborta la ejecucion.
+    try {
+        RowData r = new RowData();
+        r.paymentName = cols[idxPaymentName].trim();
+        r.status      = cols[idxStatus].trim();
+        r.collDate    = Date.valueOf(cols[idxCollDate].trim());
+        r.coll        = Boolean.valueOf(cols[idxColl].trim());
+        r.collStatus  = cols[idxCollStatus].trim();
 
-    rows.add(r);
-    paymentNames.add(r.paymentName);
+        rows.add(r);
+        paymentNames.add(r.paymentName);
+    } catch (Exception ex) {
+        String badName = cols.size() > idxPaymentName ? cols[idxPaymentName].trim() : '(fila ' + i + ')';
+        malformedRows.add(badName + ' (' + ex.getMessage() + ')');
+    }
 }
 
 System.debug(' -> Total filas leidas del CSV: ' + rows.size());
@@ -109,16 +118,19 @@ System.debug(' -> Total filas leidas del CSV: ' + rows.size());
 Map<String, SM_Payment__c> paymentByName = new Map<String, SM_Payment__c>();
 for (SM_Payment__c p : [
     SELECT Id, Name, SM_ACH_Order__c, Payment_Status__c, SM_Check_Collection_Date__c,
-           SM_Check_Collection__c, SM_Check_Collection_Status__c, SM_Historical_Collection_Status__c
+           SM_Check_Collection__c, SM_Check_Collection_Status__c, SM_Historical_Collection_Status__c,
+           LastModifiedDate
     FROM SM_Payment__c
     WHERE Name IN :paymentNames
 ]) {
     paymentByName.put(p.Name, p);
 }
 
-// 4) Separar: sin match / ya aplicado (no necesita cambios) / pendiente de aplicar
+// 4) Separar: sin match / ya aplicado (no necesita cambios) / superado por
+// un evento mas reciente (se salta, no se revierte) / pendiente de aplicar
 List<RowData> matchedRows = new List<RowData>();
 List<RowData> alreadyAppliedRows = new List<RowData>();
+List<RowData> supersededRows = new List<RowData>();
 List<String> notFound = new List<String>();
 
 for (RowData r : rows) {
@@ -138,6 +150,18 @@ for (RowData r : rows) {
 
     if (alreadyApplied) {
         alreadyAppliedRows.add(r);
+        continue;
+    }
+
+    // Si Salesforce se modifico DESPUES de la fecha de este reporte, es muy
+    // probable que haya un evento mas reciente (ej. otro Check Collection o
+    // un Return posterior) -- no se revierte, se salta para revision
+    // manual en vez de pisar el estado actual a ciegas.
+    Boolean supersededByNewerEvent =
+        match.LastModifiedDate != null && match.LastModifiedDate.date() > r.collDate;
+
+    if (supersededByNewerEvent) {
+        supersededRows.add(r);
     } else {
         String tag = 'PRC_AUT: ' + r.collStatus.replace(' ', '_') + ' //';
         String previousHistorical = match.SM_Historical_Collection_Status__c == null ? '' : match.SM_Historical_Collection_Status__c;
@@ -179,12 +203,22 @@ for (RowData r : matchedRows) {
 }
 
 System.debug(' -> ======================================================');
-System.debug(' -> Total filas del CSV: ' + rows.size());
+System.debug(' -> Total filas del CSV: ' + (rows.size() + malformedRows.size()));
+if (!malformedRows.isEmpty()) {
+    System.debug(' -> Filas MALFORMADAS (se saltan, revisar el PDF de origen): ' + malformedRows.size());
+    System.debug(' ->   -> ' + malformedRows);
+}
 System.debug(' -> Registros SIN match (PY-XXXX no existe como Payment): ' + notFound.size());
 if (!notFound.isEmpty()) {
     System.debug(' ->   -> Nombres no encontrados: ' + notFound);
 }
 System.debug(' -> Ya aplicados anteriormente (sin cambios, se omiten): ' + alreadyAppliedRows.size());
+System.debug(' -> Superados por un evento mas reciente en Salesforce (se saltan, revisar manualmente): ' + supersededRows.size());
+if (!supersededRows.isEmpty()) {
+    List<String> supersededNames = new List<String>();
+    for (RowData r : supersededRows) { supersededNames.add(r.paymentName); }
+    System.debug(' ->   -> Nombres saltados: ' + supersededNames);
+}
 System.debug(' -> Pendientes de aplicar en esta corrida: ' + matchedRows.size());
 System.debug(' -> Oleadas necesarias por colisiones de orden ACH repetida: ' + (matchedRows.isEmpty() ? 0 : (maxWave + 1)));
 for (Integer w = 0; w <= maxWave && !matchedRows.isEmpty(); w++) {

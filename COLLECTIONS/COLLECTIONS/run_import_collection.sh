@@ -5,11 +5,30 @@ set -e
 # run_import_collection.sh
 # Uso diario: escanea las carpetas de OneDrive (ACH Returns +
 # Check Collection, via ../build_index.py) en busca de PDFs
-# nuevos -> arma el delta del dia -> despliega el CSV como
-# Static Resource -> corre el Apex (preview o real).
+# nuevos -> arma el CSV a aplicar desde el INDICE HISTORICO
+# COMPLETO (no solo los PDFs nuevos de hoy) -> despliega el CSV
+# como Static Resource -> corre el Apex (preview o real).
 #
-# Solo se aplica el DELTA de esta corrida (los payments de los
-# PDFs nuevos), no el indice historico completo.
+# Se manda el historico de los ultimos 45 dias (no solo los PDFs
+# nuevos de hoy) porque update_check_collection.apex compara cada
+# fila contra el estado ACTUAL en Salesforce y solo aplica lo que de
+# verdad esta pendiente -- asi el proceso diario tambien detecta y
+# aplica solo registros de PDFs ya escaneados en corridas anteriores
+# cuyo UPDATE nunca llego a aplicarse (ej. por el bug de "Duplicate
+# id in list"), sin necesidad de reprocesar manualmente el PDF
+# especifico. Se limita a 45 dias (no todo el historico) para no
+# reaplicar reportes viejos ya superados por eventos posteriores.
+#
+# El CSV se arma cruzando el indice de Check Collection CONTRA el de
+# Returns (build_pending_deltas.py): si el mismo Payment aparece en
+# los dos, manda el reporte mas reciente (empate -> gana Collection)
+# -- asi este script nunca aplica un Collection viejo si un Return
+# mas reciente ya lo supero (y siempre gana sobre un Return de la
+# misma fecha).
+#
+# El reporte R10 para Comercial sigue basandose SOLO en los PDFs
+# nuevos de hoy (el delta de build_index.py), no en el historico
+# completo, para no re-notificar clientes ya contactados.
 #
 # CONFIGURAR UNA SOLA VEZ:
 #   - ORG_ALIAS: alias de tu org en sf CLI (ej. MONEE)
@@ -33,6 +52,8 @@ STATIC_RESOURCE_DIR="$PROJECT_DIR/force-app/main/default/staticresources"
 SCRIPT_DIR="$(cd "$(dirname "${BASH_SOURCE[0]}")" && pwd)"
 APEX_TEMPLATE="$SCRIPT_DIR/update_check_collection.apex"
 EXTRACT_SCRIPT="$SCRIPT_DIR/extract_check_collection.py"
+COLLECTIONS_INDEX_CSV="$SCRIPT_DIR/../index/collections_index.csv"
+RETURNS_INDEX_CSV="$SCRIPT_DIR/../index/returns_index.csv"
 DELTA_CSV="$SCRIPT_DIR/../index/collections_last_run_delta.csv"
 STATIC_RESOURCE_NAME="CheckCollectionImport"
 R10_DIR="$SCRIPT_DIR/reportes_comercial_R10"
@@ -63,22 +84,33 @@ if [ -n "$FILE_ARG" ]; then
     fi
 else
     if [ "$SKIP_SCAN" = "1" ]; then
-        echo "== 1) Scan omitido (SKIP_SCAN=1) -- usando el delta ya generado =="
+        echo "== 1) Scan y cruce de indices omitidos (SKIP_SCAN=1) -- usando el CSV ya generado =="
     else
         echo "== 1) Escaneando carpetas de OneDrive por PDFs nuevos =="
         python3 "$SCRIPT_DIR/../build_index.py"
+        if [ ! -s "$COLLECTIONS_INDEX_CSV" ]; then
+            echo ""
+            echo "== Indice de Check Collection vacio, nada que aplicar. =="
+            exit 0
+        fi
+        echo "== 1b) Cruzando Check Collection vs Returns (gana el mas reciente, empate -> Collection) =="
+        python3 "$SCRIPT_DIR/../build_pending_deltas.py" \
+            "$RETURNS_INDEX_CSV" "$COLLECTIONS_INDEX_CSV" \
+            "$SCRIPT_DIR/../RETURNS/ACHReturnsImport.csv" "$CSV_OUT"
     fi
-    if [ ! -s "$DELTA_CSV" ] || [ "$(tail -n +2 "$DELTA_CSV" | wc -l)" -eq 0 ]; then
+    if [ ! -s "$CSV_OUT" ] || [ "$(tail -n +2 "$CSV_OUT" | wc -l)" -eq 0 ]; then
         echo ""
-        echo "== Nada nuevo que aplicar hoy en Check Collection. =="
+        echo "== Nada que aplicar en Check Collection (todo dentro de la ventana ya esta aplicado o le corresponde a Returns). =="
         exit 0
     fi
-    cp "$DELTA_CSV" "$CSV_OUT"
 
-    # Filtrar filas R10 del delta del dia para el reporte de Comercial.
-    TODAY="$(date +%Y%m%d)"
-    R10_OUT="$SCRIPT_DIR/CheckCollectionImport_R10_ClienteSolicitoDevolucion.csv"
-    python3 - "$CSV_OUT" "$R10_OUT" << 'PYEOF'
+    # Reporte R10 para Comercial: SOLO de los PDFs nuevos de hoy (el delta
+    # de build_index.py), no del historico completo -- para no re-notificar
+    # clientes de dias anteriores cada vez que se corre este script.
+    if [ -s "$DELTA_CSV" ] && [ "$(tail -n +2 "$DELTA_CSV" | wc -l)" -gt 0 ]; then
+        TODAY="$(date +%Y%m%d)"
+        R10_OUT="$SCRIPT_DIR/CheckCollectionImport_R10_ClienteSolicitoDevolucion.csv"
+        python3 - "$DELTA_CSV" "$R10_OUT" << 'PYEOF'
 import csv, sys
 src, dst = sys.argv[1], sys.argv[2]
 with open(src, newline='', encoding='utf-8') as f:
@@ -92,10 +124,11 @@ if rows:
 else:
     print("Sin registros R10 en el delta de hoy")
 PYEOF
-    if [ -s "$R10_OUT" ] && [ "$(tail -n +2 "$R10_OUT" | wc -l)" -gt 0 ]; then
-        mkdir -p "$R10_DIR"
-        cp "$R10_OUT" "$R10_DIR/delta_${TODAY}_R10.csv"
-        echo "Reporte para Comercial guardado en: $R10_DIR/delta_${TODAY}_R10.csv"
+        if [ -s "$R10_OUT" ] && [ "$(tail -n +2 "$R10_OUT" | wc -l)" -gt 0 ]; then
+            mkdir -p "$R10_DIR"
+            cp "$R10_OUT" "$R10_DIR/delta_${TODAY}_R10.csv"
+            echo "Reporte para Comercial guardado en: $R10_DIR/delta_${TODAY}_R10.csv"
+        fi
     fi
 fi
 
@@ -128,7 +161,25 @@ if [ $DEPLOY_EXIT -ne 0 ]; then
     echo ""
     echo "AVISO: 'sf project deploy start' devolvió código $DEPLOY_EXIT."
     echo "Verificando si el deploy realmente falló o fue un falso positivo del CLI..."
-    if sf project deploy report -o "$ORG_ALIAS" --use-most-recent | grep -qi "status.*succeeded"; then
+    # El deploy puede seguir "In Progress" un momento despues de que el CLI
+    # devuelve el control -- un solo chequeo inmediato puede pescarlo a
+    # mitad de camino y reportar falla cuando en realidad solo falta
+    # esperar. Se reintenta unas cuantas veces antes de rendirse.
+    set +e
+    DEPLOY_OK=0
+    for i in 1 2 3 4 5 6; do
+        REPORT="$(sf project deploy report -o "$ORG_ALIAS" --use-most-recent 2>&1)"
+        if echo "$REPORT" | grep -qi "status.*succeeded"; then
+            DEPLOY_OK=1
+            break
+        fi
+        if echo "$REPORT" | grep -qi "status.*failed"; then
+            break
+        fi
+        sleep 5
+    done
+    set -e
+    if [ $DEPLOY_OK -eq 1 ]; then
         echo "Deploy confirmado como EXITOSO pese al código de salida. Continuando..."
     else
         echo "ERROR: el deploy del Static Resource falló de verdad. Abortando."
