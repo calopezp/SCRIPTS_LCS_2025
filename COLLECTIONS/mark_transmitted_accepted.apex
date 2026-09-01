@@ -32,23 +32,24 @@ Integer DAYS_SINCE_TRANSMITTED = 15;
 
 Date cutoff = Date.today().addDays(-DAYS_SINCE_TRANSMITTED);
 
-System.debug(' -> ======================================================');
-System.debug(' -> MODO: ' + (DRY_RUN ? 'DRY RUN (solo preview, sin cambios)' : 'EJECUCION REAL (se va a actualizar)'));
-System.debug(' -> Corte: ACH TRANSMITTED antes de ' + cutoff + ' (' + DAYS_SINCE_TRANSMITTED + ' dia(s) o mas) y sin ningun reporte de Returns/Collection');
-System.debug(' -> ======================================================');
+System.debug('\u2192  -> ======================================================');
+System.debug('\u2192  -> MODO: ' + (DRY_RUN ? 'DRY RUN (solo preview, sin cambios)' : 'EJECUCION REAL (se va a actualizar)'));
+System.debug('\u2192  -> Corte: ACH TRANSMITTED antes de ' + cutoff + ' (' + DAYS_SINCE_TRANSMITTED + ' dia(s) o mas) y sin ningun reporte de Returns/Collection');
+System.debug('\u2192  -> ======================================================');
 
 // 1) Candidatos: transmitidos hace rato, sin ningun reporte
 List<SM_Payment__c> candidates = [
-    SELECT Id, Name, SM_ACH_Order__c, SM_Date_ACH_Transmitted__c, SM_Historical_Collection_Status__c
+    SELECT Id, Name, SM_ACH_Order__c, SM_Date_ACH_Transmitted__c, SM_Transmission_Date_ACH_File__c,
+           SM_Historical_Collection_Status__c, SM_Type__c, SM_Original_Type__c, SM_Contract__r.ContractNumber
     FROM SM_Payment__c
     WHERE Payment_Status__c = 'ACH TRANSMITTED'
-    AND SM_Date_ACH_Transmitted__c <= :cutoff
+    AND SM_Transmission_Date_ACH_File__c <= :cutoff
     AND SM_Check_Collection_Status__c = null
-    ORDER BY SM_Date_ACH_Transmitted__c ASC
+    ORDER BY SM_Transmission_Date_ACH_File__c ASC
 ];
 
 for (SM_Payment__c p : candidates) {
-    System.debug('PREVIEW -> ' + p.Name + ' | Transmitido: ' + p.SM_Date_ACH_Transmitted__c + ' -> se marcaria ACCEPTED / SM_Check_Collection_Status__c: COLLECTED hoy');
+    System.debug('\u2192 PREVIEW -> ' + p.Name + ' \uFF5C Transmitido: ' + p.SM_Transmission_Date_ACH_File__c + ' -> se marcaria ACCEPTED / SM_Check_Collection_Status__c: COLLECTED hoy');
 }
 
 // 2) Agrupar en OLEADAS por SM_ACH_Order__c -- mismo motivo que en
@@ -69,20 +70,40 @@ for (SM_Payment__c p : candidates) {
     waves.get(wave).add(p);
 }
 
-System.debug(' -> ======================================================');
-System.debug(' -> Candidatos (ACH TRANSMITTED hace ' + DAYS_SINCE_TRANSMITTED + '+ dia(s), sin reporte): ' + candidates.size());
+System.debug('\u2192  -> ======================================================');
+System.debug('\u2192  -> Candidatos (ACH TRANSMITTED hace ' + DAYS_SINCE_TRANSMITTED + '+ dia(s), sin reporte): ' + candidates.size());
 if (!candidates.isEmpty()) {
-    System.debug(' -> Oleadas necesarias por colisiones de orden ACH repetida: ' + (maxWave + 1));
+    System.debug('\u2192  -> Oleadas necesarias por colisiones de orden ACH repetida: ' + (maxWave + 1));
     for (Integer w = 0; w <= maxWave; w++) {
-        System.debug(' ->   -> Oleada ' + (w + 1) + ': ' + waves.get(w).size() + ' registro(s)');
+        System.debug('\u2192  ->   -> Oleada ' + (w + 1) + ': ' + waves.get(w).size() + ' registro(s)');
     }
 }
-System.debug(' -> ======================================================');
+System.debug('\u2192  -> ======================================================');
+
+// 2b) Contratos de pagos AC entre los candidatos (SM_Type__c u
+// SM_Original_Type__c = 'AC') -- para el proceso de activacion de
+// contrato posterior.
+Set<String> acContractNumbers = new Set<String>();
+for (SM_Payment__c p : candidates) {
+    if ((p.SM_Type__c == 'AC' || p.SM_Original_Type__c == 'AC')
+        && p.SM_Contract__r != null && p.SM_Contract__r.ContractNumber != null) {
+        acContractNumbers.add(p.SM_Contract__r.ContractNumber);
+    }
+}
+List<String> acContractNumbersQuoted = new List<String>();
+for (String cn : acContractNumbers) {
+    acContractNumbersQuoted.add('\'' + cn + '\'');
+}
+System.debug('\u2192  -> Contratos AC entre los candidatos (para activacion posterior): ' + acContractNumbers.size());
+if (!acContractNumbersQuoted.isEmpty()) {
+    System.debug('\u2192  ->   -> ' + String.join(acContractNumbersQuoted, ', '));
+}
+System.debug('\u2192  -> ======================================================');
 
 // 3) Ejecutar el update SOLO si DRY_RUN = false -- una oleada a la vez
 if (!DRY_RUN) {
     if (candidates.isEmpty()) {
-        System.debug(' -> No hay candidatos para actualizar.');
+        System.debug('\u2192  -> No hay candidatos para actualizar.');
     } else {
         Date today = Date.today();
         Integer totalOk = 0;
@@ -124,14 +145,14 @@ if (!DRY_RUN) {
                     );
                 }
             }
-            System.debug(' ->   -> Oleada ' + (w + 1) + ' completada -> Exitos: ' + okCount + ' | Errores: ' + errCount);
+            System.debug('\u2192  ->   -> Oleada ' + (w + 1) + ' completada -> Exitos: ' + okCount + ' \uFF5C Errores: ' + errCount);
             totalOk += okCount;
             totalErr += errCount;
         }
-        System.debug(' -> ======================================================');
-        System.debug(' -> UPDATE COMPLETADO -> Exitos: ' + totalOk + ' | Errores: ' + totalErr);
-        System.debug(' -> ======================================================');
+        System.debug('\u2192  -> ======================================================');
+        System.debug('\u2192  -> UPDATE COMPLETADO -> Exitos: ' + totalOk + ' \uFF5C Errores: ' + totalErr);
+        System.debug('\u2192  -> ======================================================');
     }
 } else {
-    System.debug(' -> DRY RUN activo: no se ejecuto ningun UPDATE. Cambia DRY_RUN a false para aplicar los cambios.');
+    System.debug('\u2192  -> DRY RUN activo: no se ejecuto ningun UPDATE. Cambia DRY_RUN a false para aplicar los cambios.');
 }
