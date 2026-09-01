@@ -77,6 +77,7 @@ class RowData {
     String returnChange;
     Id matchedPaymentId;
     Id achOrderId;
+    String contractNumber;
     String newHistorical;
 }
 
@@ -118,7 +119,7 @@ Map<String, SM_Payment__c> paymentByName = new Map<String, SM_Payment__c>();
 for (SM_Payment__c p : [
     SELECT Id, Name, SM_ACH_Order__c, Payment_Status__c, SM_Check_Collection_Date__c,
            SM_Check_Collection__c, SM_Check_Collection_Status__c, SM_Return_code__c, SM_Return_Change__c,
-           SM_Historical_Collection_Status__c
+           SM_Historical_Collection_Status__c, SM_Contract__r.ContractNumber
     FROM SM_Payment__c
     WHERE Name IN :paymentNames
 ]) {
@@ -142,6 +143,7 @@ for (RowData r : rows) {
     }
     r.matchedPaymentId = match.Id;
     r.achOrderId = match.SM_ACH_Order__c;
+    r.contractNumber = match.SM_Contract__r != null ? match.SM_Contract__r.ContractNumber : null;
 
     String currentChange = match.SM_Return_Change__c == null ? '' : match.SM_Return_Change__c;
     String targetChange = r.returnChange == null ? '' : r.returnChange;
@@ -249,9 +251,16 @@ if (!notFound.isEmpty()) {
 System.debug(' -> Ya aplicados anteriormente (sin cambios, se omiten): ' + alreadyAppliedRows.size());
 if (!regressionBlockedRows.isEmpty()) {
     List<String> regressionNames = new List<String>();
-    for (RowData r : regressionBlockedRows) { regressionNames.add(r.paymentName); }
+    Set<String> regressionContracts = new Set<String>();
+    for (RowData r : regressionBlockedRows) {
+        regressionNames.add(r.paymentName);
+        if (r.contractNumber != null) { regressionContracts.add(r.contractNumber); }
+    }
+    List<String> regressionContractsQuoted = new List<String>();
+    for (String cn : regressionContracts) { regressionContractsQuoted.add('\'' + cn + '\''); }
     System.debug(' -> ***** ALERTA: ' + regressionBlockedRows.size() + ' pago(s) ya COLLECTED/ACCEPTED que este reporte de RETURN queria revertir -- NO SE APLICARON, ANALIZAR MANUALMENTE *****');
     System.debug(' ->   -> Nombres bloqueados por regresion: ' + regressionNames);
+    System.debug(' ->   -> Contratos a analizar manualmente: ' + String.join(regressionContractsQuoted, ', '));
 } else {
     System.debug(' -> Bloqueados por regresion (COLLECTED/ACCEPTED -> RETURN, nunca automatico): 0');
 }
