@@ -43,13 +43,14 @@ List<SM_Payment__c> candidates = [
            SM_Historical_Collection_Status__c, SM_Type__c, SM_Original_Type__c, SM_Contract__r.ContractNumber
     FROM SM_Payment__c
     WHERE Payment_Status__c = 'ACH TRANSMITTED'
-    AND SM_Transmission_Date_ACH_File__c <= :cutoff
+    AND SM_Transmission_Date_ACH_File__c < :cutoff
     AND SM_Check_Collection_Status__c = null
     ORDER BY SM_Transmission_Date_ACH_File__c ASC
 ];
 
 for (SM_Payment__c p : candidates) {
-    System.debug('\u2192 PREVIEW -> ' + p.Name + ' \uFF5C Transmitido: ' + p.SM_Transmission_Date_ACH_File__c + ' -> se marcaria ACCEPTED / SM_Check_Collection_Status__c: COLLECTED hoy');
+    Integer nDias = p.SM_Transmission_Date_ACH_File__c.daysBetween(Date.today());
+    System.debug('\u2192 PREVIEW -> ' + p.Name + ' \uFF5C Transmitido: ' + p.SM_Transmission_Date_ACH_File__c + ' -> Transmitido hace ' + nDias + ' días');
 }
 
 // 2) Agrupar en OLEADAS por SM_ACH_Order__c -- mismo motivo que en
@@ -96,7 +97,7 @@ for (String cn : acContractNumbers) {
 }
 System.debug('\u2192  -> Contratos AC entre los candidatos (para activacion posterior): ' + acContractNumbers.size());
 if (!acContractNumbersQuoted.isEmpty()) {
-    System.debug('\u2192  ->   -> ' + String.join(acContractNumbersQuoted, ', '));
+    System.debug('\u2192  \n \u2192 -> ' + String.join(acContractNumbersQuoted, ', '));
 }
 System.debug('\u2192  -> ======================================================');
 
