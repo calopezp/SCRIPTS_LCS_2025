@@ -118,7 +118,7 @@ Map<String, SM_Payment__c> paymentByName = new Map<String, SM_Payment__c>();
 for (SM_Payment__c p : [
     SELECT Id, Name, SM_ACH_Order__c, Payment_Status__c, SM_Check_Collection_Date__c,
            SM_Check_Collection__c, SM_Check_Collection_Status__c, SM_Return_code__c, SM_Return_Change__c,
-           SM_Historical_Collection_Status__c, LastModifiedDate
+           SM_Historical_Collection_Status__c
     FROM SM_Payment__c
     WHERE Name IN :paymentNames
 ]) {
@@ -126,11 +126,11 @@ for (SM_Payment__c p : [
 }
 
 // 4) Separar: sin match / ya aplicado (no necesita cambios) / bloqueado por
-// regresion (COLLECTED/ACCEPTED -> RETURN, nunca automatico) / superado por
-// un evento mas reciente (se salta, no se revierte) / pendiente de aplicar
+// regresion (COLLECTED/ACCEPTED -> RETURN, nunca automatico) / pendiente de
+// aplicar. Los reportes oficiales siempre priman -- no hay bucket de
+// "superado por evento mas reciente" (ver nota mas abajo).
 List<RowData> matchedRows = new List<RowData>();
 List<RowData> alreadyAppliedRows = new List<RowData>();
-List<RowData> supersededRows = new List<RowData>();
 List<RowData> regressionBlockedRows = new List<RowData>();
 List<String> notFound = new List<String>();
 
@@ -182,25 +182,21 @@ for (RowData r : rows) {
         continue;
     }
 
-    // Si Salesforce se modifico DESPUES de la fecha de este reporte, es muy
-    // probable que haya un evento mas reciente (ej. un return viejo que ya
-    // fue cobrado por Check Collection despues) -- no se revierte, se salta
-    // para revision manual en vez de pisar el estado actual a ciegas.
-    Boolean supersededByNewerEvent =
-        match.LastModifiedDate != null && match.LastModifiedDate.date() > r.collDate;
-
-    if (supersededByNewerEvent) {
-        supersededRows.add(r);
-    } else {
-        String tag = 'PRC_AUT: ' + r.collStatus.replace(' ', '_') + ' //';
-        String previousHistorical = match.SM_Historical_Collection_Status__c == null ? '' : match.SM_Historical_Collection_Status__c;
-        String newHistorical = tag + previousHistorical;
-        if (newHistorical.length() > HISTORICAL_MAX_LENGTH) {
-            newHistorical = newHistorical.substring(0, HISTORICAL_MAX_LENGTH);
-        }
-        r.newHistorical = newHistorical;
-        matchedRows.add(r);
+    // Los reportes oficiales de Returns/Collection SIEMPRE priman -- sin
+    // importar que otro proceso (nuestro o externo, ej. el Flow que marca
+    // NOT_COLLECTED/COLLECTED con guion bajo) haya tocado el registro
+    // despues de la fecha del reporte. El unico caso que NO se aplica
+    // solo es el bloqueado arriba por el guard de regresion
+    // (COLLECTED/ACCEPTED -> RETURN/NOT COLLECTED), que es una regla
+    // aparte y explicita.
+    String tag = 'PRC_AUT: ' + r.collStatus.replace(' ', '_') + ' //';
+    String previousHistorical = match.SM_Historical_Collection_Status__c == null ? '' : match.SM_Historical_Collection_Status__c;
+    String newHistorical = tag + previousHistorical;
+    if (newHistorical.length() > HISTORICAL_MAX_LENGTH) {
+        newHistorical = newHistorical.substring(0, HISTORICAL_MAX_LENGTH);
     }
+    r.newHistorical = newHistorical;
+    matchedRows.add(r);
 }
 
 // 4b) Agrupar en OLEADAS por SM_ACH_Order__c: si varios returns del batch
@@ -258,12 +254,6 @@ if (!regressionBlockedRows.isEmpty()) {
     System.debug(' ->   -> Nombres bloqueados por regresion: ' + regressionNames);
 } else {
     System.debug(' -> Bloqueados por regresion (COLLECTED/ACCEPTED -> RETURN, nunca automatico): 0');
-}
-System.debug(' -> Superados por un evento mas reciente en Salesforce (se saltan, revisar manualmente): ' + supersededRows.size());
-if (!supersededRows.isEmpty()) {
-    List<String> supersededNames = new List<String>();
-    for (RowData r : supersededRows) { supersededNames.add(r.paymentName); }
-    System.debug(' ->   -> Nombres saltados: ' + supersededNames);
 }
 System.debug(' -> Pendientes de aplicar en esta corrida: ' + matchedRows.size());
 System.debug(' -> Oleadas necesarias por colisiones de orden ACH repetida: ' + (matchedRows.isEmpty() ? 0 : (maxWave + 1)));
