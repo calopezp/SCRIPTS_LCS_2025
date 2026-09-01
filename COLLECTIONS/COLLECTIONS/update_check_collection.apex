@@ -158,8 +158,19 @@ for (RowData r : rows) {
     // Un pago que ya esta COLLECTED/ACCEPTED nunca se revierte
     // automaticamente a RETURN/NOT COLLECTED -- sin importar fechas, eso
     // siempre queda para revision manual (regla de negocio explicita).
+    // EXCEPCION: si ese COLLECTED/ACCEPTED viene de
+    // mark_transmitted_accepted.apex (marca "...D_SIN_REPORTE:" al frente
+    // del historico -- ver ese script), no es un cobro confirmado por el
+    // banco, es solo una aceptacion por defecto tras N dias sin reporte.
+    // Los reportes de Returns/Collection SIEMPRE priman sobre esa
+    // aceptacion por defecto, asi que en ese caso SI se deja corregir.
+    String latestHistoricalTag = match.SM_Historical_Collection_Status__c == null
+        ? '' : match.SM_Historical_Collection_Status__c.split('//', 2)[0];
+    Boolean acceptedByTimeoutRoutine = latestHistoricalTag.contains('D_SIN_REPORTE:');
+
     Boolean isCurrentlySuccess =
-        match.Payment_Status__c == 'ACCEPTED' || match.SM_Check_Collection_Status__c == 'COLLECTED';
+        (match.Payment_Status__c == 'ACCEPTED' || match.SM_Check_Collection_Status__c == 'COLLECTED')
+        && !acceptedByTimeoutRoutine;
     Boolean isTargetRegression = r.collStatus == 'RETURN' || r.collStatus == 'NOT COLLECTED';
 
     if (isCurrentlySuccess && isTargetRegression) {
