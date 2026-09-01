@@ -64,16 +64,30 @@ def load_rows(index_csv: Path, cutoff: date):
 def resolve_winners(returns_rows, collections_rows):
     """best[name] = (fecha, 'returns'|'collections', fila). Recorre Returns
     primero y Collections despues; una fila reemplaza a la actual si es
-    estrictamente mas reciente, o si empata en fecha y la actual es de
-    Returns (Collections gana el empate)."""
+    mas reciente O EMPATA en fecha (>=, no >).
+
+    El empate no es un caso raro: la fecha que se compara es la del
+    campo (EFF ENTRY DATE / TRAN DATE de la transaccion), no la fecha del
+    reporte -- el MISMO pago puede aparecer en dos reportes de Collection
+    de dias distintos (ej. PENDING el 18-ago, COLLECTED el 31-ago) con
+    esa fecha de transaccion identica en ambos. Como build_index.py
+    siempre agrega al final del indice en el orden en que escaneo cada
+    PDF, "el que aparece despues en la lista" es el reporte mas reciente
+    -- por eso >= (no >) dentro del mismo origen dejaba pasar de largo el
+    reporte nuevo cuando empataba en fecha con uno viejo (bug real:
+    PY-01880982 se quedo en PENDING del 18-ago en vez de pasar a
+    COLLECTED del reporte del 31-ago, misma fecha de transaccion 17-ago
+    en los dos). Entre Returns y Collections, >= tambien hace que
+    Collections gane cualquier empate contra Returns, sin necesitar un
+    chequeo aparte."""
     best = {}
     for d, name, r in returns_rows:
         current = best.get(name)
-        if current is None or d > current[0]:
+        if current is None or d >= current[0]:
             best[name] = (d, "returns", r)
     for d, name, r in collections_rows:
         current = best.get(name)
-        if current is None or d > current[0] or (d == current[0] and current[1] == "returns"):
+        if current is None or d >= current[0]:
             best[name] = (d, "collections", r)
     return best
 
