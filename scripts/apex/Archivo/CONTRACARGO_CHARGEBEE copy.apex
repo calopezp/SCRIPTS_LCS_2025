@@ -4,10 +4,11 @@
 // Fecha: AGOSTO 2026    
 
 // ---------------- CONFIG ----------------
-Boolean modoDryRun = false;   // true = simula, false = ejecuta
+Boolean modoDryRun = true;   // true = simula, false = ejecuta
 // ----------------------------------------
 
-String AutorizacionCode = '995596';
+String AutorizacionCode = '374879';
+String CodigoContracargo = '2646196640';
 
 System.debug(' \u2192 =====================================');
 System.debug(' \u2192 INICIO PROCESO CONTRACARGO');
@@ -59,23 +60,14 @@ System.debug(' \u2192   - Execution Date: ' + originalPayment.SM_Payment_executi
 System.debug(' \u2192   - Authorization Code : ' + originalPayment.SM_Authorization_Code__c);
 System.debug(' \u2192 ');
 
-/*
-// -- Adicionar el codigo de autorización al Payment original para referencia
-originalPayment.SM_Transaction_Id__c = 'AUTHCODE: ' + AutorizacionCode;
-update originalPayment;
-System.debug(' \u2192 ✅ Payment original actualizado con Autorización: ' + originalPayment.SM_Transaction_Id__c);
-System.debug(' \u2192 ');
-*/
-
 
 // -----------------------------
 // 3) Verificar si ya existe Payment REFUNDED para esta transacción
 // -----------------------------
-String authPattern = '%' + AutorizacionCode + '%';
 List<SM_Payment__c> existingRefunds = [
     SELECT Id, Name, SM_Amount__c, Payment_Status__c
     FROM SM_Payment__c
-    WHERE SM_Authorization_Code__c LIKE :authPattern
+    WHERE SM_Authorization_Code__c =: AutorizacionCode
     AND Payment_Status__c = 'REFUNDED'
 ];
 
@@ -141,8 +133,10 @@ if (!existingRefunds.isEmpty()) {
     }
     
     // Campos adicionales
-    newRefundPayment.SM_Authorization_Code__c = AutorizacionCode;
-if (!modoDryRun) {    
+
+    newRefundPayment.SM_Authorization_Code__c = (CodigoContracargo != null) ? AutorizacionCode + ' / ' + CodigoContracargo : AutorizacionCode;
+if (!modoDryRun) {
+        Savepoint sp = Database.setSavepoint();
         try {
             insert newRefundPayment;
             
@@ -162,6 +156,7 @@ if (!modoDryRun) {
             System.debug(' \u2192 ');
             
         } catch (Exception e) {
+            Database.rollback(sp);
             System.debug(' \u2192 ❌ ERROR creando Payment REFUNDED:');
             System.debug(' \u2192   - Mensaje: ' + e.getMessage());
             System.debug(' \u2192   - Stack Trace: ' + e.getStackTraceString());
@@ -183,12 +178,13 @@ if (contractId == null) {
 
 Contract cont = [
     SELECT Id, Status, ContractNumber,
-           AccountId, 
+           AccountId,
+           Historical_Claim_On_Record__c,
            SM_Payment_Method__c, SM_Payment_Method__r.SM_Credit_Card_expiration_month__c, SM_Payment_Method__r.SM_Credit_Card_expiration_year__c, SM_Payment_Method__r.SM_Card_Token__c,
            SM_Email_to_send_contract__c,
            GatewayId__c,
-           Account.FirstName, 
-           Account.LastName, 
+           Account.FirstName,
+           Account.LastName,
            Account.BillingCountry
     FROM Contract
     WHERE Id = :contractId
@@ -203,15 +199,19 @@ System.debug(' \u2192 ');
 
 if (!modoDryRun) {
     //Actualizamos el campo Historical_Claim_On_Record__c del contrato a true para indicar que ya se ha generado un contracargo
+    if (cont.Historical_Claim_On_Record__c != true) {
     cont.Historical_Claim_On_Record__c = true;
     update cont;
+    }
     System.debug(' \u2192 ✅ Campo Historical_Claim_On_Record__c del contrato ' + cont.ContractNumber + ' actualizado a true.');
 
     //Actualizamos el campo Historical_Claim_On_Record__c de la cuenta a true para indicar que ya se ha generado un contracargo
     Account acc = [SELECT Id, Historical_Claim_On_Record__c,Has_Refund_History__c FROM Account WHERE Id = :cont.AccountId];
+    if (acc.Historical_Claim_On_Record__c != true || acc.Has_Refund_History__c != true) {
     acc.Historical_Claim_On_Record__c = true;
     acc.Has_Refund_History__c = true;
     update acc;
+    }
     System.debug(' \u2192 ✅ Campo Historical_Claim_On_Record__c de la cuenta ' + acc.Id + ' actualizado a true.');
 }
 

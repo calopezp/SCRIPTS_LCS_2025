@@ -92,12 +92,6 @@ public class CancelarContratosPorNumberRunner {
             }
         }
 
-        // ── 1.6. Tasks ya existentes (evitar duplicados en reruns) ──
-        // Mismo criterio que al crear la Task (Subject/OwnerId/RecordTypeId/Description),
-        // sin considerar ActivityDate porque cambia en cada corrida.
-        Map<Id, Set<String>> existingTaskDescByContract =
-            loadExistingTaskDescriptions(contractsById.keySet());
-
         // ── 2. Separar ChargeBee vs ACH ──────────────────────
         Map<Id, Contract> chargebeeContracts = new Map<Id, Contract>();
         Map<Id, Contract> achContracts       = new Map<Id, Contract>();
@@ -109,99 +103,42 @@ public class CancelarContratosPorNumberRunner {
             }
         }
 
-        // ── ChargeBee: revisión de INVOICEs / Subscription, Contract + Task ──
+        // ── ChargeBee: Contract (SM_Customer_Cancellation__c / CANCELAR_CONTRATO__c) + Task ──
         if (!chargebeeContracts.isEmpty()) {
             String cbLogLinea = '';
             List<String> cbLogLines = new List<String>();
             cbLogLines.add('\u2192 ══════════════════════════════════════════════════════');
-            cbLogLines.add('\u2192 ⚠️  CONTRATOS CHARGEBEE (revision de INVOICEs / Subscription):');
+            cbLogLines.add('\u2192 ⚠️  CONTRATOS CHARGEBEE (SM_Customer_Cancellation__c / CANCELAR_CONTRATO__c, creando Task):');
 
-            // Invoices asociados a los contratos ChargeBee de este lote
-            Map<Id, List<chargebeeapps__CB_Invoice__c>> invoicesByContract =
-                new Map<Id, List<chargebeeapps__CB_Invoice__c>>();
-            for (chargebeeapps__CB_Invoice__c inv : [
-                SELECT Id, Name, chargebeeapps__Status__c, Contract__c
-                FROM   chargebeeapps__CB_Invoice__c
-                WHERE  Contract__c IN :chargebeeContracts.keySet()
-            ]) {
-                if (!invoicesByContract.containsKey(inv.Contract__c))
-                    invoicesByContract.put(inv.Contract__c, new List<chargebeeapps__CB_Invoice__c>());
-                invoicesByContract.get(inv.Contract__c).add(inv);
-            }
-
-            List<Task>       cbTasksToInsert      = new List<Task>();
-            List<Id>         cbContractIds        = new List<Id>();
-            List<Contract>   cbContractsToUpdate  = new List<Contract>();
-            Map<Id, String>  cbActionLabelById    = new Map<Id, String>();
-            Map<Id, String>  cbInvoiceSummaryById = new Map<Id, String>();
-            Set<Id>          cbTaskSkippedDup     = new Set<Id>();
+            List<Task>     cbTasksToInsert     = new List<Task>();
+            List<Id>       cbContractIds       = new List<Id>();
+            List<Contract> cbContractsToUpdate = new List<Contract>();
 
             for (Contract c : chargebeeContracts.values()) {
                 if (c.status != 'Cancelled') {
-                    String subStatus = c.CB_Subscription__r.chargebeeapps__Subscription_status__c;
-                    cbLogLines.add('\u2192 ' + c.ContractNumber + '\u25AB Id: ' + c.Id + '\u25AB CB: ' + c.CB_Subscription__c + ' - ' + subStatus);
+                    cbLogLinea = cbLogLinea + '\'' + c.ContractNumber + '\',';
+                    cbLogLines.add('\u2192 ' + c.ContractNumber + '▫️Id: ' + c.Id + '▫️CB: ' + c.CB_Subscription__c + ' - ' + c.CB_Subscription__r.chargebeeapps__Subscription_status__c);
+                    Task t         = new Task();
+                    t.Subject      = TASK_SUBJECT;
+                    t.WhatId       = c.Id;
+                    t.Description  = numberToTaskDesc.get(c.ContractNumber);
+                    t.OwnerId      = TASK_OWNER_ID;
+                    t.RecordTypeId = TASK_RT_ID;
+                    t.ActivityDate = Date.today();
+                    cbTasksToInsert.add(t);
+                    cbContractIds.add(c.Id);
 
-                    List<chargebeeapps__CB_Invoice__c> invs = invoicesByContract.get(c.Id);
-                    Boolean allResolved = true;
-                    List<String> invLines = new List<String>();
-                    if (invs == null || invs.isEmpty()) {
-                        cbLogLines.add('\u2192     Invoices: (ninguno)');
-                        invLines.add('(ninguno)');
-                    } else {
-                        for (chargebeeapps__CB_Invoice__c inv : invs) {
-                            cbLogLines.add('\u2192                    Invoice: ' + inv.Name + ' \u25AB Status: ' + inv.chargebeeapps__Status__c);
-                            invLines.add(inv.Name + ' (' + inv.chargebeeapps__Status__c + ')');
-                            if (inv.chargebeeapps__Status__c != 'VOIDED' && inv.chargebeeapps__Status__c != 'PAID') allResolved = false;
-                        }
-                    }
-                    cbInvoiceSummaryById.put(c.Id, String.join(invLines, ', '));
-
-                    Boolean fullCancel  = allResolved && subStatus == 'CANCELLED';
-                    String  actionLabel = fullCancel ? 'CHARGEBEE CANCELADO FULL'
-                                        : (allResolved ? 'CANCELAR SUBSC' : 'CANCELAR INVOICES');
-                    cbActionLabelById.put(c.Id, actionLabel);
-                    cbLogLines.add('\u2192     Accion: ' + actionLabel);
-
-                    if (!fullCancel) {
-                        cbLogLinea = cbLogLinea + '\'' + c.ContractNumber + '\',';
-                    }
-
-                    String taskDesc = numberToTaskDesc.get(c.ContractNumber);
-                    Boolean taskAlreadyExists =
-                        existingTaskDescByContract.containsKey(c.Id) &&
-                        existingTaskDescByContract.get(c.Id).contains(taskDesc);
-
-                    if (!taskAlreadyExists) {
-                        Task t         = new Task();
-                        t.Subject      = TASK_SUBJECT;
-                        t.WhatId       = c.Id;
-                        t.Description  = taskDesc;
-                        t.OwnerId      = TASK_OWNER_ID;
-                        t.RecordTypeId = TASK_RT_ID;
-                        t.ActivityDate = Date.today();
-                        cbTasksToInsert.add(t);
-                        cbContractIds.add(c.Id);
-                    } else {
-                        cbTaskSkippedDup.add(c.Id);
-                    }
-
-                    Contract upd = new Contract(
+                    cbContractsToUpdate.add(new Contract(
                         Id                          = c.Id,
                         SM_Customer_Cancellation__c = true,
                         CANCELAR_CONTRATO__c        = numberToReason.get(c.ContractNumber)
-                    );
-                    if (fullCancel) {
-                        upd.Status                        = 'Cancelled';
-                        upd.SM_Reason_for_cancellation__c = numberToReason.get(c.ContractNumber);
-                        upd.SM_Cancellation_Date__c       = Date.today();
-                    }
-                    cbContractsToUpdate.add(upd);
+                    ));
                  }
             }
 
             cbLogLines.add('\u2192 ══════════════════════════════════════════════════════');
             System.debug('\u2192 \n' + String.join(cbLogLines, '\n'));
-            System.debug('\u2192 PENDIENTES DE CHARGEBEE : \n \u2192' + cbLogLinea + '\n');
+            System.debug('\u2192 cbLogLinea : \n \u2192' + cbLogLinea + '\n');
 
             Map<Id, String> cbContractErrors = saveAndCollectErrors(cbContractsToUpdate);
 
@@ -213,24 +150,17 @@ public class CancelarContratosPorNumberRunner {
             }
 
             for (Contract c : chargebeeContracts.values()) {
-                if (c.status == 'Cancelled') continue;
                 Boolean taskOk     = !cbTaskErrors.containsKey(c.Id);
                 Boolean contractOk = !cbContractErrors.containsKey(c.Id);
-                List<String> details = new List<String>{
-                    'CB_Subscription__c: ' + c.CB_Subscription__c,
-                    'Invoices: ' + cbInvoiceSummaryById.get(c.Id),
-                    'Accion: ' + cbActionLabelById.get(c.Id)
-                };
-                if (contractOk) details.add('SM_Customer_Cancellation__c = true - CANCELAR_CONTRATO__c actualizado.'
-                    + (cbActionLabelById.get(c.Id) == 'CHARGEBEE CANCELADO FULL' ? ' - Status = Cancelled.' : ''));
+                List<String> details = new List<String>{ 'CB_Subscription__c: ' + c.CB_Subscription__c };
+                if (contractOk) details.add('SM_Customer_Cancellation__c = true ▫️ CANCELAR_CONTRATO__c actualizado.');
                 else            details.add('Contract error: ' + cbContractErrors.get(c.Id));
-                if (cbTaskSkippedDup.contains(c.Id)) details.add('Task ya existente (no duplicada).');
-                else if (taskOk)                     details.add('Task creada.');
-                else                                  details.add('Task error: ' + cbTaskErrors.get(c.Id));
+                if (taskOk) details.add('Task creada.');
+                else        details.add('Task error: ' + cbTaskErrors.get(c.Id));
                 allResults.add(makeRow(
                     c.Id, c.ContractNumber,
                     (taskOk && contractOk) ? 'CHARGEBEE_OK' : 'PARTIAL/ERROR',
-                    String.join(details, ' - '),
+                    String.join(details, ' 🔸 '),
                     taskOk && contractOk,
                     numberToReason.get(c.ContractNumber)
                 ));
@@ -262,7 +192,6 @@ public class CancelarContratosPorNumberRunner {
         // ── 5. Clasificar cancelable vs bloqueado ─────────────
         Set<Id> cancelableIds = new Set<Id>();
         Map<Id, Integer> resultRowIndexByContract = new Map<Id, Integer>();
-        String achLogLinea = '';
 
         for (Contract c : activeAchContracts.values()) {
             List<SM_Payment__c> related = paymentsByContract.get(c.Id);
@@ -300,10 +229,8 @@ public class CancelarContratosPorNumberRunner {
                     String.join(blocking, '; '),
                     false, numberToReason.get(c.ContractNumber)));
                 resultRowIndexByContract.put(c.Id, allResults.size() - 1);
-                achLogLinea = achLogLinea + '\'' + c.ContractNumber + '\',';
             }
         }
-        System.debug('\u2192 PENDIENTES DE ACH (pendientes, bloqueados) : \n\n \u2192' + achLogLinea + '\n\n');
 
         // ── 6. ACH Orders => Canceled (solo contratos cancelables) ──
         Map<Id, String> achOrderErrors = new Map<Id, String>();
@@ -335,6 +262,9 @@ public class CancelarContratosPorNumberRunner {
         }
 
         // ── 7. Contratos => Cancelled ──────────────────────────
+        // Solo se marca Cancelled si su(s) ACH Order(s) se cancelaron con éxito;
+        // si el ACH Order falló (p. ej. validation rule de pago pendiente de transmitir),
+        // el contrato se deja intacto para no quedar Cancelled con una orden aún activa.
         List<Contract> contractsToUpdate = new List<Contract>();
         for (Id cid : cancelableIds) {
             if (achOrderErrors.containsKey(cid)) continue;
@@ -369,25 +299,10 @@ public class CancelarContratosPorNumberRunner {
         List<Integer> taskResultIndexes = new List<Integer>();
 
         for (Contract c : activeAchContracts.values()) {
-            String taskDesc = numberToTaskDesc.get(c.ContractNumber);
-            Boolean taskAlreadyExists =
-                existingTaskDescByContract.containsKey(c.Id) &&
-                existingTaskDescByContract.get(c.Id).contains(taskDesc);
-
-            if (taskAlreadyExists) {
-                Integer idxDup = resultRowIndexByContract.get(c.Id);
-                if (idxDup != null) {
-                    ResultRow rrDup = allResults[idxDup];
-                    rrDup.detail += ' 🔸 Task ya existente (no duplicada).';
-                    allResults[idxDup] = rrDup;
-                }
-                continue;
-            }
-
             Task t         = new Task();
             t.Subject      = TASK_SUBJECT;
             t.WhatId       = c.Id;
-            t.Description  = taskDesc;
+            t.Description  = numberToTaskDesc.get(c.ContractNumber);
             t.OwnerId      = TASK_OWNER_ID;
             t.RecordTypeId = TASK_RT_ID;
             t.ActivityDate = Date.today();
@@ -425,23 +340,6 @@ public class CancelarContratosPorNumberRunner {
         return r;
     }
 
-    private Map<Id, Set<String>> loadExistingTaskDescriptions(Set<Id> contractIds) {
-        Map<Id, Set<String>> result = new Map<Id, Set<String>>();
-        if (contractIds == null || contractIds.isEmpty()) return result;
-        for (Task t : [
-            SELECT WhatId, Description
-            FROM   Task
-            WHERE  WhatId IN :contractIds
-              AND  Subject      = :TASK_SUBJECT
-              AND  OwnerId      = :TASK_OWNER_ID
-              AND  RecordTypeId = :TASK_RT_ID
-        ]) {
-            if (!result.containsKey(t.WhatId)) result.put(t.WhatId, new Set<String>());
-            result.get(t.WhatId).add(t.Description);
-        }
-        return result;
-    }
-
     private Map<Id, String> saveAndCollectErrors(List<SObject> records) {
         Map<Id, String> errorMap = new Map<Id, String>();
         if (records == null || records.isEmpty()) return errorMap;
@@ -476,13 +374,18 @@ CancelGroup GRUP01 = new CancelGroup(
     'Does not comply with payments',
     'Cliente no cumple con los pagos, Solicitado y Autorizado por ELba Mantilla',
     new Set<String>{
-        //PENDIENTES DE CANCELAR POR PAGOS EN PROCESO U OTROS
-        
-        // ACH
-        '00264042','00314267','00317304','00317312','00317315','00317387','00317478','00317634'
-
-        // CHARGEBEEE
-        
+        // 19 Jun (31)
+        '00317211','00317272','00317357','00317416','00317457','00317088','00317096','00317197','00317296',     // excluir ,'00317359'
+        '00317334','00317338','00317344','00317369','00317103','00317022','00317203','00317361','00316868','00317083',
+        '00317199','00317281','00317316','00317350','00317358','00317380','00317402','00317443','00317453','00317465',
+        '00317491',
+        // 10 Jun (44)
+        '00315754','00276428','00269200','00286155','00311944','00312296','00312717','00313476','00313404','00314086',
+        '00314010','00314371','00314418','00314646','00314601','00314599','00314642','00314776','00314981','00314982',
+        '00314808','00314903','00315006','00315033','00315066','00315103','00314998','00315070','00315165','00315106',
+        '00315176','00315303','00315234','00315494','00315250','00315177','00315702','00315803','00315345','00316124',
+        '00315751','00315990','00316010','00315703'
+        // TOTAL: 75
     }
 );
 
@@ -490,16 +393,217 @@ CancelGroup GRUP02 = new CancelGroup(
     'Does not comply with payments',
     'Cliente no cumple con los pagos, Solicitado y Autorizado por ELba Mantilla',
     new Set<String>{
-'00317211','00317272','00317357','00317416','00317457','00317088','00317096','00317197','00317296','00317334','00317338','00317344','00317369','00317103','00317022','00317203','00317361','00316868','00317083','00317199','00317281','00317316','00317350','00317358','00317380','00317402','00317443','00317453','00317465','00317491','00315754','00276428','00269200','00286155','00311944','00312296','00312717','00313476','00313404','00314086','00314010','00314371','00314418','00314646','00314601','00314599','00314642','00314776','00314981','00314982','00314808','00314903','00315006','00315033','00315066','00315103','00314998','00315070','00315165','00315106','00315176','00315303','00315234','00315494','00315250','00315177','00315702','00315803','00315345','00316124','00315751','00315990','00316010','00315703','00315764','00315743','00315859','00316186','00315386','00315976','00316364','00315999','00316058','00315996','00315882','00316006','00316293','00316071','00316273','00316538','00316320','00316144','00316330','00316465','00316308','00316034','00316438','00316357','00316380','00316430','00316344','00316035','00315978','00316343','00316495','00316389','00316321','00316264','00316429','00316265','00316287','00259558','00302396','00309104','00309329','00310666','00310961','00312728','00312732','00312814','00314360','00312894','00313120','00313233','00315558','00315587','00315624','00315612','00315788','00315789','00315791','00315795','00315805','00315825','00315639','00315830','00315847','00315856','00315948','00315995','00315738','00315908','00315985','00316098','00315935','00315926','00316147','00315862','00316014','00316037','00316038','00316212','00315852','00316171','00315295','00315317','00315346','00315379','00315430','00315409','00315344','00315450','00315547','00315556','00315581','00309408','00313346','00313485','00274381','00241829','00313731','00315338','00314751','00315322','00313173','00313775','00313274','00313535','00314497','00315223','00315047','00314881','00315096','00314389','00315284','00313842','00310241','00309545','00313121','00314438','00315195','00314314','00314361','00314091','00313203','00314764','00313425','00315089','00310489','00315002','00314714','00311956','00314499','00314479','00314484','00312116','00312182','00315173','00311391','00313908','00312290','00315194','00314585','00313828','00314064','00314759','00314938','00314727','00314161','00314843','00314831','00314020','00314373','00314413','00314812','00314111','00314979','00314403','00315049','00314880','00314896','00313326','00314679','00315297','00315247','00315060','00314616','00314758','00314451','00313225','00314651','00314052','00314628','00314617','00313283','00315021','00313619','00313224','00313430','00314899','00315157','00315262','00314687','00315084','00314703','00314907','00315065','00314217','00314205','00314327','00313321','00307629','00311669','00312542','00312940','00313052','00313109','00313166','00313521','00313654','00314193','00314435','00314791','00314904','00314931','00314993','00315023','00315024','00315025','00315085','00315094','00315145','00315110','00313400','00315285','00313053','00313565','00313876','00313948','00314178','00314179','00314206','00314265','00314485','00289937','00311887','00309564','00312251','00312270','00312669','00312713','00312868','00313112','00313178','00313229','00313496','00313658','00313857','00313892','00314055','00314074','00314241','00314281','00314289','00314302','00314324','00314329','00314333','00314343','00314346','00314356','00314378','00314405','00314409','00314421','00314423','00314477','00314488','00314515','00314517','00314540','00314544','00314602','00314609','00314637','00314657','00314685','00314708','00314709','00314710','00314716','00314721','00314728','00314731','00314777','00314788','00314805','00314811','00314886','00314913','00314914','00314924','00314939','00314987','00315020','00311797','00313513','00316074','00316078','00316202','00316204','00316313','00316406','00316464','00316537','00316580','00316670','00264042','00300131','00304403','00308741','00308911','00311156','00312102','00312747','00312996','00313051','00313441','00313562','00313840','00313841','00313920','00313963','00314008','00314062','00314267','00314335','00314406','00314501','00314554','00314555','00314559','00314621','00314784','00314888','00314950','00315073','00315142','00315140','00315148','00315183','00315264','00315426','00315452','00315499','00315571','00315574','00315638','00315725','00315870','00316032','00316307','00316338','00316391','00316485','00316735','00313315','00317923','00304403','00264042','00300131','00308741','00308911','00311156','00312102','00312747','00313051','00312996','00313441','00313315','00313562','00313840','00313841','00314062','00313920','00314267','00314335','00314008','00313963','00314406','00314501','00314554','00314559','00314555','00314621','00314784','00315867','00315871','00314888','00315797','00315796','00315073','00315183','00316036','00316206','00315820','00315148','00314950','00315140','00315934','00315142','00315886','00316060','00315499','00316079','00315426','00316032','00315638','00315870','00315452','00315264','00315725','00315574','00316391','00314635','00316616','00316651','00316338','00316722','00316485','00317730','00316735','00315571','00316307','00316967','00310747','00315796','00315797','00315820','00315867','00315871','00315934','00316036','00316079','00316060','00316206','00316055','00316446','00316393','00316581','00316735','00316777','00316651','00315886','00316722','00316967','00317286','00317573','00317106','00317233','00317179','00317313','00317332','00317312','00317315','00317346','00317304','00317438','00317480','00317387','00317484','00317293','00317553','00317557','00317391','00317478','00317536','00317556','00317614','00317408','00317634','00317674','00317468','00317598','00317683','00317701','00317585','00317558','00317700','00317771','00317731','00317733','00317800','00317467'
-
-
+        // 23 Mar (19)
+        '00316330','00316465','00316308','00316034','00316438','00316357','00316380','00316430','00316344','00316035',
+        '00315978','00316343','00316495','00316389','00316321','00316264','00316429','00316265','00316287',
+        // 06 Mar (60)
+        '00259558','00302396','00309104','00309329','00310666',
+        '00312728','00312732','00312814','00312894','00313120','00313233','00313346','00313485','00313731','00313775',
+        '00313842','00314314','00314360','00314361','00314484','00314585','00314843','00314880','00315065','00315110',
+        '00315558','00315587','00315612','00315624','00315639','00315738','00315788','00315789','00315791','00315795',
+        '00315805','00315825','00315830','00315847','00315852','00315856','00315862','00315908','00315926','00315935',
+        '00315948','00315985','00315995','00316014','00316037','00316038','00316098','00316147','00316171','00316212'
+        // TOTAL: 79
     }
 );
+
 CancelGroup GRUP03 = new CancelGroup(
-    'Does not comply with the obligations of the Contract',
-    'Cliente no ha entregado evidencias/documentación para poderle trabajar, Solicitado Rosaura',
+    'Does not comply with payments',
+    'Cliente no cumple con los pagos, Solicitado y Autorizado por ELba Mantilla',
     new Set<String>{
-'00315934','00316036','00316206','00316239','00316370','00316439','00316431','00316412','00316055','00316281','00316449','00316259','00316624','00316398','00316467','00316530','00316581','00316591','00316653','00316735','00316522','00316777','00316651','00315886','00316769','00316722','00316967','00317643','00317573','00317418','00317792'
+        // 09 Feb — primera mitad (83)
+        '00309408','00274381','00241829','00315338','00314751','00315322','00313173','00313274','00313535','00314497',
+        '00315223','00315047','00314881','00315096','00314389','00315284','00310241','00309545','00313121','00314438',
+        '00315195','00314091','00313203','00314764','00313425','00315089','00310489','00315002','00314714','00311956',
+        '00314499','00314479','00312116','00312182','00315173','00311391','00313908','00312290','00315194','00313828',
+        '00314064','00314759','00314938','00314727','00314161','00314831','00314020','00314373','00314413','00314812',
+        '00314111','00314979','00314403','00315049','00314896','00313326','00314679','00315297','00315247','00315060',
+        '00314616','00314758','00314451','00313225','00314651','00314052','00314628','00314617','00313283','00315021',
+        '00313619','00313224','00313430','00314899','00315157','00315262','00314687','00315084','00314703','00314907',
+        '00314217','00314205','00314327'
+        // TOTAL: 83
+    }
+);
+
+CancelGroup GRUP04 = new CancelGroup(
+    'Does not comply with payments',
+    'Cliente no cumple con los pagos, Solicitado y Autorizado por ELba Mantilla',
+    new Set<String>{
+        // 03 Feb (25)
+        '00313321','00307629','00311669','00312542','00312940','00313052','00313109','00313166','00313521','00313654',
+        '00314193','00314435','00314791','00314904','00314931','00314993','00315023','00315024','00315025','00315085',
+        '00315094','00315145','00313400','00315285','00310961',
+        // 13 Ene (9)
+        '00313053','00313565','00313876','00313948','00314178','00314179','00314206','00314265','00314485'
+        // TOTAL: 34
+    }
+);
+
+CancelGroup GRUP05 = new CancelGroup(
+    'Does not comply with payments',
+    'Cliente no cumple con los pagos, Solicitado y Autorizado por ELba Mantilla',
+    new Set<String>{
+        // 19 Dic 2025 (63)
+        '00289937','00311887','00309564','00312251','00312270','00312669','00312713','00312868','00313112','00313178',
+        '00313229','00313496','00313658','00313857','00313892','00314055','00314074','00314241','00314281','00314289',
+        '00314302','00314324','00314329','00314333','00314343','00314346','00314356','00314378','00314405','00314409',
+        '00314421','00314423','00314477','00314488','00314515','00314517','00314540','00314544','00314602','00314609',
+        '00314637','00314657','00314685','00314708','00314709','00314710','00314716','00314721','00314728','00314731',
+        '00314777','00314788','00314805','00314811','00314886','00314913','00314914','00314924','00314939','00314987',
+        '00315020','00311797','00313513'
+        // TOTAL: 63
+    }
+);
+
+CancelGroup GRUP06 = new CancelGroup(
+    'Evidence not Complete',
+    'Cliente no ha entregado evidencias para poderle trabajar',
+    new Set<String>{
+        '00315295','00315317','00315346','00315379','00315430',
+        '00315409','00315344','00315450','00315547','00315556','00315581'
+    }
+);
+
+CancelGroup GRUP07 = new CancelGroup(
+    'Does not comply with the obligations of the Contract',
+    'PI no firmado',
+    new Set<String>{
+        // 28 May
+        '00315764','00315743','00315859','00316186','00315386','00315976','00316364','00315999','00316058','00315996',
+        '00315882','00316006','00316293','00316071','00316273','00316538','00316320','00316144',
+        // 15 Jun - auth Rosaura por Team
+        '00316074','00316078','00316202','00316204','00316313','00316406','00316464','00316537','00316580','00316670'
+    }
+);
+
+CancelGroup GRUP08 = new CancelGroup(
+
+    'Does not comply with payments',
+    'Cliente no cumple con los pagos, Solicitado y Autorizado por ELba Mantilla',
+    new Set<String>{
+        // 06 Jul (25)
+
+        '00315682','00315771','00315943','00261363','00309080','00309290','00313510','00313586','00313656','00314049',
+        '00314593','00314743','00314848','00315220','00315302','00315412','00315524','00315817','00315818','00250379',
+        '00311899','00312321','00312796','00312806','00312849','00313848','00314625','00314695','00314836','00314946'
+        // TOTAL: 30
+    }
+);
+
+CancelGroup GRUP09 = new CancelGroup(
+
+    'Does not comply with payments',
+    'Cliente no cumple con los pagos, Solicitado y Autorizado por ELba Mantilla',
+    new Set<String>{
+        // 06 Jul (25)
+        '00314985','00314986','00315113','00315305','00315411','00315431','00315432','00315469','00315485','00315588',
+        '00315600','00315665','00315719','00315758','00315776','00315939','00315947','00316013','00316209','00316258',
+        '00316277','00316286','00310680','00312523','00312879','00313985','00314401','00314580','00314856','00315260'
+        // TOTAL: 30
+    }
+);
+
+CancelGroup GRUP10 = new CancelGroup(
+
+    'Does not comply with payments',
+    'Cliente no cumple con los pagos, Solicitado y Autorizado por ELba Mantilla',
+    new Set<String>{
+        // 06 Jul (25)
+
+        '00315391','00315652','00315723','00315742','00315988','00315993','00316046','00316073','00316637','00312234',
+        '00316059','00316417','00316451','00316461','00316515','00316585'
+
+        // TOTAL: 32
+    }
+);
+
+CancelGroup GRUP11 = new CancelGroup(
+
+    'Does not comply with payments',
+    'Cliente no cumple con los pagos, Solicitado y Autorizado por ELba Mantilla',
+    new Set<String>{
+        // 12 Ago (25/50)
+
+        '00264042','00300131','00304403','00308741','00308911','00311156','00312102','00312747','00312996','00313051',
+        '00313441','00313562','00313840','00313841','00313920','00313963','00314008','00314062','00314267','00314335',
+        '00314406','00314501','00314554','00314555','00314559'
+        // TOTAL: 50
+    }
+);
+CancelGroup GRUP12 = new CancelGroup(
+
+    'Does not comply with payments',
+    'Cliente no cumple con los pagos, Solicitado y Autorizado por ELba Mantilla',
+    new Set<String>{
+        // 12 Ago (25/50)
+        '00314621','00314784','00314888','00314950','00315073',
+        '00315142','00315140','00315148','00315183','00315264','00315426','00315452','00315499','00315571','00315574',
+        '00315638','00315725','00315870','00316032','00316307','00316338','00316391','00316485','00316735','00313315'
+
+        // TOTAL: 50
+    }
+);
+
+CancelGroup GRUP13 = new CancelGroup(
+
+    'Does not comply with payments',
+    'Cliente no cumple con los pagos, Solicitado y Autorizado por ELba Mantilla',
+    new Set<String>{
+        // 13 Ago (25/70)
+        '00317923','00304403','00264042','00300131','00308741','00308911','00311156','00312102','00312747','00313051',
+        '00312996','00313441','00313315','00313562','00313840','00313841','00314062','00313920','00314267','00314335',
+        '00314008','00313963','00314406','00314501','00314554'
+
+        // TOTAL: 70
+    }
+);
+CancelGroup GRUP14 = new CancelGroup(
+
+    'Does not comply with payments',
+    'Cliente no cumple con los pagos, Solicitado y Autorizado por ELba Mantilla',
+    new Set<String>{
+        // 13 Ago (25/70)
+        '00314559','00314555','00314621','00314784','00315867','00315871','00314888','00315797','00315796','00315073',
+        '00315183','00316036','00316206','00315820','00315148','00314950','00315140','00315934','00315142','00315886',
+        '00316060','00315499','00316079','00315426','00316032'
+
+        // TOTAL: 70
+    }
+);
+
+CancelGroup GRUP15 = new CancelGroup(
+
+    'Does not comply with payments',
+    'Cliente no cumple con los pagos, Solicitado y Autorizado por ELba Mantilla',
+    new Set<String>{
+        // 13 Ago (19/69)
+        '00315638','00315870','00315452','00315264','00315725','00315574','00316391','00314635','00316616','00316651',
+        '00316338','00316722','00316485','00317730','00316735','00315571','00316307','00316967','00310747'
+        // TOTAL: 69
+    }
+);
+
+CancelGroup GRUP16 = new CancelGroup(
+
+    'Does not comply with payments',
+    'Cliente no cumple con los pagos, Solicitado y Autorizado por ELba Mantilla',
+    new Set<String>{
+        // 13 Ago (19/69)
+'00264042','00300131','00304403','00308741','00308911','00311156','00312102','00312747','00312996','00313051','00313315','00313441','00313562','00313841','00313920','00313963','00314008','00314267','00314554','00314555','00314784','00314888','00314950','00315140','00315142','00315264','00315452','00315571','00315574','00315867','00315870','00315871','00315886','00316338','00316485','00316722','00317730'
+
+       // TOTAL: 69
+    }
+);
+
+CancelGroup GRUP17 = new CancelGroup(
+
+    'Does not comply with payments',
+    'Cliente no cumple con los pagos, Solicitado y Autorizado por ELba Mantilla',
+    new Set<String>{
+        // 28/Ago (36)
+'00317106','00317233','00317179','00317313','00317332','00317312','00317315','00317346','00317304','00317438','00317480','00317387','00317484','00317293','00317553','00317557','00317391','00317478','00317536','00317556','00317614','00317408','00317634','00317674','00317468','00317598','00317683','00317701','00317585','00317558','00317700','00317771','00317731','00317733','00317800','00317467'
+
+       // TOTAL: 36
     }
 );
 
@@ -508,7 +612,7 @@ CancelGroup GRUP03 = new CancelGroup(
 // ============================================================
 List<ResultRow> outcome =
     new CancelarContratosPorNumberRunner().runAll(
-        new List<CancelGroup>{ GRUP03 }  // ← cambia aquí
+        new List<CancelGroup>{ GRUP17 }  // ← cambia aquí
     );
 
 Integer ok = 0, fail = 0;
@@ -521,7 +625,7 @@ for (ResultRow r : outcome) {
         reportLines.add(
             '\u2192 ❌ [' + r.action + '] '
             +  r.contractNumber
-            + '\u25AB Detalle: ' + r.detail
+            + '▫️Detalle: ' + r.detail
         );
         fail++;
     } else {

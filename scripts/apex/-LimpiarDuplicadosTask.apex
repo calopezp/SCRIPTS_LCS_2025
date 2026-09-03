@@ -24,8 +24,8 @@
 
 /** Configuración */
 Boolean DRY_RUN = false; // true = simulación (no elimina), false = elimina
-Integer BATCH_SIZE = 1000; // número de Tasks a considerar por consulta
-Integer MAX_GROUPS = 1000; // límite de grupos a procesar por ejecución (seguridad)
+Integer BATCH_SIZE = 100; // número de Tasks a considerar por consulta
+Integer MAX_GROUPS = 100; // límite de grupos a procesar por ejecución (seguridad)
 Id OWNER_ID = '0051U000001MRFeQAO';
 Id RECORD_TYPE_ID = '0121U00000085XiQAI';
 date FECHA_CORTE = Date.today().addMonths(-3); // opcional: filtrar por fecha para reducir volumen
