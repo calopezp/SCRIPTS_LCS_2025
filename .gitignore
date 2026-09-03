@@ -46,3 +46,9 @@ $RECYCLE.BIN/
 **/__pycache__/
 **/.venv/
 **/venv/
+
+# Local personal backups, not project artifacts
+.backup_local/
+
+# Large one-time data exports too big for GitHub (100MB limit)
+CHARGENT_MIGRACION/ChargentOrders__Transaction__c.csv
