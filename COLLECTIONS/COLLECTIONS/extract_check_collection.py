@@ -31,7 +31,7 @@ Secciones del reporte -> campos de salida:
     TRANSACTIONS: PENDING       -> Payment_Status__c = REJECTED,
                                     SM_Check_Collection_Status__c = PENDING
     TRANSACTIONS: NOT COLLECTED -> Payment_Status__c = REJECTED,
-                                    SM_Check_Collection_Status__c = NOT COLLECTED
+                                    SM_Check_Collection_Status__c = NOT_COLLECTED
     (en los 3 casos SM_Check_Collection__c = TRUE)
 
     SM_Check_Collection_Date__c viene del TRAN DATE de cada fila (mm-dd),
@@ -83,7 +83,11 @@ ROW_RE = re.compile(
 SECTION_TO_STATUS = {
     "PENDING": ("REJECTED", "PENDING"),
     "COLLECTED": ("ACCEPTED", "COLLECTED"),
-    "NOT COLLECTED": ("REJECTED", "NOT COLLECTED"),
+    # El picklist SM_Check_Collection_Status__c en Salesforce usa guion bajo
+    # ('NOT_COLLECTED'); el nombre de la seccion del reporte (clave de este
+    # dict) SI trae espacio porque asi viene el texto "TRANSACTIONS: NOT
+    # COLLECTED" del PDF -- no confundir ambos.
+    "NOT COLLECTED": ("REJECTED", "NOT_COLLECTED"),
 }
 
 DRAWEE_NAME_IS_PY_RE = re.compile(r"^PY-\d+$")

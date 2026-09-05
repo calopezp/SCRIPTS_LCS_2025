@@ -177,7 +177,7 @@ for (RowData r : rows) {
     Boolean isCurrentlySuccess =
         (match.Payment_Status__c == 'ACCEPTED' || match.SM_Check_Collection_Status__c == 'COLLECTED')
         && !acceptedByTimeoutRoutine;
-    Boolean isTargetRegression = r.collStatus == 'RETURN' || r.collStatus == 'NOT COLLECTED';
+    Boolean isTargetRegression = r.collStatus == 'RETURN' || r.collStatus == 'NOT_COLLECTED' || r.collStatus == 'NOT COLLECTED';
 
     if (isCurrentlySuccess && isTargetRegression) {
         regressionBlockedRows.add(r);
