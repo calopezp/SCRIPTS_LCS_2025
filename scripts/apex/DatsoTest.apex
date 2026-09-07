@@ -141,3 +141,11 @@ if (!cnts.isEmpty()) {
 } else {
     System.debug('No Contracts found for Account: ' + accData[0].Id);
 }
+
+/"SM_Bank__c","SM_Bank__r.Name","SM_ACH_Account_Number__c"
+"a278W00000CwyRFQAZ","TEST CIBERSOURCE BANK","001234567895"
+
+"_","SM_Bank__r.Name","SM_Bank__r.SM_Routing_Number__c","SM_ACH_Account_Number__c"
+"[SM_Payment_Method__c]","TEST CYBERSOURCE BANK","11400039","001234567895"
+
+*/
