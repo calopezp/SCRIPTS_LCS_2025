@@ -103,8 +103,9 @@ def update_index(rebuild=False, quiet=False):
     if not new_files:
         if not quiet:
             print(f"Nada nuevo que indexar ({len(files)} archivo(s) ya indexados).")
-        if DELTA_CSV.exists():
-            DELTA_CSV.unlink()
+        # No borrar un delta existente: puede seguir pendiente de aplicar
+        # en Salesforce por el proceso diario (ver build_index.py de
+        # Returns/Collection, mismo criterio).
         return
 
     write_header = not RAW_LOG_CSV.exists() or RAW_LOG_CSV.stat().st_size == 0

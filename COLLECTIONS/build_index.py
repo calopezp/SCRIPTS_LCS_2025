@@ -131,9 +131,11 @@ def update_indexes(rebuild=False, quiet=False):
     if not pending:
         if not quiet:
             print(f"  Nada nuevo que indexar ({len(all_pdfs)} PDF(s) ya indexados).")
-        for delta_csv in (RETURNS_DELTA_CSV, COLLECTIONS_DELTA_CSV):
-            if delta_csv.exists():
-                delta_csv.unlink()
+        # No tocar los deltas existentes: representan la corrida anterior y
+        # pueden seguir pendientes de que run_import_return.sh/
+        # run_import_collection.sh los aplique y genere el reporte R10 de
+        # Comercial. Una corrida sin PDFs nuevos (ej. buscar_payment.py) no
+        # debe borrar el trabajo pendiente del proceso diario de collections.
         return
 
     returns_rows = []
@@ -183,10 +185,13 @@ def _write_delta(delta_csv: Path, fieldnames, rows, quiet):
     """CSV con SOLO los payments de los PDFs procesados en ESTA corrida --
     esto es lo que run_import_return.sh / run_import_collection.sh deployan
     y aplican en Salesforce cada dia, NO el indice historico completo."""
+    if not rows:
+        # Sin PDFs nuevos de este tipo en esta corrida: no tocar un delta
+        # existente, puede seguir pendiente de aplicar (ver update_indexes).
+        return
+
     if delta_csv.exists():
         delta_csv.unlink()
-    if not rows:
-        return
 
     # Deduplicar por Payment_Name (si el mismo payment aparece en mas de un
     # PDF nuevo de esta corrida, se queda con la ultima ocurrencia).

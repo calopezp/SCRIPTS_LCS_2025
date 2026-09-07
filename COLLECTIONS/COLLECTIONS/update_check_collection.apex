@@ -70,6 +70,19 @@ Integer idxStatus      = headers.indexOf('Payment_Status__c');
 Integer idxCollDate    = headers.indexOf('SM_Check_Collection_Date__c');
 Integer idxColl        = headers.indexOf('SM_Check_Collection__c');
 Integer idxCollStatus  = headers.indexOf('SM_Check_Collection_Status__c');
+Integer idxReason      = headers.indexOf('Reason');
+
+// Valores validos del picklist SM_Return_code__c (codigos NACHA Return/NOC),
+// ver SM_Payment__c.SM_Return_code__c.field-meta.xml. Si el codigo corto del
+// Reason no esta aqui, SM_Return_code__c se deja vacio (poner un valor
+// invalido en un picklist tumba el update) pero SM_Check_Collection_Return_Reason__c
+// (texto libre) SIEMPRE se llena.
+Set<String> VALID_RETURN_CODES = new Set<String>{
+    'R01','R02','R03','R04','R05','R06','R07','R08','R09','R10','R11','R12','R13','R14',
+    'R15','R16','R17','R20','R21','R22','R23','R24','R29','R31',
+    'N01','N02','N03','N04','N05','N06','N07','N08','N09','N10','N11','N12','N13','N14','N15','N16','N17',
+    'C01','C02','C03','C04','C05','C06','C07','C09','C10','C11','C12'
+};
 
 // Wrapper para llevar la data parseada + el resultado del match
 class RowData {
@@ -78,6 +91,8 @@ class RowData {
     Date collDate;
     Boolean coll;
     String collStatus;
+    String reasonShort;   // -> SM_Check_Collection_Return_Reason__c (siempre)
+    String returnCode;    // -> SM_Return_code__c (solo si es un codigo valido del picklist)
     Id matchedPaymentId;
     Id achOrderId;
     String contractNumber;
@@ -103,6 +118,17 @@ for (Integer i = 1; i < lines.size(); i++) {
         r.coll        = Boolean.valueOf(cols[idxColl].trim());
         r.collStatus  = cols[idxCollStatus].trim();
 
+        // Reason viene del banco como "R10 CUST ADV NOT", "R02 ACCOUNT CLOSE",
+        // o texto plano sin codigo ("NSF", "PASTDUE DATE"). El codigo corto
+        // (primer token si matchea 1 letra + 2 digitos) es lo que va en
+        // SM_Check_Collection_Return_Reason__c; si ademas es un codigo NACHA
+        // valido, tambien se pone en SM_Return_code__c (picklist).
+        String rawReason = (idxReason >= 0 && cols.size() > idxReason) ? cols[idxReason].trim() : '';
+        String firstToken = rawReason.split(' ')[0];
+        Boolean looksLikeCode = Pattern.matches('^[A-Z]\\d{2}$', firstToken);
+        r.reasonShort = looksLikeCode ? firstToken : rawReason;
+        r.returnCode = (looksLikeCode && VALID_RETURN_CODES.contains(firstToken)) ? firstToken : null;
+
         rows.add(r);
         paymentNames.add(r.paymentName);
     } catch (Exception ex) {
@@ -120,6 +146,7 @@ Map<String, SM_Payment__c> paymentByName = new Map<String, SM_Payment__c>();
 for (SM_Payment__c p : [
     SELECT Id, Name, SM_ACH_Order__c, Payment_Status__c, SM_Check_Collection_Date__c,
            SM_Check_Collection__c, SM_Check_Collection_Status__c, SM_Historical_Collection_Status__c,
+           SM_Check_Collection_Return_Reason__c, SM_Return_code__c,
            SM_Contract__r.ContractNumber
     FROM SM_Payment__c
     WHERE Name IN :paymentNames
@@ -150,7 +177,9 @@ for (RowData r : rows) {
         match.Payment_Status__c == r.status &&
         match.SM_Check_Collection_Date__c == r.collDate &&
         match.SM_Check_Collection__c == r.coll &&
-        match.SM_Check_Collection_Status__c == r.collStatus;
+        match.SM_Check_Collection_Status__c == r.collStatus &&
+        match.SM_Check_Collection_Return_Reason__c == r.reasonShort &&
+        match.SM_Return_code__c == r.returnCode;
 
     if (alreadyApplied) {
         alreadyAppliedRows.add(r);
@@ -221,6 +250,8 @@ for (RowData r : matchedRows) {
         ' | SM_Check_Collection_Date__c: ' + r.collDate +
         ' | SM_Check_Collection__c: ' + r.coll +
         ' | SM_Check_Collection_Status__c: ' + r.collStatus +
+        ' | SM_Check_Collection_Return_Reason__c: ' + r.reasonShort +
+        ' | SM_Return_code__c: ' + r.returnCode +
         ' | SM_Historical_Collection_Status__c -> [' + r.newHistorical + ']'
     );
 }
@@ -275,6 +306,8 @@ if (!DRY_RUN) {
                     SM_Check_Collection_Date__c = r.collDate,
                     SM_Check_Collection__c = r.coll,
                     SM_Check_Collection_Status__c = r.collStatus,
+                    SM_Check_Collection_Return_Reason__c = r.reasonShort,
+                    SM_Return_code__c = r.returnCode,
                     SM_Historical_Collection_Status__c = r.newHistorical
                 ));
             }
