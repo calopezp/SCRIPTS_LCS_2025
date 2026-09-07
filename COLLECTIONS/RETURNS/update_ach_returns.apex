@@ -126,6 +126,35 @@ for (SM_Payment__c p : [
     paymentByName.put(p.Name, p);
 }
 
+// 3b) Para los candidatos de contrato Cancelado con Payment_Status__c
+// cambiando (ver nota mas abajo), averiguar si su ACH Order tiene OTRO
+// Payment (distinto a este) todavia "ACH TRANSMITTED" -- solo eso es un
+// riesgo real de tumbar la oleada. Si el UNICO "ACH TRANSMITTED" de esa
+// orden es el propio registro que se esta actualizando, al aplicarse deja
+// de estarlo, asi que no hay conflicto real (confirmado 2026-09-08: 4 de
+// 5 casos bloqueados el dia anterior eran falsos positivos por esto).
+Set<Id> cancelledCandidateAchOrderIds = new Set<Id>();
+for (RowData r : rows) {
+    SM_Payment__c m = paymentByName.get(r.paymentName);
+    if (m != null && m.SM_Contract__r != null && m.SM_Contract__r.Status == 'Cancelled' && m.Payment_Status__c != r.status && m.SM_ACH_Order__c != null) {
+        cancelledCandidateAchOrderIds.add(m.SM_ACH_Order__c);
+    }
+}
+Map<Id, Set<Id>> achTransmittedPaymentIdsByOrder = new Map<Id, Set<Id>>();
+if (!cancelledCandidateAchOrderIds.isEmpty()) {
+    for (SM_Payment__c p : [
+        SELECT Id, SM_ACH_Order__c
+        FROM SM_Payment__c
+        WHERE SM_ACH_Order__c IN :cancelledCandidateAchOrderIds
+        AND Payment_Status__c = 'ACH TRANSMITTED'
+    ]) {
+        if (!achTransmittedPaymentIdsByOrder.containsKey(p.SM_ACH_Order__c)) {
+            achTransmittedPaymentIdsByOrder.put(p.SM_ACH_Order__c, new Set<Id>());
+        }
+        achTransmittedPaymentIdsByOrder.get(p.SM_ACH_Order__c).add(p.Id);
+    }
+}
+
 // 4) Separar: sin match / ya aplicado (no necesita cambios) / bloqueado por
 // regresion (COLLECTED/ACCEPTED -> RETURN, nunca automatico) / bloqueado
 // por contrato Cancelado (ver nota antes de la oleada 6) / pendiente de
@@ -168,21 +197,28 @@ for (RowData r : rows) {
     // un intento de marcar SU ACH Order relacionada como Canceled. Ese
     // metodo agrupa TODAS las ACH Orders de la oleada completa en un solo
     // Database.update() (sin allOrNone=false) -- si ESA orden en particular
-    // tiene un Payment todavia "ACH TRANSMITTED" (validation rule "You
-    // cannot cancel ACH order if you have any Payment in Pending status
-    // transmitted"), tumba TODA la oleada, no solo este registro (bug real
-    // detectado 2026-09-07 en update_check_collection.apex: ACH-27553 /
-    // contrato 00317537 tumbo los 161 pagos de la oleada completa; misma
-    // logica vulnerable aca). Probar a reintentar registro por registro
-    // despues de que el trigger falle demostro ser poco confiable
+    // tiene OTRO Payment (distinto a este) todavia "ACH TRANSMITTED"
+    // (validation rule "You cannot cancel ACH order if you have any
+    // Payment in Pending status transmitted"), tumba TODA la oleada, no
+    // solo este registro (bug real detectado 2026-09-07 en
+    // update_check_collection.apex: ACH-27553 / contrato 00317537 tumbo
+    // los 161 pagos de la oleada completa; misma logica vulnerable aca).
+    // Si el UNICO "ACH TRANSMITTED" de esa orden es el propio registro que
+    // se esta actualizando, no hay conflicto real (al aplicarse deja de
+    // estarlo) y se deja pasar normal. Probar a reintentar registro por
+    // registro despues de que el trigger falle demostro ser poco confiable
     // (comportamiento inconsistente de la transaccion en Salesforce), asi
     // que en vez de eso este caso se detecta ANTES del DML y se separa para
     // revision manual -- igual que el guard de regresion de arriba.
     Boolean paymentStatusChanging = match.Payment_Status__c != r.status;
     Boolean contractCancelled = match.SM_Contract__r != null && match.SM_Contract__r.Status == 'Cancelled';
     if (contractCancelled && paymentStatusChanging) {
-        cancelledContractBlockedRows.add(r);
-        continue;
+        Set<Id> stuckIds = achTransmittedPaymentIdsByOrder.get(match.SM_ACH_Order__c);
+        Boolean hasOtherStuckSibling = stuckIds != null && (stuckIds.size() > 1 || !stuckIds.contains(match.Id));
+        if (hasOtherStuckSibling) {
+            cancelledContractBlockedRows.add(r);
+            continue;
+        }
     }
 
     // Un pago que ya esta COLLECTED/ACCEPTED nunca se revierte
