@@ -188,7 +188,7 @@ if [ $DEPLOY_EXIT -ne 0 ]; then
 fi
 
 echo "== 4) Preparando script Apex (modo: $MODE) =="
-TMP_APEX="$(mktemp /tmp/checkcol_apex_XXXXXX).apex"
+TMP_APEX="$(mktemp -u /tmp/checkcol_apex_XXXXXX.apex)"
 cp "$APEX_TEMPLATE" "$TMP_APEX"
 
 if [ "$MODE" = "apply" ]; then
@@ -219,7 +219,7 @@ rm -f "$TMP_APEX"
 if echo "$APEX_OUTPUT" | grep "USER_DEBUG" | grep -q "ALERTA:"; then
     REGRESSION_LOG="$SCRIPT_DIR/../regresiones_manual_review.log"
     ALERT_LINE="$(echo "$APEX_OUTPUT" | grep "USER_DEBUG" | grep "ALERTA:" | sed -E 's/^.*DEBUG\|//' | head -1)"
-    NAMES_LINE="$(echo "$APEX_OUTPUT" | grep "USER_DEBUG" | grep "Nombres bloqueados por regresion" | sed -E 's/^.*DEBUG\|//' | head -1)"
+    NAMES_LINE="$(echo "$APEX_OUTPUT" | grep "USER_DEBUG" | grep "Nombres bloqueados por regresion\|Nombres bloqueados por contrato cancelado" | sed -E 's/^.*DEBUG\|//' | head -1)"
     CONTRACTS_LINE="$(echo "$APEX_OUTPUT" | grep "USER_DEBUG" | grep "Contratos a analizar manualmente" | sed -E 's/^.*DEBUG\|//' | head -1)"
     echo ""
     echo "!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!"
@@ -242,6 +242,40 @@ if [ $APEX_EXIT -ne 0 ]; then
     echo "AVISO: 'sf apex run' devolvió código $APEX_EXIT (puede ser el mismo falso"
     echo "positivo del CLI que en el deploy). Revisa el debug log de arriba: si ves"
     echo "'UPDATE COMPLETADO -> Éxitos: ...' el Apex sí corrió correctamente."
+fi
+
+# Verificar que el Apex REALMENTE completo el DML esperado -- el exit code de
+# 'sf apex run' NO es confiable (falso positivo conocido del CLI arriba, pero
+# tambien puede devolver 0 aunque el Anonymous Apex haya lanzado una excepcion
+# no capturada). Sin esto, un fallo real del Apex se reportaba como "exit 0"
+# en el resumen de run_all_imports.sh, ocultando que nada se aplico en
+# Salesforce (bug real detectado 2026-09-07: PY-01890519 y otros 160 pagos
+# quedaron sin aplicar pese al resumen en verde). Se busca una de las dos
+# lineas de cierre normal del script Apex; si ninguna aparece, algo aborto la
+# ejecucion a mitad de camino (excepcion, limite de gobernador, etc).
+REAL_FAILURE=0
+if echo "$APEX_OUTPUT" | grep -q "UPDATE COMPLETADO"; then
+    ERR_COUNT="$(echo "$APEX_OUTPUT" | grep "UPDATE COMPLETADO" | sed -E 's/.*Errores: ([0-9]+).*/\1/' | head -1)"
+    if [ -n "$ERR_COUNT" ] && [ "$ERR_COUNT" -gt 0 ] 2>/dev/null; then
+        echo ""
+        echo "AVISO: $ERR_COUNT registro(s) fallaron el UPDATE real (ver 'ERROR actualizando' en el log de arriba)."
+        REAL_FAILURE=1
+    fi
+elif echo "$APEX_OUTPUT" | grep -q "No hay registros pendientes de aplicar\|DRY RUN activo"; then
+    : # nada pendiente que aplicar, o corrida en modo preview -- ambos normales
+else
+    echo ""
+    echo "ERROR: el Apex no reporto 'UPDATE COMPLETADO' ni 'No hay registros"
+    echo "pendientes de aplicar' -- la ejecucion probablemente fallo a mitad de"
+    echo "camino (excepcion no capturada, error de compilacion, limite de"
+    echo "gobernador, etc). Revisa el debug log completo arriba."
+    REAL_FAILURE=1
+fi
+
+if [ $REAL_FAILURE -eq 1 ]; then
+    echo ""
+    echo "== FALLO: el proceso NO se completo correctamente. =="
+    exit 1
 fi
 
 echo ""

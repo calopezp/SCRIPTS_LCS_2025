@@ -120,7 +120,7 @@ Map<String, SM_Payment__c> paymentByName = new Map<String, SM_Payment__c>();
 for (SM_Payment__c p : [
     SELECT Id, Name, SM_ACH_Order__c, Payment_Status__c, SM_Check_Collection_Date__c,
            SM_Check_Collection__c, SM_Check_Collection_Status__c, SM_Historical_Collection_Status__c,
-           SM_Contract__r.ContractNumber
+           SM_Contract__r.ContractNumber, SM_Contract__r.Status
     FROM SM_Payment__c
     WHERE Name IN :paymentNames
 ]) {
@@ -129,11 +129,13 @@ for (SM_Payment__c p : [
 
 // 4) Separar: sin match / ya aplicado (no necesita cambios) / bloqueado por
 // regresion (COLLECTED/ACCEPTED -> NOT COLLECTED, nunca automatico) /
+// bloqueado por contrato Cancelado (ver nota antes de la oleada 6) /
 // pendiente de aplicar. Los reportes oficiales siempre priman -- no hay
 // bucket de "superado por evento mas reciente" (ver nota mas abajo).
 List<RowData> matchedRows = new List<RowData>();
 List<RowData> alreadyAppliedRows = new List<RowData>();
 List<RowData> regressionBlockedRows = new List<RowData>();
+List<RowData> cancelledContractBlockedRows = new List<RowData>();
 List<String> notFound = new List<String>();
 
 for (RowData r : rows) {
@@ -154,6 +156,27 @@ for (RowData r : rows) {
 
     if (alreadyApplied) {
         alreadyAppliedRows.add(r);
+        continue;
+    }
+
+    // Un pago de un contrato Cancelado cuyo Payment_Status__c va a cambiar
+    // (ACCEPTED/REJECTED) dispara en SM_PaymentHandler.updateRelatedRecordsByPaymentStatusUpdates
+    // un intento de marcar SU ACH Order relacionada como Canceled. Ese
+    // metodo agrupa TODAS las ACH Orders de la oleada completa en un solo
+    // Database.update() (sin allOrNone=false) -- si ESA orden en particular
+    // tiene un Payment todavia "ACH TRANSMITTED" (validation rule "You
+    // cannot cancel ACH order if you have any Payment in Pending status
+    // transmitted"), tumba TODA la oleada, no solo este registro (bug real
+    // detectado 2026-09-07: ACH-27553 / contrato 00317537 tumbo los 161
+    // pagos de la oleada completa). Probar a reintentar registro por
+    // registro despues de que el trigger falle demostro ser poco confiable
+    // (comportamiento inconsistente de la transaccion en Salesforce), asi
+    // que en vez de eso este caso se detecta ANTES del DML y se separa para
+    // revision manual -- igual que el guard de regresion de arriba.
+    Boolean paymentStatusChanging = match.Payment_Status__c != r.status;
+    Boolean contractCancelled = match.SM_Contract__r != null && match.SM_Contract__r.Status == 'Cancelled';
+    if (contractCancelled && paymentStatusChanging) {
+        cancelledContractBlockedRows.add(r);
         continue;
     }
 
@@ -251,6 +274,21 @@ if (!regressionBlockedRows.isEmpty()) {
 } else {
     System.debug(' -> Bloqueados por regresion (COLLECTED/ACCEPTED -> RETURN/NOT COLLECTED, nunca automatico): 0');
 }
+if (!cancelledContractBlockedRows.isEmpty()) {
+    List<String> cancelledNames = new List<String>();
+    Set<String> cancelledContracts = new Set<String>();
+    for (RowData r : cancelledContractBlockedRows) {
+        cancelledNames.add(r.paymentName);
+        if (r.contractNumber != null) { cancelledContracts.add(r.contractNumber); }
+    }
+    List<String> cancelledContractsQuoted = new List<String>();
+    for (String cn : cancelledContracts) { cancelledContractsQuoted.add('\'' + cn + '\''); }
+    System.debug(' -> ***** ALERTA: ' + cancelledContractBlockedRows.size() + ' pago(s) de contrato(s) Cancelado(s) -- NO SE APLICARON (riesgo de tumbar la oleada completa por validation rule en la ACH Order), ANALIZAR MANUALMENTE *****');
+    System.debug(' ->   -> Nombres bloqueados por contrato cancelado: ' + cancelledNames);
+    System.debug(' ->   -> Contratos a analizar manualmente: ' + String.join(cancelledContractsQuoted, ', '));
+} else {
+    System.debug(' -> Bloqueados por contrato Cancelado (riesgo de tumbar la oleada): 0');
+}
 System.debug(' -> Pendientes de aplicar en esta corrida: ' + matchedRows.size());
 System.debug(' -> Oleadas necesarias por colisiones de orden ACH repetida: ' + (matchedRows.isEmpty() ? 0 : (maxWave + 1)));
 for (Integer w = 0; w <= maxWave && !matchedRows.isEmpty(); w++) {
@@ -258,7 +296,12 @@ for (Integer w = 0; w <= maxWave && !matchedRows.isEmpty(); w++) {
 }
 System.debug(' -> ======================================================');
 
-// 6) Ejecutar el update SOLO si DRY_RUN = false -- una oleada a la vez
+// 6) Ejecutar el update SOLO si DRY_RUN = false -- una oleada a la vez.
+// Los pagos de contrato Cancelado que arriesgaban tumbar la oleada completa
+// (ver el bloque de arriba, cancelledContractBlockedRows) ya quedaron
+// afuera de matchedRows, asi que aca Database.update(waveUpdate, false)
+// puede confiar en que una falla de validacion normal en UN Payment se
+// reporta como SaveResult individual, sin tumbar al resto de la oleada.
 if (!DRY_RUN) {
     if (matchedRows.isEmpty()) {
         System.debug(' -> No hay registros pendientes de aplicar.');
