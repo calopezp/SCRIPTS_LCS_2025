@@ -45,12 +45,20 @@ ORG_ALIAS="MONEE"
 PROJECT_DIR="C:/SALESFORCE/LCS/SCRIPTS_LCS_2025"
 
 STATIC_RESOURCE_DIR="$PROJECT_DIR/force-app/main/default/staticresources"
+# SCRIPT_DIR debe resolverse ANTES de cambiar de directorio (usa la ruta con
+# la que se invoco el script, relativa a la cwd original).
 SCRIPT_DIR="$(cd "$(dirname "${BASH_SOURCE[0]}")" && pwd)"
 APEX_TEMPLATE="$SCRIPT_DIR/update_ach_returns.apex"
 EXTRACT_SCRIPT="$SCRIPT_DIR/extract_ach_returns.py"
 RETURNS_INDEX_CSV="$SCRIPT_DIR/../index/returns_index.csv"
 COLLECTIONS_INDEX_CSV="$SCRIPT_DIR/../index/collections_index.csv"
 STATIC_RESOURCE_NAME="ACHReturnsImport"
+
+# sf busca sfdx-project.json subiendo desde la cwd -- si el script se invoca
+# desde otra carpeta (ej. una terminal nueva de Git Bash abre en
+# C:\Program Files\Git), sf falla con "InvalidProjectWorkspaceError". Forzamos
+# la cwd a la raiz del proyecto SFDX antes de cualquier comando sf.
+cd "$PROJECT_DIR" || { echo "ERROR: no existe PROJECT_DIR ($PROJECT_DIR)"; exit 1; }
 
 FILE_ARG=""
 if [ -n "$1" ] && [ "$1" != "apply" ]; then

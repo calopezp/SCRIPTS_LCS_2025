@@ -161,6 +161,7 @@ for (SM_Payment__c p : [
 List<RowData> matchedRows = new List<RowData>();
 List<RowData> alreadyAppliedRows = new List<RowData>();
 List<RowData> regressionBlockedRows = new List<RowData>();
+List<RowData> staleRows = new List<RowData>();
 List<String> notFound = new List<String>();
 
 for (RowData r : rows) {
@@ -172,6 +173,16 @@ for (RowData r : rows) {
     r.matchedPaymentId = match.Id;
     r.achOrderId = match.SM_ACH_Order__c;
     r.contractNumber = match.SM_Contract__r != null ? match.SM_Contract__r.ContractNumber : null;
+
+    // Guard por fecha: ver la nota equivalente en update_ach_returns.apex --
+    // nunca dejar que una fila de un reporte MAS VIEJO pise lo que ya esta
+    // guardado, sin importar de que pipeline (Return o Collection) venga.
+    // Necesario para el catch-up de atraso (run_daily_catchup.sh), que
+    // puede procesar fechas fuera del orden en que Salesforce las recibio.
+    if (match.SM_Check_Collection_Date__c != null && r.collDate < match.SM_Check_Collection_Date__c) {
+        staleRows.add(r);
+        continue;
+    }
 
     Boolean alreadyApplied =
         match.Payment_Status__c == r.status &&
@@ -267,6 +278,12 @@ if (!notFound.isEmpty()) {
     System.debug(' ->   -> Nombres no encontrados: ' + notFound);
 }
 System.debug(' -> Ya aplicados anteriormente (sin cambios, se omiten): ' + alreadyAppliedRows.size());
+System.debug(' -> Descartados por ser mas viejos que el reporte ya guardado (fuera de orden): ' + staleRows.size());
+if (!staleRows.isEmpty()) {
+    List<String> staleNames = new List<String>();
+    for (RowData r : staleRows) { staleNames.add(r.paymentName); }
+    System.debug(' ->   -> Nombres: ' + staleNames);
+}
 if (!regressionBlockedRows.isEmpty()) {
     List<String> regressionNames = new List<String>();
     Set<String> regressionContracts = new Set<String>();

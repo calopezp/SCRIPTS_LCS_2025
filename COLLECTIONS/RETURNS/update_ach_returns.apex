@@ -133,6 +133,7 @@ for (SM_Payment__c p : [
 List<RowData> matchedRows = new List<RowData>();
 List<RowData> alreadyAppliedRows = new List<RowData>();
 List<RowData> regressionBlockedRows = new List<RowData>();
+List<RowData> staleRows = new List<RowData>();
 List<String> notFound = new List<String>();
 
 for (RowData r : rows) {
@@ -144,6 +145,21 @@ for (RowData r : rows) {
     r.matchedPaymentId = match.Id;
     r.achOrderId = match.SM_ACH_Order__c;
     r.contractNumber = match.SM_Contract__r != null ? match.SM_Contract__r.ContractNumber : null;
+
+    // Guard por fecha: si ya hay guardado un reporte MAS RECIENTE que este
+    // (ej. un catch-up de atraso procesando fechas viejas fuera de orden, o
+    // un PDF que llego tarde), esta fila NUNCA pisa lo que ya esta -- sin
+    // esto, aplicar el historico completo en desorden podria hacer que un
+    // Return viejo revierta un Check Collection mas nuevo (o viceversa)
+    // solo porque se proceso despues. No es lo mismo que el guard de
+    // regresion de abajo (ese bloquea COLLECTED/ACCEPTED->RETURN SIN
+    // IMPORTAR FECHAS, por ser un estado de exito que requiere revision
+    // manual); este es mas general y aplica a cualquier combinacion de
+    // estados.
+    if (match.SM_Check_Collection_Date__c != null && r.collDate < match.SM_Check_Collection_Date__c) {
+        staleRows.add(r);
+        continue;
+    }
 
     String currentChange = match.SM_Return_Change__c == null ? '' : match.SM_Return_Change__c;
     String targetChange = r.returnChange == null ? '' : r.returnChange;
@@ -249,6 +265,12 @@ if (!notFound.isEmpty()) {
     System.debug(' ->   -> Nombres no encontrados: ' + notFound);
 }
 System.debug(' -> Ya aplicados anteriormente (sin cambios, se omiten): ' + alreadyAppliedRows.size());
+System.debug(' -> Descartados por ser mas viejos que el reporte ya guardado (fuera de orden): ' + staleRows.size());
+if (!staleRows.isEmpty()) {
+    List<String> staleNames = new List<String>();
+    for (RowData r : staleRows) { staleNames.add(r.paymentName); }
+    System.debug(' ->   -> Nombres: ' + staleNames);
+}
 if (!regressionBlockedRows.isEmpty()) {
     List<String> regressionNames = new List<String>();
     Set<String> regressionContracts = new Set<String>();
