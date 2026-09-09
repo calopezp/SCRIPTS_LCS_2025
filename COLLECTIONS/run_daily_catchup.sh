@@ -30,15 +30,23 @@ set -e
 # este script.
 #
 # Uso:
-#   ./run_daily_catchup.sh                  -> escanea todo, DRY RUN dia por dia (ultimos 7 dias)
-#   ./run_daily_catchup.sh apply             -> escanea todo, aplica dia por dia (real, ultimos 7 dias)
-#   ./run_daily_catchup.sh apply 45          -> idem, pero mirando 45 dias atras (backfill profundo)
+#   ./run_daily_catchup.sh                  -> escanea todo, DRY RUN dia por dia (SIN corte -- TODAS las fechas pendientes)
+#   ./run_daily_catchup.sh apply             -> escanea todo, aplica dia por dia (real, SIN corte -- TODAS las fechas pendientes)
+#   ./run_daily_catchup.sh apply 7           -> idem, pero solo mirando los ultimos 7 dias (corrida rapida/parcial)
 #
-# El default de 7 dias (no 45) es a proposito: cada fecha pendiente
-# implica 2 ciclos de deploy+apex (Return y Collection), y la mayoria de
-# esos dias ya estan aplicados (el .apex los detecta y se salta, pero
-# igual cuesta un deploy). Para el atraso tipico de 2-3 dias, 7 sobra;
-# usa un numero mas grande solo si hace falta reprocesar mas atras.
+# SIN corte por defecto -- instruccion explicita del usuario (2026-09-09):
+# TODO pago reportado en un archivo de RETURN o de COLLECTION se debe
+# procesar, sin importar su fecha de transmision/SM_Check_Collection_Date__c.
+# Antes el default era 7 dias "porque el atraso tipico es de 2-3 dias" --
+# resulto ser FALSO: el 2026-09-09 se detecto que un solo reporte de Check
+# Collection (04-sep-2026) traia cheques con fechas de hasta 35 dias atras
+# (Banco Popular reporta con atraso variable, no fijo), y esa ventana de 7
+# dias los estaba descartando en silencio -- 15 de 28 pagos de ese reporte
+# nunca se aplicaron a Salesforce. Pasar un numero como segundo argumento
+# sigue sirviendo para una corrida rapida/parcial puntual (ej. smoke test),
+# pero NUNCA es el comportamiento por defecto para un catch-up real -- los
+# .apex son idempotentes (procesar de mas es inofensivo), procesar de menos
+# pierde pagos reales.
 # ============================================================
 
 SCRIPT_DIR="$(cd "$(dirname "${BASH_SOURCE[0]}")" && pwd)"
@@ -50,7 +58,7 @@ if [ -n "$1" ] && [ "$1" != "apply" ]; then
 fi
 APPLY_ARG=""
 [ "$MODE" = "apply" ] && APPLY_ARG="apply"
-DAYS_BACK="${2:-7}"
+DAYS_BACK="${2:-0}"
 
 echo "############################################################"
 echo "# 1/2 Escaneando Returns + Check Collection (build_index.py)"
@@ -70,7 +78,11 @@ echo "############################################################"
 # dejando el catch-up entero como no-op silencioso.
 DATES=$(python3 "$SCRIPT_DIR/build_daily_apply_plan.py" --list-dates --days-back "$DAYS_BACK" | tr -d '\r')
 if [ -z "$DATES" ]; then
-    echo "Nada pendiente dentro de la ventana de $DAYS_BACK dias."
+    if [ "$DAYS_BACK" = "0" ]; then
+        echo "Nada pendiente (sin corte de fecha -- se revisaron todas las fechas en los indices)."
+    else
+        echo "Nada pendiente dentro de la ventana de $DAYS_BACK dias."
+    fi
     exit 0
 fi
 

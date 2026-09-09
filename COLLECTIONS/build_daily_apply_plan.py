@@ -29,10 +29,17 @@ NO cambian: ya comparan cada fila contra el estado actual y son
 idempotentes, asi que aplicar de mas (una fecha ya aplicada) es inofensivo.
 
 Uso:
-    python build_daily_apply_plan.py --list-dates [--days-back 45]
+    python build_daily_apply_plan.py --list-dates [--days-back N]
         -> imprime las fechas (YYYY-MM-DD) con al menos 1 fila pendiente
            en returns_index.csv o collections_index.csv, ascendente,
-           una por linea.
+           una por linea. Sin --days-back (o con 0): SIN corte -- se listan
+           TODAS las fechas presentes en los indices, sin importar que tan
+           vieja sea la SM_Check_Collection_Date__c. Instruccion explicita
+           del usuario (2026-09-09): todo pago reportado en un archivo de
+           RETURN o de COLLECTION se procesa, independiente de su fecha.
+           --days-back N sigue existiendo solo para limitar una corrida
+           puntual (ej. pruebas rapidas), nunca es el comportamiento
+           recomendado para un catch-up real.
 
     python build_daily_apply_plan.py --date 2026-09-05 --side returns --out RETURNS/ACHReturnsImport.csv
     python build_daily_apply_plan.py --date 2026-09-05 --side collections --out COLLECTIONS/CheckCollectionImport.csv
@@ -66,11 +73,19 @@ def _read_index(csv_path: Path):
         return list(reader), fieldnames
 
 
-def _cutoff_date(days_back: int) -> str:
+def _cutoff_date(days_back):
+    # days_back None (o <=0) => sin corte -- "" es <= cualquier fecha real,
+    # asi que list_dates() no descarta nada por antiguedad. Los reportes del
+    # banco (sobre todo Check Collection) pueden traer fechas de semanas
+    # atras (atraso normal de Banco Popular); TODO pago reportado en un
+    # archivo de RETURN o de COLLECTION se debe procesar, sin importar que
+    # tan vieja sea su SM_Check_Collection_Date__c / fecha de reporte.
+    if not days_back or days_back <= 0:
+        return ""
     return (datetime.today() - timedelta(days=days_back)).strftime("%Y-%m-%d")
 
 
-def list_dates(days_back: int):
+def list_dates(days_back):
     cutoff = _cutoff_date(days_back)
     dates = set()
     for csv_path in (RETURNS_INDEX_CSV, COLLECTIONS_INDEX_CSV):
@@ -109,7 +124,7 @@ def write_date_csv(side: str, date: str, out_path: Path):
 def main():
     parser = argparse.ArgumentParser()
     parser.add_argument("--list-dates", action="store_true")
-    parser.add_argument("--days-back", type=int, default=45)
+    parser.add_argument("--days-back", type=int, default=0)
     parser.add_argument("--date")
     parser.add_argument("--side", choices=["returns", "collections"])
     parser.add_argument("--out")
