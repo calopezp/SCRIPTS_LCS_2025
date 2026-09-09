@@ -17,6 +17,26 @@ Es incremental: cada PDF ya indexado (por nombre de archivo) se salta en
 corridas posteriores, asi que solo se procesan los PDFs nuevos del dia.
 buscar_payment.py llama esto automaticamente antes de cada busqueda.
 
+Corte de 1 semana por archivo NUEVO (instruccion explicita del usuario,
+2026-09-09): el uso diario de este pipeline (run_daily_new_files.sh) NUNCA
+debe aplicar solo un archivo que alguien acaba de dejar en OneDrive pero
+que en realidad es un reporte VIEJO (ej. un historico que mandan manual).
+Se mide por la FECHA QUE TRAE EL NOMBRE DEL ARCHIVO (no por cuando se guardo
+en disco -- instruccion explicita del usuario: "basado en el nombre del
+archivo, el nombre del archivo tiene la fecha"). Ver parse_date_from_filename()
+para los patrones soportados (el formato nuevo "..._MMDDYYYY.pdf" /
+"..._MM_DD_YYYY.pdf" y el formato viejo "<Mes> <Dia>[-<Dia2>] [<Año>].pdf").
+Si el nombre no trae ninguna fecha reconocible (ej. "ResumenOctNovDec2025.pdf",
+"Reporte 1 semanal Febrero.pdf"), se trata como VIEJO por seguridad -- no se
+puede confirmar que sea reciente, así que no se aplica solo.
+
+Los PDFs de mas de 7 dias de antiguedad (o sin fecha parseable) SI se
+indexan (quedan marcados como "vistos", no se re-escanean para siempre)
+pero sus filas NO entran al delta del dia -- quedan reportados en
+ARCHIVOS_VIEJOS_CSV para que el usuario decida procesarlos manualmente
+(run_import_return.sh "<ruta>" apply / run_import_collection.sh "<ruta>"
+apply, el modo de un solo archivo, que no filtra por fecha).
+
 Uso:
     python build_index.py            # actualiza ambos indices (incremental)
     python build_index.py --rebuild  # borra los indices y reprocesa todo
@@ -25,6 +45,8 @@ Uso:
 import argparse
 import csv
 import importlib.util
+import re
+from datetime import date
 from pathlib import Path
 
 import pdfplumber
@@ -39,6 +61,76 @@ RETURNS_INDEX_CSV = INDEX_DIR / "returns_index.csv"
 COLLECTIONS_INDEX_CSV = INDEX_DIR / "collections_index.csv"
 RETURNS_DELTA_CSV = INDEX_DIR / "returns_last_run_delta.csv"
 COLLECTIONS_DELTA_CSV = INDEX_DIR / "collections_last_run_delta.csv"
+ARCHIVOS_VIEJOS_CSV = INDEX_DIR / "archivos_viejos_pendientes_confirmacion.csv"
+NEW_FILE_MAX_AGE_DAYS = 7
+
+# Año por defecto cuando el nombre trae mes+dia pero no año (la mayoria de
+# los archivos viejos) -- coincide con las carpetas fuente ("...\2026"),
+# ajustar aqui junto con RETURNS_SOURCE_DIR/COLLECTIONS_SOURCE_DIR cuando
+# cambie el año.
+DEFAULT_FILENAME_YEAR = 2026
+
+MONTH_NAMES = {
+    "jan": 1, "january": 1, "enero": 1,
+    "feb": 2, "february": 2, "febrero": 2,
+    "mar": 3, "march": 3, "marh": 3, "marzo": 3,
+    "apr": 4, "april": 4, "abril": 4,
+    "may": 5, "mayo": 5,
+    "jun": 6, "june": 6, "junio": 6,
+    "jul": 7, "july": 7, "julio": 7,
+    "aug": 8, "august": 8, "agosto": 8,
+    "sep": 9, "sept": 9, "september": 9, "septiembre": 9,
+    "oct": 10, "october": 10, "octubre": 10,
+    "nov": 11, "november": 11, "noviembre": 11,
+    "dec": 12, "december": 12, "diciembre": 12,
+}
+_MONTH_PATTERN = "|".join(sorted(MONTH_NAMES, key=len, reverse=True))
+# Formato nuevo: "..._MMDDYYYY.pdf" (CheckCollectionDailyReport_09042026.pdf,
+# ACHReturnsReport_09012026.pdf).
+_RE_MMDDYYYY = re.compile(r"_(\d{2})(\d{2})(\d{4})\.pdf$", re.IGNORECASE)
+# Formato nuevo variante: "..._MM_DD_YYYY.pdf" (Check Collection Daily
+# Report_09_01_2026.pdf, ACH Returns Report_09_04_2026.pdf).
+_RE_MM_DD_YYYY = re.compile(r"_(\d{2})_(\d{2})_(\d{4})\.pdf$", re.IGNORECASE)
+# Formato viejo: "<Mes> <Dia>[-<Dia2>|a<Dia2>] [<Año>]" en cualquier parte
+# del nombre (ej. "Check Collections April 17 2026.pdf", "ACH Returns Jun
+# 12a15 2026.pdf", "Check Collections March 20 Weekly.pdf" -- año opcional).
+_RE_MONTH_DAY_YEAR = re.compile(
+    rf"({_MONTH_PATTERN})\.?\s+(\d{{1,2}})(?:[-a/]\d{{1,2}})?(?:\s+(\d{{4}}))?",
+    re.IGNORECASE,
+)
+
+
+def parse_date_from_filename(name: str):
+    """Extrae la fecha del reporte a partir del NOMBRE del archivo (no de su
+    contenido ni de su fecha de modificacion en disco). Devuelve un date o
+    None si el nombre no trae ninguna fecha reconocible."""
+    m = _RE_MMDDYYYY.search(name)
+    if m:
+        mm, dd, yyyy = m.groups()
+        try:
+            return date(int(yyyy), int(mm), int(dd))
+        except ValueError:
+            pass
+
+    m = _RE_MM_DD_YYYY.search(name)
+    if m:
+        mm, dd, yyyy = m.groups()
+        try:
+            return date(int(yyyy), int(mm), int(dd))
+        except ValueError:
+            pass
+
+    m = _RE_MONTH_DAY_YEAR.search(name)
+    if m:
+        month_name, day, year = m.groups()
+        month = MONTH_NAMES[month_name.lower()]
+        year = int(year) if year else DEFAULT_FILENAME_YEAR
+        try:
+            return date(year, month, int(day))
+        except ValueError:
+            pass
+
+    return None
 
 # Marcadores de texto para detectar el tipo real de reporte, sin importar
 # en que carpeta este guardado el PDF.
@@ -141,44 +233,91 @@ def update_indexes(rebuild=False, quiet=False):
     returns_rows = []
     collections_rows = []
     unclassified = []
+    old_files = []  # (filename, type, age_days_or_None, row_count) -- para ARCHIVOS_VIEJOS_CSV
+
+    today = date.today()
 
     for pdf_path in sorted(pending, key=lambda p: p.name):
         report_type = detect_report_type(pdf_path)
+        filename_date = parse_date_from_filename(pdf_path.name)
+        # Sin fecha reconocible en el nombre: se trata como VIEJO por
+        # seguridad (age_days=None) -- no se puede confirmar que sea
+        # reciente, asi que no entra al delta de hoy.
+        age_days = (today - filename_date).days if filename_date else None
         if report_type == "returns" and pdf_path.name not in returns_seen:
             try:
                 records = returns_extractor.extract_records(str(pdf_path))
             except Exception as exc:
                 print(f"  ERROR procesando {pdf_path.name} (returns): {exc}")
                 continue
-            returns_rows.append((pdf_path.name, records))
+            returns_rows.append((pdf_path.name, records, age_days))
+            if age_days is None or age_days > NEW_FILE_MAX_AGE_DAYS:
+                old_files.append((pdf_path.name, "returns", age_days, len(records)))
         elif report_type == "collections" and pdf_path.name not in collections_seen:
             try:
                 records = collections_extractor.extract_records(str(pdf_path))
             except Exception as exc:
                 print(f"  ERROR procesando {pdf_path.name} (collections): {exc}")
                 continue
-            collections_rows.append((pdf_path.name, records))
+            collections_rows.append((pdf_path.name, records, age_days))
+            if age_days is None or age_days > NEW_FILE_MAX_AGE_DAYS:
+                old_files.append((pdf_path.name, "collections", age_days, len(records)))
         elif report_type is None:
             unclassified.append(pdf_path.name)
 
+    # _append_records indexa TODO (recientes + viejos) -- un archivo viejo
+    # tambien debe quedar marcado como "visto" para no reprocesarlo cada dia,
+    # solo que sus filas no entran al delta de hoy (ver mas abajo).
+    returns_all = [(name, recs) for name, recs, _age in returns_rows]
+    collections_all = [(name, recs) for name, recs, _age in collections_rows]
+    returns_recent = [(name, recs) for name, recs, age in returns_rows if age is not None and age <= NEW_FILE_MAX_AGE_DAYS]
+    collections_recent = [(name, recs) for name, recs, age in collections_rows if age is not None and age <= NEW_FILE_MAX_AGE_DAYS]
+
     if not quiet:
         print("== ACH Returns ==")
-    _append_records(RETURNS_INDEX_CSV, returns_extractor.FIELDNAMES, returns_rows, quiet)
-    total_returns = sum(len(r) for _, r in returns_rows)
-    print(f"  [{RETURNS_INDEX_CSV.name}] {len(returns_rows)} PDF(s) nuevo(s) -> {total_returns} registro(s) agregados.")
-    _write_delta(RETURNS_DELTA_CSV, returns_extractor.FIELDNAMES, returns_rows, quiet)
+    _append_records(RETURNS_INDEX_CSV, returns_extractor.FIELDNAMES, returns_all, quiet)
+    total_returns = sum(len(r) for _, r in returns_all)
+    print(f"  [{RETURNS_INDEX_CSV.name}] {len(returns_all)} PDF(s) nuevo(s) -> {total_returns} registro(s) agregados.")
+    _write_delta(RETURNS_DELTA_CSV, returns_extractor.FIELDNAMES, returns_recent, quiet)
 
     if not quiet:
         print("== Check Collection ==")
-    _append_records(COLLECTIONS_INDEX_CSV, collections_extractor.FIELDNAMES, collections_rows, quiet)
-    total_collections = sum(len(r) for _, r in collections_rows)
-    print(f"  [{COLLECTIONS_INDEX_CSV.name}] {len(collections_rows)} PDF(s) nuevo(s) -> {total_collections} registro(s) agregados.")
-    _write_delta(COLLECTIONS_DELTA_CSV, collections_extractor.FIELDNAMES, collections_rows, quiet)
+    _append_records(COLLECTIONS_INDEX_CSV, collections_extractor.FIELDNAMES, collections_all, quiet)
+    total_collections = sum(len(r) for _, r in collections_all)
+    print(f"  [{COLLECTIONS_INDEX_CSV.name}] {len(collections_all)} PDF(s) nuevo(s) -> {total_collections} registro(s) agregados.")
+    _write_delta(COLLECTIONS_DELTA_CSV, collections_extractor.FIELDNAMES, collections_recent, quiet)
+
+    _write_old_files_report(old_files, quiet)
 
     if unclassified:
         print(f"  AVISO: {len(unclassified)} PDF(s) sin clasificar (no matchean ningun formato conocido):")
         for name in unclassified:
             print(f"    - {name}")
+
+
+def _write_old_files_report(old_files, quiet):
+    """Archivos nuevos (nunca antes indexados) cuya fecha (segun el NOMBRE
+    del archivo) tiene mas de NEW_FILE_MAX_AGE_DAYS dias, o cuyo nombre no
+    trae ninguna fecha reconocible (Antiguedad_Dias queda vacio en ese
+    caso -- se trata como viejo por seguridad). Ya quedaron indexados
+    (arriba), pero sus payments NO entraron al delta de hoy. Se
+    sobreescribe cada corrida (refleja solo lo encontrado en ESTA corrida,
+    igual que los *_last_run_delta.csv)."""
+    if ARCHIVOS_VIEJOS_CSV.exists():
+        ARCHIVOS_VIEJOS_CSV.unlink()
+    if not old_files:
+        return
+    with ARCHIVOS_VIEJOS_CSV.open("w", newline="", encoding="utf-8") as f:
+        writer = csv.writer(f)
+        writer.writerow(["Source_File", "Tipo", "Antiguedad_Dias", "Filas"])
+        for name, tipo, age_days, count in old_files:
+            writer.writerow([name, tipo, age_days if age_days is not None else "", count])
+    if not quiet:
+        print(f"  AVISO: {len(old_files)} archivo(s) nuevo(s) pero de MAS DE {NEW_FILE_MAX_AGE_DAYS} DIAS (o sin fecha reconocible en el nombre)")
+        print(f"  -> indexados, pero NO incluidos en el delta de hoy -> {ARCHIVOS_VIEJOS_CSV}")
+        for name, tipo, age_days, count in old_files:
+            age_label = f"{age_days} dias" if age_days is not None else "fecha no reconocida en el nombre"
+            print(f"     - {name} ({tipo}, {age_label}, {count} fila(s)) -- procesar manual si corresponde")
 
 
 def _write_delta(delta_csv: Path, fieldnames, rows, quiet):
