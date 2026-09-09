@@ -29,7 +29,7 @@
  */
 
 // ============ CONFIGURACION ============
-Boolean DRY_RUN = false; // <-- cambiar a false para ejecutar el insert real
+Boolean DRY_RUN = true; // <-- cambiar a false para ejecutar el insert real
 // ========================================
 
 System.debug('→  -> ======================================================');

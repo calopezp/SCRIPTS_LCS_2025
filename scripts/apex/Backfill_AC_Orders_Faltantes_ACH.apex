@@ -27,7 +27,7 @@
  */
 
 // ============ CONFIGURACION ============
-Boolean DRY_RUN = false; // <-- cambiar a false para ejecutar el insert real
+Boolean DRY_RUN = true; // <-- cambiar a false para ejecutar el insert real
 // Ventana real del bug: CONTRACT_Create_ACH_AC_Order (v1) se creo el
 // 2026-08-26 pero la v5 del orchestrator que lo invoca no se activo hasta
 // el 2026-09-09. Fuera de esta ventana NO se debe tocar nada -- contratos
