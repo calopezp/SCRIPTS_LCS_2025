@@ -135,6 +135,35 @@
     </start>
     <status>Active</status>
     <subflows>
+        <name>AC_Order_from_Creation</name>
+        <label>Create ACH AC Order from Creation</label>
+        <locationX>0</locationX>
+        <locationY>0</locationY>
+        <flowName>CONTRACT_Create_ACH_AC_Order</flowName>
+        <inputAssignments>
+            <name>sf_Contract</name>
+            <value>
+                <elementReference>$Record</elementReference>
+            </value>
+        </inputAssignments>
+    </subflows>
+    <subflows>
+        <name>AC_Order_from_Update</name>
+        <label>Create ACH AC Order from Update</label>
+        <locationX>0</locationX>
+        <locationY>0</locationY>
+        <connector>
+            <targetReference>If_Change_to_Activated</targetReference>
+        </connector>
+        <flowName>CONTRACT_Create_ACH_AC_Order</flowName>
+        <inputAssignments>
+            <name>sf_Contract</name>
+            <value>
+                <elementReference>$Record</elementReference>
+            </value>
+        </inputAssignments>
+    </subflows>
+    <subflows>
         <name>Create_Dispute_from_Creation</name>
         <label>Create Dispute from Creation</label>
         <locationX>0</locationX>
@@ -151,11 +180,14 @@
         </inputAssignments>
     </subflows>
     <subflows>
-        <name>AC_Order_from_Creation</name>
-        <label>Create ACH AC Order from Creation</label>
+        <name>Create_Subscription_Order</name>
+        <label>Create ACH Subscription Order</label>
         <locationX>0</locationX>
         <locationY>0</locationY>
-        <flowName>CONTRACT_Create_ACH_AC_Order</flowName>
+        <connector>
+            <targetReference>Contract_Change_Status</targetReference>
+        </connector>
+        <flowName>CONTRACT_Create_ACH_Subscription_Order</flowName>
         <inputAssignments>
             <name>sf_Contract</name>
             <value>
@@ -216,38 +248,6 @@
             <name>Var_Generates_Dispute</name>
             <value>
                 <elementReference>$Record.SM_Generates_dispute__c</elementReference>
-            </value>
-        </inputAssignments>
-    </subflows>
-    <subflows>
-        <name>AC_Order_from_Update</name>
-        <label>Create ACH AC Order from Update</label>
-        <locationX>0</locationX>
-        <locationY>0</locationY>
-        <connector>
-            <targetReference>If_Change_to_Activated</targetReference>
-        </connector>
-        <flowName>CONTRACT_Create_ACH_AC_Order</flowName>
-        <inputAssignments>
-            <name>sf_Contract</name>
-            <value>
-                <elementReference>$Record</elementReference>
-            </value>
-        </inputAssignments>
-    </subflows>
-    <subflows>
-        <name>Create_Subscription_Order</name>
-        <label>Create ACH Subscription Order</label>
-        <locationX>0</locationX>
-        <locationY>0</locationY>
-        <connector>
-            <targetReference>Contract_Change_Status</targetReference>
-        </connector>
-        <flowName>CONTRACT_Create_ACH_Subscription_Order</flowName>
-        <inputAssignments>
-            <name>sf_Contract</name>
-            <value>
-                <elementReference>$Record</elementReference>
             </value>
         </inputAssignments>
     </subflows>
