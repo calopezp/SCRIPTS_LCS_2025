@@ -60,6 +60,7 @@ COLLECTIONS_INDEX_CSV="$SCRIPT_DIR/../index/collections_index.csv"
 RETURNS_DELTA_CSV="$SCRIPT_DIR/../index/returns_last_run_delta.csv"
 COLLECTIONS_DELTA_CSV="$SCRIPT_DIR/../index/collections_last_run_delta.csv"
 STATIC_RESOURCE_NAME="ACHReturnsImport"
+R10_DIR="$SCRIPT_DIR/reportes_comercial_R10"
 
 # sf busca sfdx-project.json subiendo desde la cwd -- si el script se invoca
 # desde otra carpeta (ej. una terminal nueva de Git Bash abre en
@@ -80,6 +81,17 @@ CSV_OUT="$SCRIPT_DIR/ACHReturnsImport.csv"
 if [ -n "$FILE_ARG" ]; then
     echo "== 1) Procesando PDF especifico: $FILE_ARG =="
     python3 "$EXTRACT_SCRIPT" "$FILE_ARG" "$CSV_OUT"
+
+    PDF_BASENAME="$(basename "$FILE_ARG" .pdf)"
+    R10_OUT="$SCRIPT_DIR/ACHReturnsImport_R10_ClienteSolicitoDevolucion.csv"
+    # El reporte R10 (clientes que pidieron la devolución directo al banco) se
+    # sobreescribiría en cada corrida si se deja con nombre fijo; lo copiamos
+    # aparte con el nombre del PDF de origen para no perder el de días anteriores.
+    if [ -s "$R10_OUT" ] && [ "$(tail -n +2 "$R10_OUT" | wc -l)" -gt 0 ]; then
+        mkdir -p "$R10_DIR"
+        cp "$R10_OUT" "$R10_DIR/${PDF_BASENAME}_R10.csv"
+        echo "Reporte para Comercial guardado en: $R10_DIR/${PDF_BASENAME}_R10.csv"
+    fi
 else
     if [ "$SKIP_SCAN" = "1" ]; then
         echo "== 1) Scan y cruce de indices omitidos (SKIP_SCAN=1) -- usando el CSV ya generado =="
@@ -104,6 +116,33 @@ else
         echo ""
         echo "== Nada que aplicar en Returns (todo dentro de la ventana ya esta aplicado o le corresponde a Collection). =="
         exit 0
+    fi
+
+    # Reporte R10 para Comercial: SOLO de los PDFs nuevos de hoy (el delta
+    # de build_index.py), no del historico completo -- para no re-notificar
+    # clientes de dias anteriores cada vez que se corre este script.
+    if [ -s "$RETURNS_DELTA_CSV" ] && [ "$(tail -n +2 "$RETURNS_DELTA_CSV" | wc -l)" -gt 0 ]; then
+        TODAY="$(date +%Y%m%d)"
+        R10_OUT="$SCRIPT_DIR/ACHReturnsImport_R10_ClienteSolicitoDevolucion.csv"
+        python3 - "$RETURNS_DELTA_CSV" "$R10_OUT" << 'PYEOF'
+import csv, sys
+src, dst = sys.argv[1], sys.argv[2]
+with open(src, newline='', encoding='utf-8') as f:
+    rows = [r for r in csv.DictReader(f) if (r.get('SM_Return_code__c') or '').strip().upper() == 'R10']
+if rows:
+    with open(dst, 'w', newline='', encoding='utf-8') as f:
+        w = csv.DictWriter(f, fieldnames=list(rows[0].keys()))
+        w.writeheader()
+        w.writerows(rows)
+    print(f"{len(rows)} registro(s) R10 encontrados")
+else:
+    print("Sin registros R10 en el delta de hoy")
+PYEOF
+        if [ -s "$R10_OUT" ] && [ "$(tail -n +2 "$R10_OUT" | wc -l)" -gt 0 ]; then
+            mkdir -p "$R10_DIR"
+            cp "$R10_OUT" "$R10_DIR/delta_${TODAY}_R10.csv"
+            echo "Reporte para Comercial guardado en: $R10_DIR/delta_${TODAY}_R10.csv"
+        fi
     fi
 fi
 
