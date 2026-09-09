@@ -31,22 +31,34 @@ set -e
 #
 # Uso:
 #   ./run_daily_catchup.sh                  -> escanea todo, DRY RUN dia por dia (SIN corte -- TODAS las fechas pendientes)
-#   ./run_daily_catchup.sh apply             -> escanea todo, aplica dia por dia (real, SIN corte -- TODAS las fechas pendientes)
+#   ./run_daily_catchup.sh apply             -> escanea todo, aplica dia por dia (real) -- SOLO fechas de los ultimos 2 meses
 #   ./run_daily_catchup.sh apply 7           -> idem, pero solo mirando los ultimos 7 dias (corrida rapida/parcial)
+#   CONFIRM_OLD=1 ./run_daily_catchup.sh apply  -> aplica TAMBIEN las fechas de mas de 2 meses (backlog historico real)
 #
-# SIN corte por defecto -- instruccion explicita del usuario (2026-09-09):
-# TODO pago reportado en un archivo de RETURN o de COLLECTION se debe
-# procesar, sin importar su fecha de transmision/SM_Check_Collection_Date__c.
-# Antes el default era 7 dias "porque el atraso tipico es de 2-3 dias" --
-# resulto ser FALSO: el 2026-09-09 se detecto que un solo reporte de Check
-# Collection (04-sep-2026) traia cheques con fechas de hasta 35 dias atras
-# (Banco Popular reporta con atraso variable, no fijo), y esa ventana de 7
-# dias los estaba descartando en silencio -- 15 de 28 pagos de ese reporte
-# nunca se aplicaron a Salesforce. Pasar un numero como segundo argumento
-# sigue sirviendo para una corrida rapida/parcial puntual (ej. smoke test),
-# pero NUNCA es el comportamiento por defecto para un catch-up real -- los
-# .apex son idempotentes (procesar de mas es inofensivo), procesar de menos
-# pierde pagos reales.
+# SIN corte de fecha al LISTAR por defecto -- instruccion explicita del
+# usuario (2026-09-09): TODO pago reportado en un archivo de RETURN o de
+# COLLECTION se debe procesar, sin importar su fecha de transmision/
+# SM_Check_Collection_Date__c. Antes el default era 7 dias "porque el
+# atraso tipico es de 2-3 dias" -- resulto ser FALSO: el 2026-09-09 se
+# detecto que un solo reporte de Check Collection (04-sep-2026) traia
+# cheques con fechas de hasta 35 dias atras (Banco Popular reporta con
+# atraso variable, no fijo), y esa ventana de 7 dias los estaba
+# descartando en silencio -- 15 de 28 pagos de ese reporte nunca se
+# aplicaron a Salesforce.
+#
+# PERO se requiere CONFIRMACION EXPLICITA (CONFIRM_OLD=1) para APLICAR
+# fechas de mas de 2 meses de antiguedad -- instruccion explicita del
+# usuario, mismo dia: al correr esta corrida sin corte por primera vez
+# se detecto pendiente desde 2025-08-27 (mas de un año de indice
+# acumulado) y se toco produccion mucho mas atras de lo que se pidio.
+# Sin CONFIRM_OLD=1, las fechas de mas de 2 meses se LISTAN (para que se
+# vea el alcance real) pero NO se aplican -- solo las de los ultimos 2
+# meses se procesan automaticamente. Pasar un numero como segundo
+# argumento sigue sirviendo para una corrida rapida/parcial puntual (ej.
+# smoke test) dentro de esos mismos 2 meses. Los .apex son idempotentes
+# (procesar de mas es inofensivo), procesar de menos pierde pagos reales
+# -- por eso el corte de RECENCIA (7 dias) se elimino, pero el corte de
+# ALCANCE/CONFIRMACION (2 meses) se agrego aparte.
 # ============================================================
 
 SCRIPT_DIR="$(cd "$(dirname "${BASH_SOURCE[0]}")" && pwd)"
@@ -59,6 +71,8 @@ fi
 APPLY_ARG=""
 [ "$MODE" = "apply" ] && APPLY_ARG="apply"
 DAYS_BACK="${2:-0}"
+CONFIRM_OLD="${CONFIRM_OLD:-0}"
+CUTOFF_2M="$(date -d '-2 months' +%Y-%m-%d)"
 
 echo "############################################################"
 echo "# 1/2 Escaneando Returns + Check Collection (build_index.py)"
@@ -90,10 +104,60 @@ TOTAL_DAYS=$(echo "$DATES" | wc -l)
 echo "Fechas pendientes (ascendente): $TOTAL_DAYS"
 echo "$DATES"
 
+# Separar RECIENTE (<= 2 meses, se procesa siempre) de VIEJO (> 2 meses,
+# requiere CONFIRM_OLD=1 explicito -- ver header).
+RECENT_DATES=""
+OLD_DATES=""
+for d in $DATES; do
+    if [[ "$d" < "$CUTOFF_2M" ]]; then
+        OLD_DATES="$OLD_DATES$d"$'\n'
+    else
+        RECENT_DATES="$RECENT_DATES$d"$'\n'
+    fi
+done
+RECENT_DATES=$(echo -n "$RECENT_DATES" | sed '/^$/d')
+OLD_DATES=$(echo -n "$OLD_DATES" | sed '/^$/d')
+
+if [ -n "$OLD_DATES" ]; then
+    OLD_COUNT=$(echo "$OLD_DATES" | wc -l)
+    echo ""
+    echo "!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!"
+    echo "!!! $OLD_COUNT fecha(s) de MAS DE 2 MESES (antes de $CUTOFF_2M) pendientes:"
+    echo "!!! $OLD_DATES"
+    if [ "$MODE" != "apply" ]; then
+        echo "!!! DRY RUN: se incluyen igual en el preview de abajo (no se escribe nada)."
+        echo "!!! Para APLICARLAS de verdad hace falta: CONFIRM_OLD=1 $0 apply $2"
+    elif [ "$CONFIRM_OLD" = "1" ]; then
+        echo "!!! CONFIRM_OLD=1 -- se van a procesar TAMBIEN estas fechas viejas."
+    else
+        echo "!!! NO se van a procesar en esta corrida (falta confirmacion explicita)."
+        echo "!!! Para procesarlas: CONFIRM_OLD=1 $0 $MODE $2"
+    fi
+    echo "!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!"
+fi
+
+if [ "$MODE" != "apply" ] || [ "$CONFIRM_OLD" = "1" ]; then
+    # DRY RUN siempre puede previsualizar todo (no escribe nada); en apply
+    # real, solo si se confirmo explicitamente.
+    DATES_TO_RUN="$DATES"
+else
+    DATES_TO_RUN="$RECENT_DATES"
+fi
+
+if [ -z "$DATES_TO_RUN" ]; then
+    echo ""
+    echo "Nada que procesar en esta corrida (todo lo pendiente es de mas de 2 meses -- usa CONFIRM_OLD=1 para incluirlo)."
+    exit 0
+fi
+
+TOTAL_DAYS=$(echo "$DATES_TO_RUN" | wc -l)
+echo ""
+echo "Fechas a procesar en esta corrida: $TOTAL_DAYS"
+
 RETURNS_CSV="$SCRIPT_DIR/RETURNS/ACHReturnsImport.csv"
 COLLECTIONS_CSV="$SCRIPT_DIR/COLLECTIONS/CheckCollectionImport.csv"
 
-for d in $DATES; do
+for d in $DATES_TO_RUN; do
     echo ""
     echo "============================================================"
     echo " Fecha de reporte: $d"

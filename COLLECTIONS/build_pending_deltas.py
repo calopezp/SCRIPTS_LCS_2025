@@ -21,14 +21,28 @@ de Returns, y viceversa. Asi cada script apex (update_ach_returns.apex /
 update_check_collection.apex) solo ve los pagos que de verdad le
 corresponden a el.
 
-Solo se consideran filas dentro de los ultimos --days-back dias (evita
-arrastrar reportes viejisimos ya superados por eventos mas alla de la
-ventana -- ver detalle en el historial de build_full_csv.py, el
-predecesor de este script).
+Las filas dentro de los ultimos --days-back dias se consideran siempre
+(evita arrastrar reportes viejisimos ya superados por eventos mas alla
+de la ventana -- ver detalle en el historial de build_full_csv.py, el
+predecesor de este script). ADEMAS, cualquier fila cuyo Payment_Name
+aparezca en el delta de la corrida actual (--returns-delta /
+--collections-delta -- los PDFs recien escaneados HOY, generados por
+build_index.py) se incluye SIEMPRE, sin importar que tan vieja sea su
+SM_Check_Collection_Date__c. Instruccion explicita del usuario
+(2026-09-09): todo pago reportado en un archivo de RETURN o de
+COLLECTION que se esta trabajando se debe procesar, independiente de su
+fecha de transmision -- el reporte del 04-sep-2026 traia cheques de
+hasta 35 dias atras y el corte de dias los estaba descartando en
+silencio (ver [[feedback_collections_process_all_dates]] / commit
+461dc21). El --days-back sigue existiendo como red de seguridad para
+reintentar pagos de corridas anteriores que nunca se aplicaron
+(historico, no del escaneo de hoy) -- eso si respeta la ventana.
 
 Uso:
     python build_pending_deltas.py <returns_index.csv> <collections_index.csv> \
         <returns_out.csv> <collections_out.csv> [--days-back N]
+        [--returns-delta returns_last_run_delta.csv]
+        [--collections-delta collections_last_run_delta.csv]
 """
 
 import argparse
@@ -39,7 +53,15 @@ from pathlib import Path
 DATE_FIELD = "SM_Check_Collection_Date__c"
 
 
-def load_rows(index_csv: Path, cutoff: date):
+def load_delta_names(delta_csv: Path) -> set:
+    if not delta_csv or not delta_csv.exists() or delta_csv.stat().st_size == 0:
+        return set()
+    with delta_csv.open(newline="", encoding="utf-8") as f:
+        reader = csv.DictReader(f)
+        return {r.get("Payment_Name", "").strip() for r in reader if r.get("Payment_Name", "").strip()}
+
+
+def load_rows(index_csv: Path, cutoff: date, always_include: set):
     if not index_csv.exists() or index_csv.stat().st_size == 0:
         return [], None
     with index_csv.open(newline="", encoding="utf-8") as f:
@@ -47,15 +69,17 @@ def load_rows(index_csv: Path, cutoff: date):
         fieldnames = [fn for fn in reader.fieldnames if fn != "Source_File"]
         rows = []
         for r in reader:
+            name = r.get("Payment_Name", "").strip()
+            if not name:
+                continue
             raw_date = r.get(DATE_FIELD, "")
             try:
                 d = date.fromisoformat(raw_date) if raw_date else None
             except ValueError:
                 d = None
-            if d is None or d < cutoff:
+            if d is None:
                 continue
-            name = r.get("Payment_Name", "").strip()
-            if not name:
+            if d < cutoff and name not in always_include:
                 continue
             rows.append((d, name, r))
     return rows, fieldnames
@@ -107,12 +131,20 @@ def main():
     parser.add_argument("returns_out")
     parser.add_argument("collections_out")
     parser.add_argument("--days-back", type=int, default=45)
+    parser.add_argument("--returns-delta", default=None,
+                         help="returns_last_run_delta.csv -- estos Payment_Name se incluyen SIEMPRE, sin importar su fecha")
+    parser.add_argument("--collections-delta", default=None,
+                         help="collections_last_run_delta.csv -- estos Payment_Name se incluyen SIEMPRE, sin importar su fecha")
     args = parser.parse_args()
 
     cutoff = date.today() - timedelta(days=args.days_back)
 
-    returns_rows, returns_fields = load_rows(Path(args.returns_index), cutoff)
-    collections_rows, collections_fields = load_rows(Path(args.collections_index), cutoff)
+    always_include = set()
+    always_include |= load_delta_names(Path(args.returns_delta)) if args.returns_delta else set()
+    always_include |= load_delta_names(Path(args.collections_delta)) if args.collections_delta else set()
+
+    returns_rows, returns_fields = load_rows(Path(args.returns_index), cutoff, always_include)
+    collections_rows, collections_fields = load_rows(Path(args.collections_index), cutoff, always_include)
 
     best = resolve_winners(returns_rows, collections_rows)
 
@@ -124,8 +156,9 @@ def main():
     if collections_fields is not None:
         write_csv(Path(args.collections_out), collections_fields, collections_winners)
 
-    print(f"  Returns: {len(returns_rows)} fila(s) en los ultimos {args.days_back} dia(s) -> {len(returns_winners)} ganan (no superadas por un Collection mas reciente) -> {args.returns_out}")
-    print(f"  Collections: {len(collections_rows)} fila(s) en los ultimos {args.days_back} dia(s) -> {len(collections_winners)} ganan -> {args.collections_out}")
+    extra = f" (+{len(always_include)} del delta de hoy, sin importar su fecha)" if always_include else ""
+    print(f"  Returns: {len(returns_rows)} fila(s) en los ultimos {args.days_back} dia(s){extra} -> {len(returns_winners)} ganan (no superadas por un Collection mas reciente) -> {args.returns_out}")
+    print(f"  Collections: {len(collections_rows)} fila(s) en los ultimos {args.days_back} dia(s){extra} -> {len(collections_winners)} ganan -> {args.collections_out}")
 
 
 if __name__ == "__main__":

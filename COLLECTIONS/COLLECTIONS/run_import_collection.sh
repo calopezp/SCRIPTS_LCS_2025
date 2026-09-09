@@ -55,6 +55,7 @@ EXTRACT_SCRIPT="$SCRIPT_DIR/extract_check_collection.py"
 COLLECTIONS_INDEX_CSV="$SCRIPT_DIR/../index/collections_index.csv"
 RETURNS_INDEX_CSV="$SCRIPT_DIR/../index/returns_index.csv"
 DELTA_CSV="$SCRIPT_DIR/../index/collections_last_run_delta.csv"
+RETURNS_DELTA_CSV="$SCRIPT_DIR/../index/returns_last_run_delta.csv"
 STATIC_RESOURCE_NAME="CheckCollectionImport"
 R10_DIR="$SCRIPT_DIR/reportes_comercial_R10"
 
@@ -102,9 +103,13 @@ else
             exit 0
         fi
         echo "== 1b) Cruzando Check Collection vs Returns (gana el mas reciente, empate -> Collection) =="
+        # --returns-delta/--collections-delta: los PDFs recien escaneados HOY
+        # (build_index.py) se procesan SIEMPRE sin importar su fecha interna --
+        # instruccion explicita del usuario, ver build_pending_deltas.py.
         python3 "$SCRIPT_DIR/../build_pending_deltas.py" \
             "$RETURNS_INDEX_CSV" "$COLLECTIONS_INDEX_CSV" \
-            "$SCRIPT_DIR/../RETURNS/ACHReturnsImport.csv" "$CSV_OUT"
+            "$SCRIPT_DIR/../RETURNS/ACHReturnsImport.csv" "$CSV_OUT" \
+            --returns-delta "$RETURNS_DELTA_CSV" --collections-delta "$DELTA_CSV"
     fi
     if [ ! -s "$CSV_OUT" ] || [ "$(tail -n +2 "$CSV_OUT" | wc -l)" -eq 0 ]; then
         echo ""

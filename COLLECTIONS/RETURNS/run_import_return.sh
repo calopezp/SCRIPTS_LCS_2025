@@ -25,6 +25,11 @@ set -e
 # Collection) -- asi este script nunca revierte un pago a un return
 # viejo si Collection ya lo supero despues (o viceversa).
 #
+# Los PDFs recien escaneados HOY (el delta de build_index.py) entran
+# SIEMPRE al cruce, sin importar que tan vieja sea su fecha interna --
+# la ventana de 45 dias solo aplica a la red de seguridad del historico
+# ya escaneado en corridas anteriores. Ver build_pending_deltas.py.
+#
 # CONFIGURAR UNA SOLA VEZ:
 #   - ORG_ALIAS: alias de tu org en sf CLI (ej. MONEE)
 #   - PROJECT_DIR: ruta a la raíz de tu proyecto SFDX
@@ -52,6 +57,8 @@ APEX_TEMPLATE="$SCRIPT_DIR/update_ach_returns.apex"
 EXTRACT_SCRIPT="$SCRIPT_DIR/extract_ach_returns.py"
 RETURNS_INDEX_CSV="$SCRIPT_DIR/../index/returns_index.csv"
 COLLECTIONS_INDEX_CSV="$SCRIPT_DIR/../index/collections_index.csv"
+RETURNS_DELTA_CSV="$SCRIPT_DIR/../index/returns_last_run_delta.csv"
+COLLECTIONS_DELTA_CSV="$SCRIPT_DIR/../index/collections_last_run_delta.csv"
 STATIC_RESOURCE_NAME="ACHReturnsImport"
 
 # sf busca sfdx-project.json subiendo desde la cwd -- si el script se invoca
@@ -85,9 +92,13 @@ else
             exit 0
         fi
         echo "== 1b) Cruzando Returns vs Check Collection (gana el mas reciente, empate -> Collection) =="
+        # --returns-delta/--collections-delta: los PDFs recien escaneados HOY
+        # (build_index.py) se procesan SIEMPRE sin importar su fecha interna --
+        # instruccion explicita del usuario, ver build_pending_deltas.py.
         python3 "$SCRIPT_DIR/../build_pending_deltas.py" \
             "$RETURNS_INDEX_CSV" "$COLLECTIONS_INDEX_CSV" \
-            "$CSV_OUT" "$SCRIPT_DIR/../COLLECTIONS/CheckCollectionImport.csv"
+            "$CSV_OUT" "$SCRIPT_DIR/../COLLECTIONS/CheckCollectionImport.csv" \
+            --returns-delta "$RETURNS_DELTA_CSV" --collections-delta "$COLLECTIONS_DELTA_CSV"
     fi
     if [ ! -s "$CSV_OUT" ] || [ "$(tail -n +2 "$CSV_OUT" | wc -l)" -eq 0 ]; then
         echo ""
