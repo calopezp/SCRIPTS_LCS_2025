@@ -116,28 +116,6 @@
         </rules>
     </decisions>
     <decisions>
-        <name>If_Needs_to_Create_ACH_Order</name>
-        <label>If Needs to Create ACH Order</label>
-        <locationX>0</locationX>
-        <locationY>0</locationY>
-        <defaultConnectorLabel>Default Outcome</defaultConnectorLabel>
-        <rules>
-            <name>Need_to_Create_ACH_Order</name>
-            <conditionLogic>and</conditionLogic>
-            <conditions>
-                <leftValueReference>Get_AC_ACH_Order</leftValueReference>
-                <operator>IsNull</operator>
-                <rightValue>
-                    <booleanValue>true</booleanValue>
-                </rightValue>
-            </conditions>
-            <connector>
-                <targetReference>Create_ACH_AC_Order</targetReference>
-            </connector>
-            <label>Need to Create ACH Order</label>
-        </rules>
-    </decisions>
-    <decisions>
         <name>If_Has_Split_Date</name>
         <label>If Has Split Date</label>
         <locationX>0</locationX>
@@ -159,12 +137,34 @@
             <label>Has Split Date</label>
         </rules>
     </decisions>
+    <decisions>
+        <name>If_Needs_to_Create_ACH_Order</name>
+        <label>If Needs to Create ACH Order</label>
+        <locationX>0</locationX>
+        <locationY>0</locationY>
+        <defaultConnectorLabel>Default Outcome</defaultConnectorLabel>
+        <rules>
+            <name>Need_to_Create_ACH_Order</name>
+            <conditionLogic>and</conditionLogic>
+            <conditions>
+                <leftValueReference>Get_AC_ACH_Order</leftValueReference>
+                <operator>IsNull</operator>
+                <rightValue>
+                    <booleanValue>true</booleanValue>
+                </rightValue>
+            </conditions>
+            <connector>
+                <targetReference>Create_ACH_AC_Order</targetReference>
+            </connector>
+            <label>Need to Create ACH Order</label>
+        </rules>
+    </decisions>
     <environments>Default</environments>
     <formulas>
         <name>AC_Order_Amount</name>
         <dataType>Currency</dataType>
+        <expression>IF(ISBLANK({!sf_Contract.SM_AC_Split_Date__c}), {!sf_Contract.SM_Net_AC__c}, {!sf_Contract.SM_Net_AC__c} / 2)</expression>
         <scale>2</scale>
-        <expression>IF(ISBLANK(sf_Contract.SM_AC_Split_Date__c), sf_Contract.SM_Net_AC__c, sf_Contract.SM_Net_AC__c / 2)</expression>
     </formulas>
     <interviewLabel>CONTRACT: {!$Flow.CurrentDateTime}</interviewLabel>
     <label>CONTRACT: Create ACH AC Order</label>

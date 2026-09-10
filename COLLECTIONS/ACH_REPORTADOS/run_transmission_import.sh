@@ -34,6 +34,14 @@ APEX_TEMPLATE="$SCRIPT_DIR/update_transmission_date.apex"
 DELTA_CSV="$SCRIPT_DIR/index/last_run_delta.csv"
 STATIC_RESOURCE_NAME="ACHTransmissionImport"
 
+# sf busca sfdx-project.json subiendo desde la cwd -- si el script se invoca
+# desde otra carpeta (ej. una terminal nueva de Git Bash abre en
+# C:\Program Files\Git), sf falla con "InvalidProjectWorkspaceError". Forzamos
+# la cwd a la raiz del proyecto SFDX antes de cualquier comando sf (SCRIPT_DIR
+# ya quedo resuelto arriba usando la cwd original, asi que este cd no afecta
+# las rutas relativas a SCRIPT_DIR).
+cd "$PROJECT_DIR" || { echo "ERROR: no existe PROJECT_DIR ($PROJECT_DIR)"; exit 1; }
+
 FILE_ARG=""
 if [ -n "$1" ] && [ "$1" != "apply" ]; then
     FILE_ARG="$1"

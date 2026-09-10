@@ -4,7 +4,7 @@
 // └───────────────────────────────────────────────────────────────┘
 
 // ---------------- CONFIG ----------------
-Boolean modoDryRun = false;   // true = simula, false = ejecuta
+Boolean modoDryRun = true;   // true = simula, false = ejecuta
 // ----------------------------------------
 
 // 1️⃣ Query única — contratos ACH candidatos
@@ -44,7 +44,8 @@ AND SM_Full_Payment__c = FALSE AND Contract_Type__c != 'Dependent' AND SM_Billin
 AND Id NOT IN (
     SELECT SM_Contract__c
     FROM SM_ACH_ORDER__c
-    WHERE SM_Contract__c != NULL
+    WHERE SM_Contract__c != NULL AND SM_Contract__r.Status IN ('Activated', 'Payment Process' )
+AND SM_Contract__r.Is_Test_Contract__c = false  AND SM_Contract__r.Is_VIP_Contract__c = false  AND SM_Contract__r.Contract_Type__c != 'Dependent' AND SM_Contract__r.SM_Billing_status__c <> 'PAYMENT COMPLETED'
 )
  ];
 

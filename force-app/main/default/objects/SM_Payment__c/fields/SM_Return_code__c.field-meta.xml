@@ -1,0 +1,274 @@
+<?xml version="1.0" encoding="UTF-8"?>
+<CustomField xmlns="http://soap.sforce.com/2006/04/metadata">
+    <fullName>SM_Return_code__c</fullName>
+    <label>Return code</label>
+    <required>false</required>
+    <trackHistory>true</trackHistory>
+    <trackTrending>false</trackTrending>
+    <type>Picklist</type>
+    <valueSet>
+        <valueSetDefinition>
+            <sorted>false</sorted>
+            <value>
+                <fullName>R01</fullName>
+                <default>false</default>
+                <label>Insufficient Funds</label>
+            </value>
+            <value>
+                <fullName>R02</fullName>
+                <default>false</default>
+                <label>Account Closed</label>
+            </value>
+            <value>
+                <fullName>R03</fullName>
+                <default>false</default>
+                <label>No Account/Unable to Locate Account</label>
+            </value>
+            <value>
+                <fullName>R04</fullName>
+                <default>false</default>
+                <label>Invalid Account Number</label>
+            </value>
+            <value>
+                <fullName>R05</fullName>
+                <default>false</default>
+                <label>Unauthorized Debit to Consumer Account Using Corporate SEC Code</label>
+            </value>
+            <value>
+                <fullName>R06</fullName>
+                <default>false</default>
+                <label>Returned per ODFI’s Request</label>
+            </value>
+            <value>
+                <fullName>R07</fullName>
+                <default>false</default>
+                <label>Authorization Revoked by Customer</label>
+            </value>
+            <value>
+                <fullName>R08</fullName>
+                <default>false</default>
+                <label>Payment Stopped</label>
+            </value>
+            <value>
+                <fullName>R09</fullName>
+                <default>false</default>
+                <label>Uncollected Funds</label>
+            </value>
+            <value>
+                <fullName>R10</fullName>
+                <default>false</default>
+                <label>Customer Advises Not Authorized</label>
+            </value>
+            <value>
+                <fullName>R11</fullName>
+                <default>false</default>
+                <label>Check Truncation Entry Return</label>
+            </value>
+            <value>
+                <fullName>R12</fullName>
+                <default>false</default>
+                <label>Account Sold to Another DFI</label>
+            </value>
+            <value>
+                <fullName>R13</fullName>
+                <default>false</default>
+                <label>Invalid ACH Routing Number</label>
+            </value>
+            <value>
+                <fullName>R14</fullName>
+                <default>false</default>
+                <label>Representative Payee Deceased or Unable to Continue in that Capacity</label>
+            </value>
+            <value>
+                <fullName>R15</fullName>
+                <default>false</default>
+                <label>Beneficiary or Account Holder (Other Than a Representative Payee) Deceased</label>
+            </value>
+            <value>
+                <fullName>R16</fullName>
+                <default>false</default>
+                <label>Account Frozen</label>
+            </value>
+            <value>
+                <fullName>R17</fullName>
+                <default>false</default>
+                <label>File Record Edit Criteria</label>
+            </value>
+            <value>
+                <fullName>R20</fullName>
+                <default>false</default>
+                <label>Non-Transaction Account</label>
+            </value>
+            <value>
+                <fullName>R21</fullName>
+                <default>false</default>
+                <label>Invalid Company Identification</label>
+            </value>
+            <value>
+                <fullName>R22</fullName>
+                <default>false</default>
+                <label>Invalid Individual ID Number</label>
+            </value>
+            <value>
+                <fullName>R23</fullName>
+                <default>false</default>
+                <label>Credit Entry Refused by Receiver</label>
+            </value>
+            <value>
+                <fullName>R24</fullName>
+                <default>false</default>
+                <label>Duplicate Entry</label>
+            </value>
+            <value>
+                <fullName>R29</fullName>
+                <default>false</default>
+                <label>Corporate Customer Advises Not Authorized</label>
+            </value>
+            <value>
+                <fullName>R31</fullName>
+                <default>false</default>
+                <label>Permissible Return Entry (CCD and CTX only)</label>
+            </value>
+            <value>
+                <fullName>N01</fullName>
+                <default>false</default>
+                <label>Unspecified account number.</label>
+            </value>
+            <value>
+                <fullName>N02</fullName>
+                <default>false</default>
+                <label>Unspecified account routing number.</label>
+            </value>
+            <value>
+                <fullName>N03</fullName>
+                <default>false</default>
+                <label>Unspecified person account name.</label>
+            </value>
+            <value>
+                <fullName>N04</fullName>
+                <default>false</default>
+                <label>Unspecified amount.</label>
+            </value>
+            <value>
+                <fullName>N05</fullName>
+                <default>false</default>
+                <label>The size of the account number field is less than required (17).</label>
+            </value>
+            <value>
+                <fullName>N06</fullName>
+                <default>false</default>
+                <label>The size of the account routing number field is less than required (8).</label>
+            </value>
+            <value>
+                <fullName>N07</fullName>
+                <default>false</default>
+                <label>The size of the person account name field is less than required (22).</label>
+            </value>
+            <value>
+                <fullName>N08</fullName>
+                <default>false</default>
+                <label>The size of the amount field is less than required (8).</label>
+            </value>
+            <value>
+                <fullName>N09</fullName>
+                <default>false</default>
+                <label>Unspecified individual id number.</label>
+            </value>
+            <value>
+                <fullName>N10</fullName>
+                <default>false</default>
+                <label>The size of the individual id number field is less than required (15).</label>
+            </value>
+            <value>
+                <fullName>N11</fullName>
+                <default>false</default>
+                <label>Unspecified account type code.</label>
+            </value>
+            <value>
+                <fullName>N12</fullName>
+                <default>false</default>
+                <label>The size of the account type code field is less than required (2).</label>
+            </value>
+            <value>
+                <fullName>N13</fullName>
+                <default>false</default>
+                <label>Field routing number mal formated.</label>
+            </value>
+            <value>
+                <fullName>N14</fullName>
+                <default>false</default>
+                <label>Total payments exceed the maximum amount limit allowed per day.</label>
+            </value>
+            <value>
+                <fullName>N15</fullName>
+                <default>false</default>
+                <label>Routing number contains invalid characters.</label>
+            </value>
+            <value>
+                <fullName>N16</fullName>
+                <default>false</default>
+                <label>Unspecified Name.</label>
+            </value>
+            <value>
+                <fullName>N17</fullName>
+                <default>false</default>
+                <label>The size of the Name field is less than required (15).</label>
+            </value>
+            <value>
+                <fullName>C01</fullName>
+                <default>false</default>
+                <label>Incorrect bank account number</label>
+            </value>
+            <value>
+                <fullName>C02</fullName>
+                <default>false</default>
+                <label>Incorrect transit/routing number</label>
+            </value>
+            <value>
+                <fullName>C03</fullName>
+                <default>false</default>
+                <label>Incorrect transit/routing number and bank account number</label>
+            </value>
+            <value>
+                <fullName>C04</fullName>
+                <default>false</default>
+                <label>Bank account name change</label>
+            </value>
+            <value>
+                <fullName>C05</fullName>
+                <default>false</default>
+                <label>Incorrect payment code</label>
+            </value>
+            <value>
+                <fullName>C06</fullName>
+                <default>false</default>
+                <label>Incorrect bank account number and transit code</label>
+            </value>
+            <value>
+                <fullName>C07</fullName>
+                <default>false</default>
+                <label>Incorrect transit/routing number, bank account number and payment code</label>
+            </value>
+            <value>
+                <fullName>C09</fullName>
+                <default>false</default>
+                <label>Incorrect individual ID number</label>
+            </value>
+            <value>
+                <fullName>C10</fullName>
+                <default>false</default>
+                <label>Incorrect company name</label>
+            </value>
+            <value>
+                <fullName>C11</fullName>
+                <default>false</default>
+                <label>Incorrect company identification</label>
+            </value>
+            <value>
+                <fullName>C12</fullName>
+                <default>false</default>
+                <label>Incorrect company name and company ID</label>
+            </value>
+        </valueSetDefinition>
+    </valueSet>
+</CustomField>

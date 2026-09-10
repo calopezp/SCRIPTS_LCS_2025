@@ -27,6 +27,11 @@ set -e
 # Collection) -- asi este script nunca revierte un pago a un return
 # viejo si Collection ya lo supero despues (o viceversa).
 #
+# Los PDFs recien escaneados HOY (el delta de build_index.py) entran
+# SIEMPRE al cruce, sin importar que tan vieja sea su fecha interna --
+# la ventana de 45 dias solo aplica a la red de seguridad del historico
+# ya escaneado en corridas anteriores. Ver build_pending_deltas.py.
+#
 # CONFIGURAR UNA SOLA VEZ:
 #   - ORG_ALIAS: alias de tu org en sf CLI (ej. MONEE)
 #   - PROJECT_DIR: ruta a la raíz de tu proyecto SFDX
@@ -47,12 +52,23 @@ ORG_ALIAS="MONEE"
 PROJECT_DIR="C:/SALESFORCE/LCS/SCRIPTS_LCS_2025"
 
 STATIC_RESOURCE_DIR="$PROJECT_DIR/force-app/main/default/staticresources"
+# SCRIPT_DIR debe resolverse ANTES de cambiar de directorio (usa la ruta con
+# la que se invoco el script, relativa a la cwd original).
 SCRIPT_DIR="$(cd "$(dirname "${BASH_SOURCE[0]}")" && pwd)"
 APEX_TEMPLATE="$SCRIPT_DIR/update_ach_returns.apex"
 EXTRACT_SCRIPT="$SCRIPT_DIR/extract_ach_returns.py"
 RETURNS_INDEX_CSV="$SCRIPT_DIR/../index/returns_index.csv"
 COLLECTIONS_INDEX_CSV="$SCRIPT_DIR/../index/collections_index.csv"
+RETURNS_DELTA_CSV="$SCRIPT_DIR/../index/returns_last_run_delta.csv"
+COLLECTIONS_DELTA_CSV="$SCRIPT_DIR/../index/collections_last_run_delta.csv"
 STATIC_RESOURCE_NAME="ACHReturnsImport"
+R10_DIR="$SCRIPT_DIR/reportes_comercial_R10"
+
+# sf busca sfdx-project.json subiendo desde la cwd -- si el script se invoca
+# desde otra carpeta (ej. una terminal nueva de Git Bash abre en
+# C:\Program Files\Git), sf falla con "InvalidProjectWorkspaceError". Forzamos
+# la cwd a la raiz del proyecto SFDX antes de cualquier comando sf.
+cd "$PROJECT_DIR" || { echo "ERROR: no existe PROJECT_DIR ($PROJECT_DIR)"; exit 1; }
 
 FILE_ARG=""
 if [ -n "$1" ] && [ "$1" != "apply" ]; then
@@ -67,6 +83,17 @@ CSV_OUT="$SCRIPT_DIR/ACHReturnsImport.csv"
 if [ -n "$FILE_ARG" ]; then
     echo "== 1) Procesando PDF especifico: $FILE_ARG =="
     python3 "$EXTRACT_SCRIPT" "$FILE_ARG" "$CSV_OUT"
+
+    PDF_BASENAME="$(basename "$FILE_ARG" .pdf)"
+    R10_OUT="$SCRIPT_DIR/ACHReturnsImport_R10_ClienteSolicitoDevolucion.csv"
+    # El reporte R10 (clientes que pidieron la devolución directo al banco) se
+    # sobreescribiría en cada corrida si se deja con nombre fijo; lo copiamos
+    # aparte con el nombre del PDF de origen para no perder el de días anteriores.
+    if [ -s "$R10_OUT" ] && [ "$(tail -n +2 "$R10_OUT" | wc -l)" -gt 0 ]; then
+        mkdir -p "$R10_DIR"
+        cp "$R10_OUT" "$R10_DIR/${PDF_BASENAME}_R10.csv"
+        echo "Reporte para Comercial guardado en: $R10_DIR/${PDF_BASENAME}_R10.csv"
+    fi
 else
     if [ "$SKIP_SCAN" = "1" ]; then
         echo "== 1) Scan y cruce de indices omitidos (SKIP_SCAN=1) -- usando el CSV ya generado =="
@@ -79,14 +106,45 @@ else
             exit 0
         fi
         echo "== 1b) Cruzando Returns vs Check Collection (gana el mas reciente, empate -> Collection) =="
+        # --returns-delta/--collections-delta: los PDFs recien escaneados HOY
+        # (build_index.py) se procesan SIEMPRE sin importar su fecha interna --
+        # instruccion explicita del usuario, ver build_pending_deltas.py.
         python3 "$SCRIPT_DIR/../build_pending_deltas.py" \
             "$RETURNS_INDEX_CSV" "$COLLECTIONS_INDEX_CSV" \
-            "$CSV_OUT" "$SCRIPT_DIR/../COLLECTIONS/CheckCollectionImport.csv"
+            "$CSV_OUT" "$SCRIPT_DIR/../COLLECTIONS/CheckCollectionImport.csv" \
+            --returns-delta "$RETURNS_DELTA_CSV" --collections-delta "$COLLECTIONS_DELTA_CSV"
     fi
     if [ ! -s "$CSV_OUT" ] || [ "$(tail -n +2 "$CSV_OUT" | wc -l)" -eq 0 ]; then
         echo ""
         echo "== Nada que aplicar en Returns (todo dentro de la ventana ya esta aplicado o le corresponde a Collection). =="
         exit 0
+    fi
+
+    # Reporte R10 para Comercial: SOLO de los PDFs nuevos de hoy (el delta
+    # de build_index.py), no del historico completo -- para no re-notificar
+    # clientes de dias anteriores cada vez que se corre este script.
+    if [ -s "$RETURNS_DELTA_CSV" ] && [ "$(tail -n +2 "$RETURNS_DELTA_CSV" | wc -l)" -gt 0 ]; then
+        TODAY="$(date +%Y%m%d)"
+        R10_OUT="$SCRIPT_DIR/ACHReturnsImport_R10_ClienteSolicitoDevolucion.csv"
+        python3 - "$RETURNS_DELTA_CSV" "$R10_OUT" << 'PYEOF'
+import csv, sys
+src, dst = sys.argv[1], sys.argv[2]
+with open(src, newline='', encoding='utf-8') as f:
+    rows = [r for r in csv.DictReader(f) if (r.get('SM_Return_code__c') or '').strip().upper() == 'R10']
+if rows:
+    with open(dst, 'w', newline='', encoding='utf-8') as f:
+        w = csv.DictWriter(f, fieldnames=list(rows[0].keys()))
+        w.writeheader()
+        w.writerows(rows)
+    print(f"{len(rows)} registro(s) R10 encontrados")
+else:
+    print("Sin registros R10 en el delta de hoy")
+PYEOF
+        if [ -s "$R10_OUT" ] && [ "$(tail -n +2 "$R10_OUT" | wc -l)" -gt 0 ]; then
+            mkdir -p "$R10_DIR"
+            cp "$R10_OUT" "$R10_DIR/delta_${TODAY}_R10.csv"
+            echo "Reporte para Comercial guardado en: $R10_DIR/delta_${TODAY}_R10.csv"
+        fi
     fi
 fi
 

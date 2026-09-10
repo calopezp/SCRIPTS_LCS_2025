@@ -24,9 +24,20 @@ Salida (columnas):
     El reporte del banco trae dos variantes de layout para cada entry (ver
     ENTRY_ID_RE / ENTRY_ID_NO_AMOUNTS_RE / AMOUNTS_ONLY_RE más abajo); ambas
     son soportadas.
+
+Reporte aparte para Comercial (SM_Return_code__c = R10):
+    R10 significa que el cliente solicitó la devolución directamente al
+    banco (no es un NSF/cuenta inválida normal). Esos registros se
+    actualizan en Salesforce igual que cualquier otro Return, pero además
+    se genera un CSV aparte (<salida>_R10_ClienteSolicitoDevolucion.csv)
+    para que Comercial se comunique con esos clientes -- mismo patrón que
+    extract_check_collection.py, instrucción explícita del usuario
+    (2026-09-09): "los reportes con R10 deben ser reportados aparte para
+    análisis manual", verificado en vivo con PY-01868816 / PY-01885207.
 """
 
 import csv
+import os
 import re
 import sys
 from datetime import datetime
@@ -215,6 +226,36 @@ def write_csv(records, out_path: str):
             writer.writerow(r)
 
 
+def r10_report_path(out_path: str) -> str:
+    base, ext = os.path.splitext(out_path)
+    return f"{base}_R10_ClienteSolicitoDevolucion{ext or '.csv'}"
+
+
+def write_r10_report(records, out_path: str):
+    """CSV aparte para Comercial: solo filas con SM_Return_code__c = R10
+    (cliente pidió la devolución directamente al banco). No se usa para el
+    update a Salesforce, es solo para seguimiento comercial."""
+    r10_records = [r for r in records if (r.get("SM_Return_code__c") or "").strip().upper() == "R10"]
+
+    fieldnames = [
+        "Payment_Name",
+        "Individual_Name",
+        "DB_Amount",
+        "SM_Check_Collection_Date__c",
+        "Batch",
+        "Reason_Description",
+        "SM_Return_Change__c",
+    ]
+    report_path = r10_report_path(out_path)
+    with open(report_path, "w", newline="", encoding="utf-8") as f:
+        writer = csv.DictWriter(f, fieldnames=fieldnames, extrasaction="ignore")
+        writer.writeheader()
+        for r in r10_records:
+            writer.writerow(r)
+
+    return report_path, len(r10_records)
+
+
 def has_extractable_text(pdf_path: str) -> bool:
     """Algunos PDFs del banco no traen texto real: las letras vienen como
     trazos vectoriales (o una imagen), típicamente un PDF 'impreso' con las
@@ -247,6 +288,12 @@ def main():
 
     write_csv(records, out_path)
     print(f"Extraídos {len(records)} registros -> {out_path}")
+
+    report_path, r10_count = write_r10_report(records, out_path)
+    if r10_count:
+        print(f"AVISO: {r10_count} registro(s) con SM_Return_code__c = R10 (cliente solicitó devolución directo al banco) -> {report_path}")
+    else:
+        print("Sin registros R10 en este archivo.")
 
 
 if __name__ == "__main__":
