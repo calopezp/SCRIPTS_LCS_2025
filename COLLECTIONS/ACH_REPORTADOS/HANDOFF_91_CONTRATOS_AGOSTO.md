@@ -145,7 +145,26 @@ Los **200 `REJECTED|PENDING` restantes** sí son genuinamente ambiguos, y se div
 **No se ha agregado todavía al informe ejecutivo HTML** (`reporte_ejecutivo_gerencia.html`) —
 Carlos pidió dejarlo para trabajarlo más adelante. Si se retoma, candidato natural a "Caso 07".
 
-## 8. Pendiente explícito para la próxima sesión (aún no iniciado)
+## 8. Dos informes ejecutivos publicados (Artifacts) — 2026-09-10
+
+- **General** (todo lo procesado, los 6 casos): `reporte_ejecutivo_gerencia.html` —
+  https://claude.ai/code/artifact/0ce8ea36-8d75-4bb8-8a20-d748c1b97732 — Caso 1 corregido hoy
+  (ya no dice "37 de 39 ya cobraron", verificado en vivo que ninguno tiene confirmación del banco
+  todavía) y tile "Recuperado" ajustado de $16,755/137 a $13,394/100 por la misma razón.
+- **"Contratos Agosto - Ventas"** (scoped estrictamente a los 94 contratos que dio Ventas — 91
+  originales + 3 adicionales, lista guardada en `Contratos_Agosto_Ventas_94.csv`, nunca antes
+  persistida en el repo): `reporte_agosto_ventas.html` —
+  https://claude.ai/code/artifact/c32f7c97-2e66-4972-9cf4-40bfe8a917dd — 4 grupos: A (14, tenían
+  suscripción normal, agosto saltado, LPF 03-sep sin confirmar), B (33, nunca llegaron a su primera
+  suscripción, AC sin resolver — 29 transmitidos + 4 rechazados sin reintentar), E (43, primera
+  suscripción de su vida cae en septiembre por ser nuevos — 39 transmitidos + 4 rechazados sin
+  reintentar), F (1, contrato 00318139 completamente detenido, ni su AC se ha transmitido). Los 3
+  adicionales: 2 ACH con su AC ya cobrado (00317534, 00317786) y 1 Tarjeta de Crédito (00318313,
+  sin visibilidad — Chargent desinstalado del org). **A la fecha, $0 de los 94 tiene confirmación
+  bancaria de cobro** — todo está transmitido esperando al banco (82, $8,510) o rechazado sin
+  reintentar (8, $992).
+
+## 9. Pendiente explícito para la próxima sesión (aún no iniciado)
 
 **Script Apex consolidado de "errores y fixes"** — para correr ocasionalmente y detectar si
 reaparece alguno de estos patrones (AC Completed sin Payment, LPF Stopped nunca reactivada, doble
