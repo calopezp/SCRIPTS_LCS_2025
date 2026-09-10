@@ -441,7 +441,7 @@
       </div>
       <div class="col mitigation">
         <div class="col-label">Mitigación</div>
-        <div class="col-body">Se creó una cuota de agosto (Late Payment Fee, sin multa) por contrato, transmitida al banco el 02-03-sep (4 contratos con un segundo intento el 08-sep). <b>Reverificado en vivo hoy 10-sep:</b> 2 de 39 ya fueron rechazadas por el banco (00316731, 00316732 — $75 c/u, esperan reintento) y <b>las 37 restantes siguen "ACH TRANSMITTED"</b> — transmitidas, sin confirmación de cobro todavía (7-8 días de espera). Ninguna tiene el pago confirmado como cobrado pese a que la orden interna ya las marca "Completed" — ese estado interno no equivale a confirmación bancaria.</div>
+        <div class="col-body">Se creó una cuota de agosto (Late Payment Fee, sin multa) por contrato, transmitida al banco el 02-03-sep (4 contratos con un segundo intento el 08-sep). <b>Reverificado en vivo hoy 10-sep:</b> 2 de 39 tuvieron un primer rechazo (00316731, 00316732 — $75 c/u, estado "RETURN") — <b>el banco las está reintentando por su cuenta, no se pueden tocar hasta que dé un veredicto final</b>. Las 37 restantes siguen "ACH TRANSMITTED" — transmitidas, sin confirmación de cobro todavía (7-8 días de espera). Ninguna tiene el pago confirmado como cobrado pese a que la orden interna ya las marca "Completed" — ese estado interno no equivale a confirmación bancaria.</div>
       </div>
     </div>
     <details class="list-toggle">
@@ -701,7 +701,7 @@
     <ol class="openlist">
       <li><span class="n">01</span><span><b>Decidir el mecanismo de reembolso</b> para los $4,382 del caso 06 (ADJ_AC_ERR_12AGO) — reembolso directo, crédito, o ajuste contra próxima cuota.</span></li>
       <li><span class="n">02</span><span><b>Escalar con el banco</b> las 10 órdenes del caso 05 (36 intentos de cobro duplicados entre ellas, 32 aún sin resolver) que siguen sin resolución 15 días después de transmitidos — validar si hay un problema en la importación diaria de resultados o en el batch de transmisión.</span></li>
-      <li><span class="n">03</span><span><b>Reintentar</b> las 2 cuotas de agosto rechazadas del caso 01 (00316731, 00316732).</span></li>
+      <li><span class="n">03</span><span><b>No tocar</b> las 2 cuotas de agosto del caso 01 con primer rechazo (00316731, 00316732) — el banco las está reintentando por su cuenta; esperar a que dé veredicto final (Accepted o Not Collected) antes de cualquier acción.</span></li>
       <li><span class="n">04</span><span><b>Construir el script de monitoreo</b> que corra estas 4 validaciones periódicamente, para detectar temprano si alguno de estos patrones reaparece.</span></li>
     </ol>
   </div>
