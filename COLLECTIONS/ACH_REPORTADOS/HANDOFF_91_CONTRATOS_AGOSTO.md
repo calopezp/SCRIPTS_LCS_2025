@@ -127,18 +127,32 @@ De 328 pagos con estado "no limpio", **214 son en realidad terminales con otro n
 
 Los **200 `REJECTED|PENDING` restantes** sí son genuinamente ambiguos, y se dividen en:
 
-- **A) Backlog nuestro — 50 pagos, $4,331.50. PARCIALMENTE APLICADO 2026-09-10 (14 de 50).**
+- **A) Backlog nuestro — 50 pagos, $4,331.50. RESUELTO 2026-09-10 (49 de 50 aplicados).**
   Carlos confirmó explícitamente aplicar este backlog específico (Regla 2 satisfecha). En vez de
   `run_daily_catchup.sh` (que hubiera tocado TODO el backlog viejo del sistema, no solo estos 50),
   se armó un CSV scoped con exactamente estas 50 filas — extraídas de `collections_index.csv`,
   desplegadas como `StaticResource:CheckCollectionImport` — y se corrió
   `update_check_collection.apex` (DRY RUN primero, confirmó 50/50 match, 0 bloqueados; luego real).
-  **Resultado: 14 aplicados con éxito, 36 fallaron** por un bug nuevo descubierto en el camino (ver
-  abajo) — **verificado que los 36 quedaron sin cambios, nada corrupto ni a medias**. El script
-  quedó de vuelta en `DRY_RUN = true`. `CheckCollectionImport.csv`/`ACHReturnsImport.csv`
-  (static resources) quedaron con el contenido scoped de esta corrida, no con su contenido
-  "normal" del flujo diario — replace antes de la próxima corrida normal del pipeline.
-  **Pendiente: decidir cómo seguir con los 36 bloqueados** (ver bug abajo).
+  Primer intento (oleadas de varios registros por DML): 14 aplicados, 36 fallaron juntos por un bug
+  nuevo (ver abajo) — verificado que los 36 quedaron sin cambios, nada corrupto.
+
+  **Segundo intento — aislado, 1 registro por DML** (`update_check_collection_isolated.apex`,
+  mismo CSV, en lotes de 12 por corrida para no chocar con el límite de 100 SOQL queries por
+  ejecución — a los 36 en un solo DML sí se topó con "Too many SOQL queries: 101", rollback limpio
+  confirmado, sin nada aplicado a medias): **35 de 36 aplicados con éxito, 1 aislado y
+  confirmado como el disparador real del bug — `PY-01786030` (contrato 00315538)**, sigue en
+  `REJECTED`/`PENDING`. Total final: 14 + 35 = 49 de 50 en su estado correcto
+  (40 `ACCEPTED`/`COLLECTED` + 9 `REJECTED`/`NOT_COLLECTED`), verificado en vivo.
+
+  `update_check_collection.apex` y `update_check_collection_isolated.apex` (este último nuevo,
+  queda en el repo para la próxima vez que haga falta aislar así) quedaron de vuelta en
+  `DRY_RUN = true`. `CheckCollectionImport.csv`/`ACHReturnsImport.csv` (static resources) quedaron
+  con el contenido scoped de esta corrida, no con su contenido "normal" del flujo diario — replace
+  antes de la próxima corrida normal del pipeline.
+
+  **Pendiente: `PY-01786030` (00315538) sigue bloqueado por el bug real — falta decidir si Carlos
+  corrige `SM_FeePaymentToDependentContract.cls` o se sigue procesando manual/aislado caso por
+  caso.**
 
   **BUG NUEVO DESCUBIERTO 2026-09-10 — `SM_FeePaymentToDependentContract.cls:181`** hace
   referencia a un campo `SM_Chargent_Orders_Transaction__c` que ya no existe en el org (parece
