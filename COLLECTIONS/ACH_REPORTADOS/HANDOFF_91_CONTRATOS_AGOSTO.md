@@ -184,11 +184,29 @@ Los **200 `REJECTED|PENDING` restantes** sí son genuinamente ambiguos, y se div
   Resultado final del deploy: 4/4 tests, 0 fallos, 0 advertencias de cobertura
   (`SM_AcPaymentToDependentContract` 52/53 líneas, `SM_FeePaymentToDependentContract` 69/78).
 
-  **Pendiente real ahora:** hay **1,764 pagos Fee/AC/LPF sin cobrar ($215,034.21) en 47 contratos
-  Master con dependientes** que tenían este mismo riesgo latente (verificado 2026-09-10, antes del
-  fix) — con el fix ya en producción, cualquiera de ellos debería poder procesarse sin problema la
-  próxima vez que se trabaje ese backlog, pero **no se ha vuelto a intentar ninguno todavía** para
-  confirmarlo en la práctica.
+  **Fix validado en la práctica, 2026-09-10.** De los 1,764 pagos Fee/AC/LPF sin cobrar
+  ($215,034.21) en 47 contratos Master con dependientes identificados antes del fix, se revisó
+  cuál parte era genuinamente accionable hoy: **1,557 (88%) resultaron ser ruido histórico**
+  (`REJECTED` sin ningún reporte del banco jamás adjuntado, orden padre sin estado, 1,256 de
+  2023) — no backlog activo, parece el mismo patrón que los 84 contratos legacy ya documentados
+  (sección 2.3). Confirmado con Carlos: revisar `SM_Id_Salesforce_LCS__c` +
+  `SM_Is_Migrated__c` antes de tratar un lote viejo como brecha operativa real — ver
+  `feedback_migration_field_check.md` en memoria local (ese sample específico de 1,557 dio
+  `SM_Is_Migrated__c=False`, así que NO es migración, sigue sin explicación, pero la regla de
+  chequeo queda para el futuro). De los 197 restantes con un estado de reporte real, cruzando
+  contra el índice local solo **2 tenían resolución lista para aplicar** — los otros 191 no
+  tienen dato nuestro que los resuelva.
+
+  **Se aplicó el más relevante de los 2: `PY-01786030` (contrato 00315538, $119) → `ACCEPTED`/
+  `COLLECTED`, sin ningún error — el fix funciona.** Más importante: **el clonado al contrato
+  dependiente ocurrió correctamente** (`PY-01900409`, $119, creado automáticamente en el contrato
+  dependiente 00315539) — confirma que el fix no solo evita el crash, produce el resultado de
+  negocio correcto de punta a punta. El otro (`PY-01842238`) resultó ya estar resuelto por otra
+  vía (fecha de reporte 16-jun ya aplicada, más reciente que la de nuestro índice) — nada que
+  hacer ahí.
+
+  Sigue pendiente investigar los 191 restantes (sin dato en nuestro índice) y decidir qué hacer
+  con el bloque de 1,557 de ruido histórico, si es que amerita algo.
 
   **Reconciliación de pagos por contrato (los 29 contratos de estos 50 pagos)** — a pedido de
   Carlos, conteo de pagos `Subscription` `ACCEPTED` vs. meses transcurridos desde el primer cobro,
