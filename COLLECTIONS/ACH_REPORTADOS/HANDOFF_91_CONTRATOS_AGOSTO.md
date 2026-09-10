@@ -139,8 +139,10 @@ Los **200 `REJECTED|PENDING` restantes** sí son genuinamente ambiguos, y se div
   `update_check_collection.apex` (aplicar en bulk sobre un contrato Cancelado puede tumbar toda la
   oleada del día por una validation rule). Carlos lo aplicó manualmente y aislado — verificado en
   vivo: `ACCEPTED`/`COLLECTED`, orden ACH-26053 correctamente `Canceled` (sin cobro futuro
-  esperado). `PY-01876062`/ACH-27553 (contrato 00317537, el caso original que documentó el bug)
-  sigue sin resolver, mismo tratamiento pendiente.
+  esperado). **`PY-01876062`/ACH-27553 (contrato 00317537, el caso original que documentó el bug)
+  también RESUELTO 2026-09-10** — verificado en vivo: `ACCEPTED`/`COLLECTED` ($139), orden en
+  `Completed`. Con esto ya no queda ningún caso abierto de este patrón (contrato Cancelado +
+  bulk update) dentro de lo analizado hasta ahora.
 - **C) Genuinamente pendiente de respuesta del banco — 149 pagos, $14,338**, por antigüedad del
   último reporte conocido: 0-15d (20, $2,017), 16-30d (12, $1,070), 31-60d (18, $1,754),
   **60+d (99, $9,497)** — el bloque más grande, vale la pena vigilarlo igual que el caso 5.
