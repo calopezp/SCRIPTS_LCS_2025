@@ -16,6 +16,11 @@ Este archivo es la **fuente de verdad compartida entre las dos máquinas** del u
 2. [Collections / Cobranza](#2-collections--cobranza) — comandos diarios, reglas explícitas del usuario
 3. [Chargent — migración en curso (NO TOCAR)](#3-chargent--migración-en-curso-no-tocar)
 4. [Winter '27 Release Readiness](#4-winter-27-release-readiness--análisis-puntual-2026-09-06) (análisis puntual, revisar después del 10-oct-2026)
+5. **[Bitácora de hallazgos técnicos](BITACORA_HALLAZGOS_TECNICOS.md)** — tabla acumulativa (Fecha /
+   FIX-ERROR / Consecuencias / Solución / Estado) de bugs reales encontrados en MONEE/PREPROD a lo
+   largo de las sesiones, para consulta rápida y copiar/pegar directo a un reporte gerencial.
+   **Agregar una fila cada vez que aparezca un hallazgo técnico nuevo** (no un ajuste de datos
+   puntual) — no es este archivo, es un archivo aparte en la raíz del repo.
 
 ---
 
