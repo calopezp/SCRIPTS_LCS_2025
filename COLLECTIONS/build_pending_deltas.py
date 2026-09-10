@@ -24,7 +24,19 @@ corresponden a el.
 Solo se consideran filas dentro de los ultimos --days-back dias (evita
 arrastrar reportes viejisimos ya superados por eventos mas alla de la
 ventana -- ver detalle en el historial de build_full_csv.py, el
-predecesor de este script).
+predecesor de este script). El corte es por la fecha de TRANSACCION
+(EFF ENTRY DATE / TRAN DATE), no por cuando llego el reporte -- un
+reporte que confirma esta semana el resultado de una transaccion de
+hace mas de --days-back dias quedaria silenciosamente descartado (bug
+real detectado 2026-09-07: 7 pagos de mediados de julio, ~48-53 dias
+antes, no se actualizaban con la ventana de 45 dias pese a que el
+reporte que los resolvia ya habia llegado esa semana). Por eso el
+default subio de 45 a 60 dias -- suficiente margen para reportes
+tardios tipicos, sin arrastrar meses de historico viejo cada corrida
+(NO usar una ventana enorme o sin limite: eso reprocesa todo el
+historial y puede chocar contra pagos ya resueltos por una via que no
+quedo en este indice -- ver el guard de regresion en los .apex, que
+protege lo COLLECTED/ACCEPTED pero no reemplaza acotar la ventana).
 
 Uso:
     python build_pending_deltas.py <returns_index.csv> <collections_index.csv> \
@@ -106,7 +118,7 @@ def main():
     parser.add_argument("collections_index")
     parser.add_argument("returns_out")
     parser.add_argument("collections_out")
-    parser.add_argument("--days-back", type=int, default=45)
+    parser.add_argument("--days-back", type=int, default=60)
     args = parser.parse_args()
 
     cutoff = date.today() - timedelta(days=args.days_back)

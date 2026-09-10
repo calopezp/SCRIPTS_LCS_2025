@@ -9,15 +9,17 @@ set -e
 # COMPLETO (no solo los PDFs nuevos de hoy) -> despliega el CSV
 # como Static Resource -> corre el Apex (preview o real).
 #
-# Se manda el historico de los ultimos 45 dias (no solo los PDFs
+# Se manda el historico de los ultimos 60 dias (no solo los PDFs
 # nuevos de hoy) porque update_check_collection.apex compara cada
 # fila contra el estado ACTUAL en Salesforce y solo aplica lo que de
 # verdad esta pendiente -- asi el proceso diario tambien detecta y
 # aplica solo registros de PDFs ya escaneados en corridas anteriores
 # cuyo UPDATE nunca llego a aplicarse (ej. por el bug de "Duplicate
-# id in list"), sin necesidad de reprocesar manualmente el PDF
-# especifico. Se limita a 45 dias (no todo el historico) para no
-# reaplicar reportes viejos ya superados por eventos posteriores.
+# id in list", o un reporte que llega semanas despues de la
+# transaccion original), sin necesidad de reprocesar manualmente el
+# PDF especifico. Se limita a 60 dias (no todo el historico) para no
+# reaplicar reportes viejisimos ya superados por eventos que no
+# quedaron en este indice (ver build_pending_deltas.py).
 #
 # El CSV se arma cruzando el indice de Check Collection CONTRA el de
 # Returns (build_pending_deltas.py): si el mismo Payment aparece en

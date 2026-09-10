@@ -222,8 +222,14 @@ for (RowData r : rows) {
     }
 
     // Un pago que ya esta COLLECTED/ACCEPTED nunca se revierte
-    // automaticamente a RETURN/NOT COLLECTED -- sin importar fechas, eso
-    // siempre queda para revision manual (regla de negocio explicita).
+    // automaticamente a RETURN/NOT_COLLECTED/PENDING -- sin importar
+    // fechas, eso siempre queda para revision manual (regla de negocio
+    // explicita). PENDING se agrego 2026-09-08 al ver el historico
+    // completo (sin ventana de 45 dias): pagos ya COLLECTED por una via
+    // que no quedo registrada en el indice local (reporte previo a que
+    // existiera build_index.py, o correccion manual) se recalculaban
+    // como "PENDING" (el ultimo estado que el indice SI conoce) y se
+    // hubieran revertido sin este guard.
     // EXCEPCION: si ese COLLECTED/ACCEPTED viene de
     // mark_transmitted_accepted.apex (marca "...D_SIN_REPORTE:" al frente
     // del historico -- ver ese script), no es un cobro confirmado por el
@@ -237,7 +243,7 @@ for (RowData r : rows) {
     Boolean isCurrentlySuccess =
         (match.Payment_Status__c == 'ACCEPTED' || match.SM_Check_Collection_Status__c == 'COLLECTED')
         && !acceptedByTimeoutRoutine;
-    Boolean isTargetRegression = r.collStatus == 'RETURN' || r.collStatus == 'NOT_COLLECTED' || r.collStatus == 'NOT COLLECTED';
+    Boolean isTargetRegression = r.collStatus == 'RETURN' || r.collStatus == 'NOT_COLLECTED' || r.collStatus == 'NOT COLLECTED' || r.collStatus == 'PENDING';
 
     if (isCurrentlySuccess && isTargetRegression) {
         regressionBlockedRows.add(r);

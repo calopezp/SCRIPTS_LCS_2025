@@ -16,9 +16,12 @@ set -e
 # hace que el script borre el delta del dia del segundo antes de
 # poder usarlo para el reporte R10 de Comercial.
 #
-# Cada import aplica el historico de los ultimos 45 dias de su area
-# (no solo los PDFs nuevos de hoy), cruzando Returns contra Check
-# Collection (build_pending_deltas.py) para que cada Payment quede
+# Cada import aplica el historico de los ultimos 60 dias de su area
+# (no solo los PDFs nuevos de hoy) -- suficiente margen para que un
+# reporte que confirma esta semana el resultado de una transaccion de
+# hace 1-2 meses no se pierda, sin arrastrar el historico completo --
+# cruzando Returns contra Check Collection (build_pending_deltas.py)
+# para que cada Payment quede
 # asignado a UN SOLO reporte -- el mas reciente (empate -> gana
 # Collection). update_ach_returns.apex / update_check_collection.apex
 # ademas comparan cada registro contra el estado ACTUAL en Salesforce

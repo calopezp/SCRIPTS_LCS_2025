@@ -1,0 +1,714 @@
+<title>Auditoría de Cobros ACH</title>
+<link rel="stylesheet" href="https://fonts.googleapis.com/css2?family=Fraunces:opsz,wght@9..144,400..700&family=Public+Sans:wght@400;500;600;700&family=IBM+Plex+Mono:wght@400;500;600&display=swap">
+<style>
+  :root {
+    --ink: #1B2430;
+    --ink-soft: #4A5460;
+    --paper: #F3F4EE;
+    --surface: #FFFFFF;
+    --surface-sunken: #ECEEE6;
+    --accent: #2F6F5E;
+    --accent-ink: #1E4A3F;
+    --accent-soft: #E1EAE5;
+    --amber: #9C6423;
+    --amber-soft: #F3E6D3;
+    --rust: #A23B2E;
+    --rust-soft: #F3DFDA;
+    --line: #D9DBD0;
+    --line-soft: #E6E7DF;
+    --shadow: 0 1px 2px rgba(27,36,48,0.06), 0 6px 20px rgba(27,36,48,0.05);
+  }
+  @media (prefers-color-scheme: dark) {
+    :root:not([data-theme="light"]) {
+      --ink: #E9EAE3;
+      --ink-soft: #ABB2A9;
+      --paper: #14181A;
+      --surface: #1B2020;
+      --surface-sunken: #101313;
+      --accent: #6BAB96;
+      --accent-ink: #C9E4DA;
+      --accent-soft: #223530;
+      --amber: #D9A15C;
+      --amber-soft: #362A18;
+      --rust: #E08979;
+      --rust-soft: #3A2220;
+      --line: #313734;
+      --line-soft: #262B28;
+      --shadow: 0 1px 2px rgba(0,0,0,0.3), 0 8px 24px rgba(0,0,0,0.35);
+    }
+  }
+  :root[data-theme="dark"] {
+    --ink: #E9EAE3;
+    --ink-soft: #ABB2A9;
+    --paper: #14181A;
+    --surface: #1B2020;
+    --surface-sunken: #101313;
+    --accent: #6BAB96;
+    --accent-ink: #C9E4DA;
+    --accent-soft: #223530;
+    --amber: #D9A15C;
+    --amber-soft: #362A18;
+    --rust: #E08979;
+    --rust-soft: #3A2220;
+    --line: #313734;
+    --line-soft: #262B28;
+    --shadow: 0 1px 2px rgba(0,0,0,0.3), 0 8px 24px rgba(0,0,0,0.35);
+  }
+
+  * { box-sizing: border-box; }
+  body {
+    background: var(--paper);
+    color: var(--ink);
+    font-family: "Public Sans", -apple-system, "Segoe UI", sans-serif;
+    line-height: 1.55;
+    font-size: 15.5px;
+  }
+  ::selection { background: var(--accent-soft); color: var(--accent-ink); }
+
+  .doc {
+    max-width: 880px;
+    margin: 0 auto;
+    padding: 56px 28px 96px;
+  }
+
+  /* ---------- Masthead ---------- */
+  .masthead {
+    display: flex;
+    justify-content: space-between;
+    align-items: flex-end;
+    gap: 24px;
+    padding-bottom: 22px;
+    border-bottom: 2px solid var(--ink);
+    margin-bottom: 40px;
+  }
+  .masthead-eyebrow {
+    font-family: "IBM Plex Mono", monospace;
+    font-size: 11.5px;
+    letter-spacing: 0.09em;
+    text-transform: uppercase;
+    color: var(--accent);
+    font-weight: 600;
+    margin-bottom: 10px;
+  }
+  h1.title {
+    font-family: "Fraunces", Georgia, serif;
+    font-weight: 600;
+    font-size: clamp(30px, 4.4vw, 42px);
+    line-height: 1.08;
+    margin: 0;
+    text-wrap: balance;
+    letter-spacing: -0.01em;
+  }
+  .masthead-meta {
+    text-align: right;
+    font-family: "IBM Plex Mono", monospace;
+    font-size: 12px;
+    color: var(--ink-soft);
+    line-height: 1.7;
+    white-space: nowrap;
+  }
+  .masthead-meta strong { color: var(--ink); font-weight: 600; }
+
+  .lede {
+    font-size: 17px;
+    line-height: 1.65;
+    color: var(--ink-soft);
+    max-width: 68ch;
+    margin: 0 0 44px;
+  }
+  .lede strong { color: var(--ink); font-weight: 600; }
+
+  /* ---------- Summary tiles ---------- */
+  .summary-label {
+    font-family: "IBM Plex Mono", monospace;
+    font-size: 11.5px;
+    letter-spacing: 0.09em;
+    text-transform: uppercase;
+    color: var(--ink-soft);
+    font-weight: 600;
+    margin: 0 0 14px;
+  }
+  .tiles {
+    display: grid;
+    grid-template-columns: repeat(4, 1fr);
+    gap: 1px;
+    background: var(--line);
+    border: 1px solid var(--line);
+    border-radius: 10px;
+    overflow: hidden;
+    margin-bottom: 52px;
+  }
+  .tile {
+    background: var(--surface);
+    padding: 20px 18px 18px;
+    display: flex;
+    flex-direction: column;
+    gap: 6px;
+  }
+  .tile-value {
+    font-family: "Fraunces", Georgia, serif;
+    font-weight: 600;
+    font-size: 27px;
+    font-variant-numeric: tabular-nums;
+    letter-spacing: -0.01em;
+    line-height: 1.05;
+  }
+  .tile.recovered .tile-value { color: var(--accent-ink); }
+  .tile.pending .tile-value { color: var(--amber); }
+  .tile.risk .tile-value { color: var(--rust); }
+  .tile-caption {
+    font-size: 12.5px;
+    color: var(--ink-soft);
+    line-height: 1.4;
+  }
+  .tile-count {
+    font-family: "IBM Plex Mono", monospace;
+    font-size: 11px;
+    color: var(--ink-soft);
+  }
+
+  /* ---------- Section (case) ---------- */
+  .case {
+    margin-bottom: 46px;
+    padding-top: 34px;
+    border-top: 1px solid var(--line);
+  }
+  .case-head {
+    display: flex;
+    align-items: baseline;
+    gap: 14px;
+    margin-bottom: 14px;
+    flex-wrap: wrap;
+  }
+  .case-num {
+    font-family: "IBM Plex Mono", monospace;
+    font-size: 13px;
+    color: var(--ink-soft);
+    font-weight: 500;
+  }
+  h2.case-title {
+    font-family: "Fraunces", Georgia, serif;
+    font-weight: 600;
+    font-size: 22px;
+    margin: 0;
+    text-wrap: balance;
+    flex: 1;
+    min-width: 240px;
+  }
+  .pill {
+    display: inline-flex;
+    align-items: center;
+    gap: 6px;
+    font-family: "IBM Plex Mono", monospace;
+    font-size: 11px;
+    font-weight: 600;
+    letter-spacing: 0.04em;
+    text-transform: uppercase;
+    padding: 4px 10px;
+    border-radius: 100px;
+    white-space: nowrap;
+  }
+  .pill::before { content: ""; width: 6px; height: 6px; border-radius: 50%; }
+  .pill.resolved { background: var(--accent-soft); color: var(--accent-ink); }
+  .pill.resolved::before { background: var(--accent); }
+  .pill.pending { background: var(--amber-soft); color: var(--amber); }
+  .pill.pending::before { background: var(--amber); }
+  .pill.hold { background: var(--rust-soft); color: var(--rust); }
+  .pill.hold::before { background: var(--rust); }
+
+  .case-figure {
+    font-family: "IBM Plex Mono", monospace;
+    font-size: 13px;
+    color: var(--ink-soft);
+    margin-bottom: 18px;
+  }
+  .case-figure b { color: var(--ink); font-weight: 600; font-variant-numeric: tabular-nums; }
+
+  .cols {
+    display: grid;
+    grid-template-columns: repeat(3, 1fr);
+    gap: 20px;
+    margin-bottom: 20px;
+  }
+  .col-label {
+    font-family: "IBM Plex Mono", monospace;
+    font-size: 10.5px;
+    letter-spacing: 0.08em;
+    text-transform: uppercase;
+    color: var(--ink-soft);
+    margin-bottom: 6px;
+  }
+  .col-body { font-size: 14.5px; color: var(--ink); }
+  .col.cause .col-label { color: var(--rust); }
+  .col.consequence .col-label { color: var(--amber); }
+  .col.mitigation .col-label { color: var(--accent); }
+
+  /* ---------- Tables ---------- */
+  .table-wrap {
+    overflow-x: auto;
+    border: 1px solid var(--line);
+    border-radius: 8px;
+    margin-top: 6px;
+  }
+  table {
+    width: 100%;
+    border-collapse: collapse;
+    font-size: 13px;
+    background: var(--surface);
+  }
+  thead th {
+    text-align: left;
+    font-family: "IBM Plex Mono", monospace;
+    font-size: 10.5px;
+    letter-spacing: 0.05em;
+    text-transform: uppercase;
+    color: var(--ink-soft);
+    font-weight: 600;
+    padding: 9px 14px;
+    background: var(--surface-sunken);
+    border-bottom: 1px solid var(--line);
+    position: sticky;
+    top: 0;
+  }
+  td {
+    padding: 8px 14px;
+    border-bottom: 1px solid var(--line-soft);
+    font-variant-numeric: tabular-nums;
+  }
+  td.num, th.num { text-align: right; font-family: "IBM Plex Mono", monospace; }
+  td.mono, th.mono { font-family: "IBM Plex Mono", monospace; }
+  tbody tr:last-child td { border-bottom: none; }
+  tbody tr:hover { background: var(--surface-sunken); }
+  td.neg { color: var(--rust); }
+  .scroll-table { max-height: 420px; overflow-y: auto; }
+  .scroll-table thead th { top: 0; }
+
+  details.list-toggle {
+    border: 1px solid var(--line);
+    border-radius: 8px;
+    background: var(--surface);
+    margin-top: 6px;
+  }
+  details.list-toggle summary {
+    cursor: pointer;
+    padding: 10px 14px;
+    font-family: "IBM Plex Mono", monospace;
+    font-size: 12px;
+    color: var(--accent-ink);
+    font-weight: 600;
+    list-style: none;
+    display: flex;
+    align-items: center;
+    gap: 8px;
+  }
+  details.list-toggle summary::before { content: "▸"; font-size: 10px; }
+  details.list-toggle[open] summary::before { content: "▾"; }
+  details.list-toggle summary::-webkit-details-marker { display: none; }
+  .contract-grid {
+    display: grid;
+    grid-template-columns: repeat(auto-fill, minmax(84px, 1fr));
+    gap: 6px;
+    padding: 4px 14px 14px;
+    font-family: "IBM Plex Mono", monospace;
+    font-size: 12px;
+    color: var(--ink-soft);
+  }
+  .contract-grid span {
+    background: var(--surface-sunken);
+    border-radius: 5px;
+    padding: 3px 7px;
+    text-align: center;
+  }
+
+  .note {
+    font-size: 13px;
+    color: var(--ink-soft);
+    background: var(--surface-sunken);
+    border-left: 3px solid var(--accent);
+    padding: 10px 14px;
+    border-radius: 0 6px 6px 0;
+    margin-top: 14px;
+  }
+  .note.warn { border-left-color: var(--rust); }
+  .note b { color: var(--ink); }
+
+  /* ---------- Open items ---------- */
+  .openlist {
+    list-style: none;
+    padding: 0;
+    margin: 0;
+    display: flex;
+    flex-direction: column;
+    gap: 12px;
+  }
+  .openlist li {
+    display: grid;
+    grid-template-columns: 22px 1fr;
+    gap: 10px;
+    align-items: start;
+    font-size: 14.5px;
+  }
+  .openlist .n {
+    font-family: "IBM Plex Mono", monospace;
+    font-size: 12px;
+    color: var(--ink-soft);
+    padding-top: 2px;
+  }
+
+  footer {
+    margin-top: 60px;
+    padding-top: 20px;
+    border-top: 1px solid var(--line);
+    font-size: 12px;
+    color: var(--ink-soft);
+    display: flex;
+    justify-content: space-between;
+    flex-wrap: wrap;
+    gap: 10px;
+  }
+  footer .mono { font-family: "IBM Plex Mono", monospace; }
+
+  @media (max-width: 720px) {
+    .tiles { grid-template-columns: repeat(2, 1fr); }
+    .cols { grid-template-columns: 1fr; }
+    .masthead { flex-direction: column; align-items: flex-start; }
+    .masthead-meta { text-align: left; }
+  }
+</style>
+
+<div class="doc">
+
+  <div class="masthead">
+    <div>
+      <div class="masthead-eyebrow">Informe de auditoría interna · Cobranza ACH</div>
+      <h1 class="title">Hallazgos de cobranza<br>ACH — MONEE</h1>
+    </div>
+    <div class="masthead-meta">
+      Preparado para <strong>Gerencia</strong><br>
+      Org: <strong>MONEE</strong> (legal-credit.com)<br>
+      Corte de datos: <strong>09-sep-2026</strong><br>
+      Alcance: revisión iniciada sobre 91 contratos
+    </div>
+  </div>
+
+  <p class="lede">
+    Lo que empezó como una validación puntual de <strong>91 contratos</strong> sin cobro de agosto
+    destapó una falla estructural en el flujo de activación de contratos y varios errores de
+    procesos masivos independientes. Este informe resume los <strong>6 hallazgos</strong>, su causa,
+    su consecuencia en dólares, y qué se hizo — o falta hacer — para cada uno.
+  </p>
+
+  <div class="summary-label">Resumen en cifras (dólares netos por hallazgo)</div>
+  <div class="tiles">
+    <div class="tile recovered">
+      <div class="tile-value">$16,755</div>
+      <div class="tile-caption">Recuperado — cobros que estaban perdidos o congelados y ya se cobraron con éxito</div>
+      <div class="tile-count">137 contratos</div>
+    </div>
+    <div class="tile pending">
+      <div class="tile-value">$4,748</div>
+      <div class="tile-caption">Pendiente de reembolsar al cliente — cobros de más ya confirmados</div>
+      <div class="tile-count">64 contratos</div>
+    </div>
+    <div class="tile risk">
+      <div class="tile-value">$694</div>
+      <div class="tile-caption">En riesgo — pagos aún sin resolver por el banco, podrían sumarse a lo anterior</div>
+      <div class="tile-count">8 contratos</div>
+    </div>
+    <div class="tile">
+      <div class="tile-value">$74</div>
+      <div class="tile-caption">Cobrado de menos — caso inverso, posible cobro pendiente a favor de la empresa</div>
+      <div class="tile-count">1 contrato</div>
+    </div>
+  </div>
+
+  <!-- ============ CASO 1 ============ -->
+  <div class="case">
+    <div class="case-head">
+      <span class="case-num">01</span>
+      <h2 class="case-title">Suscripción saltó el cobro de agosto</h2>
+      <span class="pill resolved">Resuelto</span>
+    </div>
+    <div class="case-figure">39 contratos afectados · <b>$3,511</b> en cuotas de agosto no cobradas</div>
+    <div class="cols">
+      <div class="col cause">
+        <div class="col-label">Causa</div>
+        <div class="col-body">Un evento masivo el 11 y 17 de agosto reprogramó la fecha de la próxima cuota de suscripción de 39 contratos directo a septiembre, sin haber intentado cobrar agosto — sin ningún registro de rechazo.</div>
+      </div>
+      <div class="col consequence">
+        <div class="col-label">Consecuencia</div>
+        <div class="col-body">39 clientes con un mes de servicio sin facturar; el sistema no lo iba a detectar solo, porque no hay ninguna orden fallida que lo señale.</div>
+      </div>
+      <div class="col mitigation">
+        <div class="col-label">Mitigación</div>
+        <div class="col-body">Se creó una cuota de agosto (Late Payment Fee, sin multa) por contrato. <b>37 de 39 ya cobraron con éxito</b> el 03-sep. 2 fueron rechazadas por el banco (00316731, 00316732 — $75 c/u) y esperan reintento.</div>
+      </div>
+    </div>
+    <details class="list-toggle">
+      <summary>Ver los 39 contratos</summary>
+      <div class="contract-grid">
+        <span>00308511</span><span>00309018</span><span>00311264</span><span>00311627</span><span>00313768</span><span>00314155</span><span>00315423</span><span>00315580</span><span>00316339</span><span>00316404</span><span>00316562</span><span>00316870</span><span>00317565</span><span>00317571</span><span>00317670</span><span>00317735</span><span>00317763</span><span>00317801</span><span>00317809</span><span>00317840</span><span>00317847</span><span>00317872</span><span>00317875</span><span>00317883</span><span>00317937</span><span>00317951</span><span>00318025</span><span>00246052</span><span>00261527</span><span>00301055</span><span>00311941</span><span>00313104</span><span>00314459</span><span>00314834</span><span>00315218</span><span>00316731</span><span>00316732</span><span>00316812</span><span>00317180</span>
+      </div>
+    </details>
+  </div>
+
+  <!-- ============ CASO 2 ============ -->
+  <div class="case">
+    <div class="case-head">
+      <span class="case-num">02</span>
+      <h2 class="case-title">El flujo AC → Activación → Suscripción quedó roto semanas</h2>
+      <span class="pill resolved">Resuelto — causa raíz</span>
+    </div>
+    <div class="case-figure">24 contratos afectados · <b>$2,746</b> en AC cobrado pero nunca reconocido en el sistema</div>
+    <div class="cols">
+      <div class="col cause">
+        <div class="col-label">Causa</div>
+        <div class="col-body">Al retirar la app Chargent, se deshabilitó por error un trigger (<code>SM_ChargentTransactionTGR</code>) que en realidad no tenía relación con Chargent — era la única pieza que sumaba el pago de AC al contrato. Nadie lo notó porque el nombre engañaba.</div>
+      </div>
+      <div class="col consequence">
+        <div class="col-label">Consecuencia</div>
+        <div class="col-body">24 clientes ya habían pagado su AC (julio), pero sus contratos nunca se activaron ni empezaron a facturar la suscripción mensual — ingreso recurrente bloqueado indefinidamente.</div>
+      </div>
+      <div class="col mitigation">
+        <div class="col-label">Mitigación</div>
+        <div class="col-body">Se activaron los 24 contratos manualmente y se desplegó un Flow permanente (<code>PAYMENT_Accumulate_AC_On_Contract</code>) el 02-sep, que reemplaza la pieza rota. <b>Sin contratos huérfanos nuevos desde el despliegue.</b></div>
+      </div>
+    </div>
+    <details class="list-toggle">
+      <summary>Ver los 24 contratos</summary>
+      <div class="contract-grid">
+        <span>00317859</span><span>00317914</span><span>00317933</span><span>00317941</span><span>00317952</span><span>00317955</span><span>00317958</span><span>00317961</span><span>00317963</span><span>00317964</span><span>00317968</span><span>00317972</span><span>00317980</span><span>00317988</span><span>00317990</span><span>00317991</span><span>00317996</span><span>00317997</span><span>00317998</span><span>00318005</span><span>00318011</span><span>00318013</span><span>00318014</span><span>00318016</span>
+      </div>
+    </details>
+  </div>
+
+  <!-- ============ CASO 3 ============ -->
+  <div class="case">
+    <div class="case-head">
+      <span class="case-num">03</span>
+      <h2 class="case-title">Órdenes de AC marcadas "Completadas" sin haber cobrado</h2>
+      <span class="pill resolved">Resuelto</span>
+    </div>
+    <div class="case-figure">15 contratos afectados · <b>$1,348</b> recuperados en los 12 con contrato activo</div>
+    <div class="cols">
+      <div class="col cause">
+        <div class="col-label">Causa</div>
+        <div class="col-body">Un update masivo del 14-ago marcó 12 órdenes de AC como "Completadas" y les borró la fecha de próximo cobro — sin haber generado nunca el pago. El batch diario las ignora porque las ve como ya resueltas.</div>
+      </div>
+      <div class="col consequence">
+        <div class="col-label">Consecuencia</div>
+        <div class="col-body">12 contratos activos quedaron congelados para siempre — nunca iban a cobrar su AC ni a activar su suscripción, sin que nada en el sistema lo mostrara como un error.</div>
+      </div>
+      <div class="col mitigation">
+        <div class="col-label">Mitigación</div>
+        <div class="col-body">Se revirtieron las 12 órdenes a estado "Iniciado" con su fecha de AC original — <b>las 12 ya cobraron con éxito</b>. 3 más del mismo update, en contratos ya cancelados, se corrigieron a "Cancelado" (sin cobro esperado).</div>
+      </div>
+    </div>
+  </div>
+
+  <!-- ============ CASO 4 ============ -->
+  <div class="case">
+    <div class="case-head">
+      <span class="case-num">04</span>
+      <h2 class="case-title">Cuotas rechazadas que nunca se reintentaron</h2>
+      <span class="pill resolved">Resuelto</span>
+    </div>
+    <div class="case-figure">100 órdenes en 88 contratos · <b>$12,046</b> reactivados — <b>96 ya cobrados con éxito</b></div>
+    <div class="cols">
+      <div class="col cause">
+        <div class="col-label">Causa</div>
+        <div class="col-body">Cuando un cobro se rechaza, el sistema crea una multa (Late Payment Fee) que debe activarse sola una vez el banco confirma el rechazo definitivo — pero ese paso automático falla intermitentemente, y la multa se queda "Detenida" para siempre, sin que nadie lo note.</div>
+      </div>
+      <div class="col consequence">
+        <div class="col-label">Consecuencia</div>
+        <div class="col-body">88 contratos con cuotas legítimamente vencidas — algunas desde abril — que nunca se volvieron a intentar cobrar. Ingreso de cobranza represado por meses.</div>
+      </div>
+      <div class="col mitigation">
+        <div class="col-label">Mitigación</div>
+        <div class="col-body">Se reactivaron 97 órdenes manualmente (3 adicionales las gestionó Gerencia directamente). <b>96 de 97 ya cobraron</b>, 1 terminó cancelada. Aparte, se corrigieron 20 multas que ya habían cobrado pero seguían mal etiquetadas.</div>
+      </div>
+    </div>
+    <div class="note">Listado completo con banco y fecha de rechazo original en <span class="mono">LPF_Stopped_100_Reactivar_Validado.csv</span>.</div>
+  </div>
+
+  <!-- ============ CASO 5 ============ -->
+  <div class="case">
+    <div class="case-head">
+      <span class="case-num">05</span>
+      <h2 class="case-title">Cobro duplicado real sobre multas ya pagadas</h2>
+      <span class="pill hold">En espera del banco</span>
+    </div>
+    <div class="case-figure">12 casos · <b>$366</b> confirmado a reembolsar · <b>$694</b> en riesgo adicional</div>
+    <div class="cols">
+      <div class="col cause">
+        <div class="col-label">Causa</div>
+        <div class="col-body">12 multas que ya habían cobrado con éxito el 29-jul volvieron a generar intentos de cobro entre el 24 y 26 de agosto — origen aún no confirmado, bajo investigación.</div>
+      </div>
+      <div class="col consequence">
+        <div class="col-label">Consecuencia</div>
+        <div class="col-body"><b>4 clientes ya fueron cobrados dos veces</b> por el mismo cargo. Otros 6 tienen un segundo intento todavía sin resolver por el banco — 15 días después, más tiempo del normal.</div>
+      </div>
+      <div class="col mitigation">
+        <div class="col-label">Mitigación</div>
+        <div class="col-body">2 casos ya se resolvieron por reembolso bancario directo. Los otros 10 están <b>intencionalmente sin tocar</b> hasta que el banco confirme el resultado final de cada pago — evita reembolsar de más o de menos.</div>
+      </div>
+    </div>
+    <div class="table-wrap">
+      <table>
+        <thead>
+          <tr><th>Contrato</th><th class="mono">Orden</th><th class="num">Monto</th><th>Estado</th></tr>
+        </thead>
+        <tbody>
+          <tr><td>00316463</td><td class="mono">ACH-28201</td><td class="num">$99.00</td><td>Doble cobro confirmado</td></tr>
+          <tr><td>00314444</td><td class="mono">ACH-28194</td><td class="num">$79.00</td><td>Doble cobro confirmado</td></tr>
+          <tr><td>00316863</td><td class="mono">ACH-28208</td><td class="num">$99.00</td><td>Doble cobro confirmado</td></tr>
+          <tr><td>00317219</td><td class="mono">ACH-28214</td><td class="num">$89.00</td><td>Doble cobro confirmado</td></tr>
+          <tr><td>00309045</td><td class="mono">ACH-28192</td><td class="num">$49.00</td><td>En riesgo — sin resolver</td></tr>
+          <tr><td>00313961</td><td class="mono">ACH-28193</td><td class="num">$79.00</td><td>En riesgo — sin resolver</td></tr>
+          <tr><td>00314664</td><td class="mono">ACH-28195</td><td class="num">$99.00</td><td>En riesgo — sin resolver</td></tr>
+          <tr><td>00314768</td><td class="mono">ACH-28197</td><td class="num">$79.00</td><td>En riesgo — sin resolver</td></tr>
+          <tr><td>00316780</td><td class="mono">ACH-28207</td><td class="num">$99.00</td><td>En riesgo — sin resolver</td></tr>
+          <tr><td>00316932</td><td class="mono">ACH-28209</td><td class="num">$139.00</td><td>En riesgo — sin resolver</td></tr>
+        </tbody>
+      </table>
+    </div>
+    <div class="note warn"><b>Recomendación:</b> escalar con el banco/procesador — 15 días sin resolución para pagos "transmitidos" no es normal y puede indicar un problema en la importación diaria de resultados.</div>
+  </div>
+
+  <!-- ============ CASO 6 ============ -->
+  <div class="case">
+    <div class="case-head">
+      <span class="case-num">06</span>
+      <h2 class="case-title">Lote de ajuste erróneo — "ADJ_AC_ERR_12AGO"</h2>
+      <span class="pill pending">Pendiente decisión</span>
+    </div>
+    <div class="case-figure">61 contratos cobrados · <b>$4,382</b> a reembolsar · <b>$74</b> cobrado de menos (1 caso)</div>
+    <div class="cols">
+      <div class="col cause">
+        <div class="col-label">Causa</div>
+        <div class="col-body">Un proceso masivo del 14-ago generó 90 órdenes de AC con montos incorrectos (mezclando el valor de AC con el de la mensualidad). El sistema no lo detectó como anómalo.</div>
+      </div>
+      <div class="col consequence">
+        <div class="col-label">Consecuencia</div>
+        <div class="col-body">61 de esas órdenes ya se cobraron con el monto erróneo — cada contrato exactamente 1 vez, monto entre $11 y $119 de más sobre su mensualidad real. 1 contrato (00316168) cobró de menos.</div>
+      </div>
+      <div class="col mitigation">
+        <div class="col-label">Mitigación</div>
+        <div class="col-body">Las 29 órdenes restantes del lote (Detenidas/Canceladas) ya están seguras, sin acción. <b>Falta decidir el mecanismo de reembolso</b> para los $4,382 — reembolso directo, crédito al próximo ciclo, o ajuste contra la próxima multa.</div>
+      </div>
+    </div>
+    <div class="table-wrap scroll-table">
+      <table>
+        <thead>
+          <tr><th>Contrato</th><th class="num">Mensualidad</th><th class="num">Cobrado</th><th class="num">Diferencia</th></tr>
+        </thead>
+        <tbody>
+          <tr><td>00306955</td><td class="num">$69.00</td><td class="num">$188.44</td><td class="num">$119.44</td></tr>
+          <tr><td>00302784</td><td class="num">$69.00</td><td class="num">$188.44</td><td class="num">$119.44</td></tr>
+          <tr><td>00299485</td><td class="num">$69.00</td><td class="num">$188.44</td><td class="num">$119.44</td></tr>
+          <tr><td>00290150</td><td class="num">$69.00</td><td class="num">$188.44</td><td class="num">$119.44</td></tr>
+          <tr><td>00281180</td><td class="num">$69.00</td><td class="num">$188.44</td><td class="num">$119.44</td></tr>
+          <tr><td>00270305</td><td class="num">$69.00</td><td class="num">$188.44</td><td class="num">$119.44</td></tr>
+          <tr><td>00261332</td><td class="num">$69.00</td><td class="num">$188.44</td><td class="num">$119.44</td></tr>
+          <tr><td>00260729</td><td class="num">$69.00</td><td class="num">$188.44</td><td class="num">$119.44</td></tr>
+          <tr><td>00253616</td><td class="num">$69.00</td><td class="num">$188.44</td><td class="num">$119.44</td></tr>
+          <tr><td>00249998</td><td class="num">$69.00</td><td class="num">$188.44</td><td class="num">$119.44</td></tr>
+          <tr><td>00241461</td><td class="num">$69.00</td><td class="num">$188.44</td><td class="num">$119.44</td></tr>
+          <tr><td>00308931</td><td class="num">$49.00</td><td class="num">$167.24</td><td class="num">$118.24</td></tr>
+          <tr><td>00263246</td><td class="num">$49.00</td><td class="num">$166.14</td><td class="num">$117.14</td></tr>
+          <tr><td>00248001</td><td class="num">$49.00</td><td class="num">$166.14</td><td class="num">$117.14</td></tr>
+          <tr><td>00242904</td><td class="num">$49.00</td><td class="num">$166.14</td><td class="num">$117.14</td></tr>
+          <tr><td>00241219</td><td class="num">$69.00</td><td class="num">$169.00</td><td class="num">$100.00</td></tr>
+          <tr><td>00314725</td><td class="num">$79.00</td><td class="num">$177.29</td><td class="num">$98.29</td></tr>
+          <tr><td>00314541</td><td class="num">$79.00</td><td class="num">$177.29</td><td class="num">$98.29</td></tr>
+          <tr><td>00314459</td><td class="num">$79.00</td><td class="num">$177.29</td><td class="num">$98.29</td></tr>
+          <tr><td>00304492</td><td class="num">$79.00</td><td class="num">$177.29</td><td class="num">$98.29</td></tr>
+          <tr><td>00267532</td><td class="num">$79.00</td><td class="num">$177.29</td><td class="num">$98.29</td></tr>
+          <tr><td>00269841</td><td class="num">$69.00</td><td class="num">$166.14</td><td class="num">$97.14</td></tr>
+          <tr><td>00263219</td><td class="num">$69.00</td><td class="num">$166.14</td><td class="num">$97.14</td></tr>
+          <tr><td>00257825</td><td class="num">$69.00</td><td class="num">$166.14</td><td class="num">$97.14</td></tr>
+          <tr><td>00255430</td><td class="num">$69.00</td><td class="num">$166.14</td><td class="num">$97.14</td></tr>
+          <tr><td>00245228</td><td class="num">$69.00</td><td class="num">$166.14</td><td class="num">$97.14</td></tr>
+          <tr><td>00315478</td><td class="num">$69.00</td><td class="num">$149.00</td><td class="num">$80.00</td></tr>
+          <tr><td>00301055</td><td class="num">$79.00</td><td class="num">$143.84</td><td class="num">$64.84</td></tr>
+          <tr><td>00298770</td><td class="num">$79.00</td><td class="num">$143.84</td><td class="num">$64.84</td></tr>
+          <tr><td>00282523</td><td class="num">$79.00</td><td class="num">$143.84</td><td class="num">$64.84</td></tr>
+          <tr><td>00311548</td><td class="num">$69.00</td><td class="num">$132.69</td><td class="num">$63.69</td></tr>
+          <tr><td>00291886</td><td class="num">$69.00</td><td class="num">$132.69</td><td class="num">$63.69</td></tr>
+          <tr><td>00264833</td><td class="num">$69.00</td><td class="num">$132.69</td><td class="num">$63.69</td></tr>
+          <tr><td>00243412</td><td class="num">$69.00</td><td class="num">$132.69</td><td class="num">$63.69</td></tr>
+          <tr><td>00311941</td><td class="num">$79.00</td><td class="num">$121.54</td><td class="num">$42.54</td></tr>
+          <tr><td>00292059</td><td class="num">$79.00</td><td class="num">$121.54</td><td class="num">$42.54</td></tr>
+          <tr><td>00291850</td><td class="num">$79.00</td><td class="num">$121.54</td><td class="num">$42.54</td></tr>
+          <tr><td>00290239</td><td class="num">$79.00</td><td class="num">$121.54</td><td class="num">$42.54</td></tr>
+          <tr><td>00288497</td><td class="num">$79.00</td><td class="num">$121.54</td><td class="num">$42.54</td></tr>
+          <tr><td>00280908</td><td class="num">$79.00</td><td class="num">$121.54</td><td class="num">$42.54</td></tr>
+          <tr><td>00270776</td><td class="num">$79.00</td><td class="num">$121.54</td><td class="num">$42.54</td></tr>
+          <tr><td>00269600</td><td class="num">$79.00</td><td class="num">$121.54</td><td class="num">$42.54</td></tr>
+          <tr><td>00260543</td><td class="num">$79.00</td><td class="num">$121.54</td><td class="num">$42.54</td></tr>
+          <tr><td>00259519</td><td class="num">$79.00</td><td class="num">$121.54</td><td class="num">$42.54</td></tr>
+          <tr><td>00254714</td><td class="num">$79.00</td><td class="num">$121.54</td><td class="num">$42.54</td></tr>
+          <tr><td>00250539</td><td class="num">$79.00</td><td class="num">$121.54</td><td class="num">$42.54</td></tr>
+          <tr><td>00249049</td><td class="num">$79.00</td><td class="num">$121.54</td><td class="num">$42.54</td></tr>
+          <tr><td>00246159</td><td class="num">$79.00</td><td class="num">$121.54</td><td class="num">$42.54</td></tr>
+          <tr><td>00246052</td><td class="num">$79.00</td><td class="num">$121.54</td><td class="num">$42.54</td></tr>
+          <tr><td>00245793</td><td class="num">$79.00</td><td class="num">$121.54</td><td class="num">$42.54</td></tr>
+          <tr><td>00312034</td><td class="num">$75.00</td><td class="num">$110.39</td><td class="num">$35.39</td></tr>
+          <tr><td>00303807</td><td class="num">$75.00</td><td class="num">$110.39</td><td class="num">$35.39</td></tr>
+          <tr><td>00301583</td><td class="num">$75.00</td><td class="num">$110.39</td><td class="num">$35.39</td></tr>
+          <tr><td>00279193</td><td class="num">$75.00</td><td class="num">$110.39</td><td class="num">$35.39</td></tr>
+          <tr><td>00259641</td><td class="num">$75.00</td><td class="num">$110.39</td><td class="num">$35.39</td></tr>
+          <tr><td>00258583</td><td class="num">$75.00</td><td class="num">$110.39</td><td class="num">$35.39</td></tr>
+          <tr><td>00243955</td><td class="num">$75.00</td><td class="num">$110.39</td><td class="num">$35.39</td></tr>
+          <tr><td>00314767</td><td class="num">$79.00</td><td class="num">$110.39</td><td class="num">$31.39</td></tr>
+          <tr><td>00272425</td><td class="num">$89.00</td><td class="num">$110.39</td><td class="num">$21.39</td></tr>
+          <tr><td>00313422</td><td class="num">$99.00</td><td class="num">$110.39</td><td class="num">$11.39</td></tr>
+          <tr><td>00316168</td><td class="num">$99.00</td><td class="num">$25.00</td><td class="num neg">−$74.00</td></tr>
+        </tbody>
+      </table>
+    </div>
+  </div>
+
+  <!-- ============ OTROS HALLAZGOS SIN IMPACTO FINANCIERO ============ -->
+  <div class="case">
+    <div class="case-head">
+      <span class="case-num">＋</span>
+      <h2 class="case-title">Otros ajustes operativos, sin impacto financiero</h2>
+      <span class="pill resolved">Resueltos</span>
+    </div>
+    <div class="cols">
+      <div class="col">
+        <div class="col-label">6 contratos</div>
+        <div class="col-body">Activados manualmente por agentes sin cumplir el requisito de AC cobrado — decisión de negocio ya ejecutada, no un error técnico.</div>
+      </div>
+      <div class="col">
+        <div class="col-label">13 contratos</div>
+        <div class="col-body">Suscripción nueva que el batch diario aún no había tomado — se resolvieron solas en su ciclo normal, sin intervención.</div>
+      </div>
+      <div class="col">
+        <div class="col-label">4 contratos</div>
+        <div class="col-body">Cobro adelantado por días (no un error) — solo se corrigió la fecha de la próxima cuota para que refleje su ciclo real.</div>
+      </div>
+    </div>
+  </div>
+
+  <!-- ============ NEXT STEPS ============ -->
+  <div class="case">
+    <div class="case-head">
+      <span class="case-num">→</span>
+      <h2 class="case-title">Qué falta</h2>
+    </div>
+    <ol class="openlist">
+      <li><span class="n">01</span><span><b>Decidir el mecanismo de reembolso</b> para los $4,382 del caso 06 (ADJ_AC_ERR_12AGO) — reembolso directo, crédito, o ajuste contra próxima cuota.</span></li>
+      <li><span class="n">02</span><span><b>Escalar con el banco</b> los 10 pagos del caso 05 que siguen sin resolver 15 días después de transmitidos — validar si hay un problema en la importación diaria de resultados.</span></li>
+      <li><span class="n">03</span><span><b>Reintentar</b> las 2 cuotas de agosto rechazadas del caso 01 (00316731, 00316732).</span></li>
+      <li><span class="n">04</span><span><b>Construir el script de monitoreo</b> que corra estas 4 validaciones periódicamente, para detectar temprano si alguno de estos patrones reaparece.</span></li>
+    </ol>
+  </div>
+
+  <footer>
+    <span>Preparado por Claude Code a solicitud de Carlos López (legal-credit.com)</span>
+    <span class="mono">Fuente: org Salesforce MONEE · Detalle completo en COLLECTIONS/ACH_REPORTADOS/</span>
+  </footer>
+
+</div>
