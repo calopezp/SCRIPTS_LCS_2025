@@ -178,7 +178,7 @@ public with sharing class SM_FeePaymentToDependentContract {
             clonedPayment.SM_Fee_value__c = assetFee.SM_Amount__c;
             clonedPayment.SM_Amount__c = assetFee.SM_Amount__c;
             clonedPayment.SM_ACH_Order__c = null;
-            clonedPayment.SM_Chargent_Orders_Transaction__c = null;
+            // clonedPayment.SM_Chargent_Orders_Transaction__c = null; // PARTE APP DE CHARGENT. ELIMINADA JUL 2026
             clonedPayment.SM_Contract__c = assetFee.SM_Contract__c;
             clonedPayment.SM_Penalty_value__c = payment.SM_Penalty_value__c <> null ? (payment.SM_Penalty_value__c / assetFeesByMaster.get(contractmasterId).size()).setScale(2) : 0;
 

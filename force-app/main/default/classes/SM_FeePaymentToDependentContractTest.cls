@@ -303,95 +303,135 @@ public with sharing class SM_FeePaymentToDependentContractTest {
 
     }
 
+    // Cubre SM_AcPaymentToDependentContract (agregado 2026-09-10, reutiliza el master/dependientes de makeData()).
     @IsTest
-    static void clonePaymentsByChargentOk(){
+    static void clonePaymentsByAcOk(){
 
         Contract master = [SELECT SM_Total_ac__c, AccountId FROM Contract WHERE Contract_Type__c = 'Master' limit 1];
-        List<Contract> dependents = [SELECT Id FROM Contract WHERE Contract_Type__c = 'Dependent'];
-        
 
-        /** Create chargent */
-        ChargentOrders__ChargentOrder__c chargent = new ChargentOrders__ChargentOrder__c(
-                ChargentOrders__Payment_Frequency__c = 'Once',
-                ChargentOrders__Payment_Method__c = 'Credit Card',
-                ChargentOrders__Tokenization__c = '1929826725-1841993424',
-                SM_Payment_Type__c = 'AC',
-                Contract__c = master.Id
-        );
-        insert chargent;
-        
-        /** Create Chargent transaction */
-        ChargentOrders__Transaction__c chargentTransaction = new ChargentOrders__Transaction__c(
-            ChargentOrders__Type__c = 'Authorization',
-            ChargentOrders__Response_Status__c = 'Approved',
-            ChargentOrders__Tokenization__c = '091-29382-298292829229',
-            Contract__c = master.Id,
-            ChargentOrders__Order__c = chargent.Id
-        );
-        insert chargentTransaction;
-
-         /** Create payment to master */
-         SM_Payment__c masterPayment = new SM_Payment__c(
-            SM_Amount__c = 35,
+        /** Create ACH order -- SM_PaymentHandler.clonePayments requiere SM_ACH_Order__c <> null */
+        SM_ACH_Order__c achOrder = new SM_ACH_Order__c(
             SM_Contract__c = master.Id,
-            SM_Chargent_Orders_Transaction__c = chargentTransaction.Id,
-            SM_Fee_value__c = 10.68,
-            SM_Type__c = SM_ACHOrderHelper.paymentType.LATE_PAYMENT_TYPE,
-            SM_Original_Type__c = 'Fee',
+            SM_Payment_Type__c = 'AC',
+            SM_Next_Transaction_Date__c = System.toDay(),
+            SM_Fee_to_collect__c = 1
+        );
+        insert achOrder;
+
+        /** Create AC payment to master */
+        SM_Payment__c masterPayment = new SM_Payment__c(
+            SM_Amount__c = master.SM_Total_ac__c,
+            SM_Contract__c = master.Id,
+            SM_ACH_Order__c = achOrder.Id,
+            SM_Penalty_value__c = 0,
+            SM_Fee_value__c = 0,
+            SM_Type__c = SM_ACHOrderHelper.paymentType.AC,
             Payment_Status__c = SM_PaymentHelper.status.ACCEPTED
         );
-
-        /** Create asset */
-        List<Asset> assets = new List<Asset>();
-
-        for (Integer i = 0; i < 3; i++) {
-            
-            assets.add(new Asset(
-                Name = 'Asset Name_' + i,
-                Status = SM_AssetHelper.status.ACTIVATED,
-                AccountId = master.AccountId,
-                SM_Contract__c = dependents[i].Id
-            ));
-        }
-        insert assets;
-
-        /** Create Asset fees */
-        List<SM_Asset_Fee__c> assetFees = new List<SM_Asset_Fee__c>();
-
-        for (Integer i = 0; i < 3; i++) {
-            
-            assetFees.add(new SM_Asset_Fee__c(
-                SM_Asset__c = assets[i].Id,
-                SM_Type__c = 'Fee',
-                SM_Contract__c = dependents[i].Id,
-                SM_Amount__c = 50,
-                SM_Position__c = 1
-            ));
-        }
-        insert assetFees;
 
         Test.startTest();
             insert masterPayment;
         Test.stopTest();
 
-        List<Contract> dependentContracts = [SELECT 
-                                                Id 
-                                            FROM Contract 
-                                            WHERE Contract_Type__c =: SM_ContractHelper.contractType.DEPENDENT 
-                                            AND Collection_Main_Contract__c =: SM_ContractHelper.collectionMain.READY_FOR_COLLECTION
-                                            AND SM_Requires_AC_Payment__c = true];
+        List<SM_Payment__c> dependentPayments = [SELECT SM_Amount__c FROM SM_Payment__c WHERE SM_Contract__c <>: master.Id];
 
-        List<SM_Payment__c> dependentPayments = [SELECT SM_Amount__c, SM_Penalty_value__c, SM_Fee_value__c FROM SM_Payment__c WHERE SM_Contract__c <>: master.Id];                                    
+        System.assertEquals(5, dependentPayments.size(), 'Must be return 5 payments related to dependent contracts');
 
-        System.assertEquals(3, dependentPayments.size(), 'Must be return 3 paymentsa related to dependent contracts');
-
-        /** Check data from dependent payments */
         for (SM_Payment__c dependentPayment : dependentPayments) {
-
-            System.assertEquals(50, dependentPayment.SM_Amount__c, 'Incorrect value to SM_Amount__c ');
-            System.assertEquals(0, dependentPayment.SM_Penalty_value__c, 'Incorrect value to SM_Penalty_value__c ');
-            System.assertEquals(50, dependentPayment.SM_Fee_value__c, 'Incorrect value to SM_Fee_value__c ');
+            System.assertEquals(20, dependentPayment.SM_Amount__c, 'Incorrect value to SM_Amount__c ');
         }
-
     }
+
+    // Metodo de test comentado completo. PARTE APP DE CHARGENT. ELIMINADA JUL 2026
+    // @IsTest
+    // static void clonePaymentsByChargentOk(){
+    //
+    //     Contract master = [SELECT SM_Total_ac__c, AccountId FROM Contract WHERE Contract_Type__c = 'Master' limit 1];
+    //     List<Contract> dependents = [SELECT Id FROM Contract WHERE Contract_Type__c = 'Dependent'];
+    //
+    //
+    //     // Create chargent
+    //     ChargentOrders__ChargentOrder__c chargent = new ChargentOrders__ChargentOrder__c(
+    //             ChargentOrders__Payment_Frequency__c = 'Once',
+    //             ChargentOrders__Payment_Method__c = 'Credit Card',
+    //             ChargentOrders__Tokenization__c = '1929826725-1841993424',
+    //             SM_Payment_Type__c = 'AC',
+    //             Contract__c = master.Id
+    //     );
+    //     insert chargent;
+    //
+    //     // Create Chargent transaction
+    //     ChargentOrders__Transaction__c chargentTransaction = new ChargentOrders__Transaction__c(
+    //         ChargentOrders__Type__c = 'Authorization',
+    //         ChargentOrders__Response_Status__c = 'Approved',
+    //         ChargentOrders__Tokenization__c = '091-29382-298292829229',
+    //         Contract__c = master.Id,
+    //         ChargentOrders__Order__c = chargent.Id
+    //     );
+    //     insert chargentTransaction;
+    //
+    //      // Create payment to master
+    //      SM_Payment__c masterPayment = new SM_Payment__c(
+    //         SM_Amount__c = 35,
+    //         SM_Contract__c = master.Id,
+    //         // SM_Chargent_Orders_Transaction__c = chargentTransaction.Id, // PARTE APP DE CHARGENT. ELIMINADA JUL 2026
+    //         SM_Fee_value__c = 10.68,
+    //         SM_Type__c = SM_ACHOrderHelper.paymentType.LATE_PAYMENT_TYPE,
+    //         SM_Original_Type__c = 'Fee',
+    //         Payment_Status__c = SM_PaymentHelper.status.ACCEPTED
+    //     );
+    //
+    //     // Create asset
+    //     List<Asset> assets = new List<Asset>();
+    //
+    //     for (Integer i = 0; i < 3; i++) {
+    //
+    //         assets.add(new Asset(
+    //             Name = 'Asset Name_' + i,
+    //             Status = SM_AssetHelper.status.ACTIVATED,
+    //             AccountId = master.AccountId,
+    //             SM_Contract__c = dependents[i].Id
+    //         ));
+    //     }
+    //     insert assets;
+    //
+    //     // Create Asset fees
+    //     List<SM_Asset_Fee__c> assetFees = new List<SM_Asset_Fee__c>();
+    //
+    //     for (Integer i = 0; i < 3; i++) {
+    //
+    //         assetFees.add(new SM_Asset_Fee__c(
+    //             SM_Asset__c = assets[i].Id,
+    //             SM_Type__c = 'Fee',
+    //             SM_Contract__c = dependents[i].Id,
+    //             SM_Amount__c = 50,
+    //             SM_Position__c = 1
+    //         ));
+    //     }
+    //     insert assetFees;
+    //
+    //     Test.startTest();
+    //         insert masterPayment;
+    //     Test.stopTest();
+    //
+    //     List<Contract> dependentContracts = [SELECT
+    //                                             Id
+    //                                         FROM Contract
+    //                                         WHERE Contract_Type__c =: SM_ContractHelper.contractType.DEPENDENT
+    //                                         AND Collection_Main_Contract__c =: SM_ContractHelper.collectionMain.READY_FOR_COLLECTION
+    //                                         AND SM_Requires_AC_Payment__c = true];
+    //
+    //     List<SM_Payment__c> dependentPayments = [SELECT SM_Amount__c, SM_Penalty_value__c, SM_Fee_value__c FROM SM_Payment__c WHERE SM_Contract__c <>: master.Id];
+    //
+    //     System.assertEquals(3, dependentPayments.size(), 'Must be return 3 paymentsa related to dependent contracts');
+    //
+    //     // Check data from dependent payments
+    //     for (SM_Payment__c dependentPayment : dependentPayments) {
+    //
+    //         System.assertEquals(50, dependentPayment.SM_Amount__c, 'Incorrect value to SM_Amount__c ');
+    //         System.assertEquals(0, dependentPayment.SM_Penalty_value__c, 'Incorrect value to SM_Penalty_value__c ');
+    //         System.assertEquals(50, dependentPayment.SM_Fee_value__c, 'Incorrect value to SM_Fee_value__c ');
+    //     }
+    //
+    // }
 }
