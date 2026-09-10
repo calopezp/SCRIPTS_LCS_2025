@@ -97,6 +97,34 @@ Hay 2 orgs conectadas por `sf` CLI: **MONEE** (producción) y **PREPROD** (sandb
 
 **Instrucción explícita del usuario (2026-09-06): no modificar ni desplegar estas clases (`SM_ContractHandler`, `SM_ContractHandlerTest`, ni las relacionadas con la migración de Chargent) — es un trabajo en curso que el propio usuario está validando y sincronizará manualmente entre MONEE/PREPROD/repo cuando esté listo.** Si aparece una sesión nueva y se necesita tocar algo relacionado con Contract/Chargent, preguntar primero — no asumir que el repo o MONEE tienen la versión "correcta".
 
+### 3.1 Fix desplegado — campo `SM_Chargent_Orders_Transaction__c` inexistente
+
+**Fecha:** 2026-09-10
+
+**Fix:** `SM_FeePaymentToDependentContract.cls:181` y `SM_AcPaymentToDependentContract.cls:120`
+referenciaban `clonedPayment.SM_Chargent_Orders_Transaction__c = null;` — un campo que ya no existe
+en `SM_Payment__c` (verificado con `sf sobject describe`, 0 coincidencias; borrado al desinstalar
+Chargent, las clases nunca se actualizaron).
+
+**Consecuencias:** cualquier pago tipo Fee/AC/Late Payment Fee que pasa a `ACCEPTED` en un contrato
+Master con dependientes dispara `SM_PaymentHandler.clonePayments()` → esta clase → **falla con
+`System.SObjectException: Invalid field`** y tumba, bulkificado, *todo* el lote de la misma
+transacción (no solo el registro que lo dispara — así cayeron 36 pagos juntos en un intento de
+catch-up el mismo día). Barrido del org completo (2026-09-10): **1,764 pagos sin cobrar
+($215,034.21) en 47 contratos Master** tenían este mismo riesgo latente, sin que nadie lo hubiera
+notado — el error solo aparece al *cambiar* el estado del pago, no al consultarlo.
+
+**Solución:** comentar (no borrar) la línea en ambas clases, con nota
+`// PARTE APP DE CHARGENT. ELIMINADA JUL 2026`. Para desplegar limpio con `RunSpecifiedTests`
+también hizo falta comentar `SM_FeePaymentToDependentContractTest.clonePaymentsByChargentOk`
+(probaba un escenario — pago originado desde Chargent — que ya no puede ocurrir) y agregar
+`clonePaymentsByAcOk` (test nuevo, `SM_AcPaymentToDependentContract` no tenía ninguno). Desplegado
+y verificado en vivo en MONEE (`LastModifiedDate` 2026-09-10T18:29:29, 4/4 tests, 0 fallos).
+
+**Pendiente:** los 1,764 pagos/47 contratos detectados no se han vuelto a reprocesar todavía para
+confirmar que el fix los resuelve en la práctica — ver
+`COLLECTIONS/ACH_REPORTADOS/HANDOFF_91_CONTRATOS_AGOSTO.md` sección 7A para el detalle completo.
+
 ---
 
 ## 4. Winter '27 Release Readiness — análisis puntual 2026-09-06
