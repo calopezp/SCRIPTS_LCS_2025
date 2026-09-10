@@ -205,8 +205,9 @@ Los **200 `REJECTED|PENDING` restantes** sí son genuinamente ambiguos, y se div
   vía (fecha de reporte 16-jun ya aplicada, más reciente que la de nuestro índice) — nada que
   hacer ahí.
 
-  Sigue pendiente investigar los 191 restantes (sin dato en nuestro índice) y decidir qué hacer
-  con el bloque de 1,557 de ruido histórico, si es que amerita algo.
+  **Los 1,557 de ruido histórico (2023, sin reporte jamás) — OMITIR, decisión explícita de
+  Carlos 2026-09-10.** No se investiga ni se procesa. Sigue pendiente, si se retoma más adelante,
+  investigar los 191 restantes (con estado de reporte real pero sin dato en nuestro índice).
 
   **Reconciliación de pagos por contrato (los 29 contratos de estos 50 pagos)** — a pedido de
   Carlos, conteo de pagos `Subscription` `ACCEPTED` vs. meses transcurridos desde el primer cobro,
