@@ -26,6 +26,13 @@ Este archivo es la **fuente de verdad compartida entre las dos máquinas** del u
 - Antes de empezar a trabajar en cualquiera de las dos máquinas: `git pull <remoto> main` (revisar
   el nombre del remoto con `git remote -v` primero — no asumir que es `origin`).
 - Al terminar una sesión de trabajo: commit (y push si el usuario lo confirma) para que la otra máquina pueda traer los cambios.
+- **Todo deploy de Apex a MONEE (o PREPROD) usa `--test-level RunSpecifiedTests` con `--tests` explícito
+  cubriendo las clases desplegadas — nunca el default `RunLocalTests`** — salvo que el usuario indique
+  lo contrario para ese deploy puntual. Razón (confirmado 2026-09-10): MONEE tiene 31 tests ya rotos
+  org-wide, la mayoría sin relación con lo que se despliega (ver sección 3, deuda de tests de la
+  migración de Chargent como `SM_ContractHandlerTest`, más otros no relacionados) — `RunLocalTests`
+  corre el 100% del org y tumba cualquier deploy, sin importar qué tan chico o correcto sea, por fallos
+  que no tienen nada que ver con el cambio real.
 
 ---
 
