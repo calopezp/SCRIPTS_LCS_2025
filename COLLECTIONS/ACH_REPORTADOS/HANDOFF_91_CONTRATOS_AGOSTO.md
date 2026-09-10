@@ -57,20 +57,31 @@ por un mes saltado después, y con la relación correcta Payment→Order para en
 ## 4. Patrón de doble cobro (29-jul + 24-26 ago) — ABIERTO, EN ESPERA
 
 12 órdenes LPF que ya habían cobrado una vez el 29-jul volvieron a generar intentos de cobro entre
-el 24 y 26 de agosto. **Verificado 2026-09-09 (15 días después del evento): SIGUEN SIN RESOLVER**
-— los pagos `ACH TRANSMITTED` de esas fechas todavía no tienen estado final. Esto ya no parece un
-simple "está esperando al banco" — vale la pena escalarlo o investigar si el import diario de
-Collections/Returns los está tomando (ver nota de la sección 5 sobre el fix del 2026-09-07).
+el 24 y 26 de agosto. **Re-verificado en vivo contra MONEE 2026-09-10 (SOQL directo sobre
+`SM_ACH_Order__c`/`SM_Payment__c`, no solo el índice): SIGUE SIN RESOLVER, sin cambios desde
+2026-09-09** — los pagos `ACH TRANSMITTED` de esas fechas todavía no tienen estado final. Esto ya
+no parece un simple "está esperando al banco" — vale la pena escalarlo o investigar si el import
+diario de Collections/Returns los está tomando (ver nota de la sección 5 sobre el fix del
+2026-09-07).
+
+**Detalle nuevo 2026-09-10, no visible en el resumen anterior:** cada una de las 10 órdenes
+abiertas no tuvo solo 1 reintento — tuvo **entre 2 y 4 pagos duplicados** (36 en total, 32 todavía
+`ACH TRANSMITTED` sin resolver + los 4 ya `ACCEPTED`), todos confinados a la ventana del 24-26 de
+agosto (nada después — no es un bug de re-envío diario en curso, fue un evento acotado a esos 3
+días). Los 4 casos ya confirmados como doble cobro **también tienen 2-3 intentos duplicados extra
+sin resolver cada uno** — riesgo de un tercer/cuarto cobro si el banco los acepta, no cerrado del
+todo.
 
 - **2 ya resueltas** vía reembolso bancario real (`ACH-28196`, `ACH-28216`) — confirmadas `Completed`
   por Carlos.
 - **4 dobles cobros CONFIRMADOS** (2 pagos `ACCEPTED` reales, sin reembolsar todavía):
   `ACH-28201` (00316463, $99), `ACH-28194` (00314444, $79), `ACH-28208` (00316863, $99), y
-  **`ACH-28214` (00317219, $89) — confirmado nuevo el 2026-09-09**, antes solo tenía 1 aceptado.
-  **Total confirmado a reembolsar: $366.**
+  `ACH-28214` (00317219, $89). **Total confirmado a reembolsar: $366.**
 - **6 más sin resolver, en riesgo de convertirse en doble cobro** si su `ACH TRANSMITTED` pendiente
   se acepta: `ACH-28192` ($49), `ACH-28193` ($79), `ACH-28195` ($99), `ACH-28197` ($79),
-  `ACH-28207` ($99), `ACH-28209` ($139) — **exposición adicional: $544**.
+  `ACH-28207` ($99), `ACH-28209` ($139) — **exposición adicional: $544**. (El informe ejecutivo HTML
+  traía por error `$694`/8 contratos en el tile resumen, desincronizado del detalle del caso —
+  corregido 2026-09-10 a `$544`/6, que es lo que realmente suma la tabla.)
 
 **No tocar ninguna de estas 10 hasta que el banco/collections resuelva sus pagos en proceso**
 (instrucción explícita de Carlos, 2026-09-05, sigue vigente).
