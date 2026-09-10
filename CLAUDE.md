@@ -7,9 +7,9 @@ Este archivo es la **fuente de verdad compartida entre las dos máquinas** del u
 **Máquinas:**
 - **ANTIGUA** — `C:\SALESFORCE\LCS\SCRIPTS_LCS_2025\` (usuario Windows: Carlos Lopez New) — remoto
   configurado como **`SCRIPTS_LCS_2025`**, no `origin`.
-- **NUEVA** — `C:\LCS 2026\SCRIPTS_LCS_2025\` (usuario Windows: Gatito) — el nombre del remoto es
-  config local de git y puede ser distinto al de ANTIGUA; confirmar con `git remote -v` antes de
-  asumir el nombre.
+- **NUEVA** — `C:\SALESFORCE\LCS\SCRIPTS_LCS_2025\` (usuario Windows: Gatito) — remoto confirmado
+  como **`origin`** (`git remote -v`, 2026-09-10). El nombre del remoto es config local de git y
+  puede diferir entre máquinas; confirmar con `git remote -v` antes de asumir el nombre.
 
 **Índice:**
 1. [Reglas de trabajo permanentes](#1-reglas-de-trabajo-permanentes) — git, sincronización
