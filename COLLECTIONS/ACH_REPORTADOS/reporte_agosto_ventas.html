@@ -1,0 +1,559 @@
+<title>Contratos Agosto — Ventas</title>
+<link rel="stylesheet" href="https://fonts.googleapis.com/css2?family=Fraunces:opsz,wght@9..144,400..700&family=Public+Sans:wght@400;500;600;700&family=IBM+Plex+Mono:wght@400;500;600&display=swap">
+<style>
+  :root {
+    --ink: #1B2430;
+    --ink-soft: #4A5460;
+    --paper: #F3F4EE;
+    --surface: #FFFFFF;
+    --surface-sunken: #ECEEE6;
+    --accent: #2F6F5E;
+    --accent-ink: #1E4A3F;
+    --accent-soft: #E1EAE5;
+    --amber: #9C6423;
+    --amber-soft: #F3E6D3;
+    --rust: #A23B2E;
+    --rust-soft: #F3DFDA;
+    --line: #D9DBD0;
+    --line-soft: #E6E7DF;
+    --shadow: 0 1px 2px rgba(27,36,48,0.06), 0 6px 20px rgba(27,36,48,0.05);
+  }
+  @media (prefers-color-scheme: dark) {
+    :root:not([data-theme="light"]) {
+      --ink: #E9EAE3;
+      --ink-soft: #ABB2A9;
+      --paper: #14181A;
+      --surface: #1B2020;
+      --surface-sunken: #101313;
+      --accent: #6BAB96;
+      --accent-ink: #C9E4DA;
+      --accent-soft: #223530;
+      --amber: #D9A15C;
+      --amber-soft: #362A18;
+      --rust: #E08979;
+      --rust-soft: #3A2220;
+      --line: #313734;
+      --line-soft: #262B28;
+      --shadow: 0 1px 2px rgba(0,0,0,0.3), 0 8px 24px rgba(0,0,0,0.35);
+    }
+  }
+  :root[data-theme="dark"] {
+    --ink: #E9EAE3;
+    --ink-soft: #ABB2A9;
+    --paper: #14181A;
+    --surface: #1B2020;
+    --surface-sunken: #101313;
+    --accent: #6BAB96;
+    --accent-ink: #C9E4DA;
+    --accent-soft: #223530;
+    --amber: #D9A15C;
+    --amber-soft: #362A18;
+    --rust: #E08979;
+    --rust-soft: #3A2220;
+    --line: #313734;
+    --line-soft: #262B28;
+    --shadow: 0 1px 2px rgba(0,0,0,0.3), 0 8px 24px rgba(0,0,0,0.35);
+  }
+
+  * { box-sizing: border-box; }
+  body {
+    background: var(--paper);
+    color: var(--ink);
+    font-family: "Public Sans", -apple-system, "Segoe UI", sans-serif;
+    line-height: 1.55;
+    font-size: 15.5px;
+  }
+  ::selection { background: var(--accent-soft); color: var(--accent-ink); }
+
+  .doc {
+    max-width: 880px;
+    margin: 0 auto;
+    padding: 56px 28px 96px;
+  }
+
+  .masthead {
+    display: flex;
+    justify-content: space-between;
+    align-items: flex-end;
+    gap: 24px;
+    padding-bottom: 22px;
+    border-bottom: 2px solid var(--ink);
+    margin-bottom: 40px;
+  }
+  .masthead-eyebrow {
+    font-family: "IBM Plex Mono", monospace;
+    font-size: 11.5px;
+    letter-spacing: 0.09em;
+    text-transform: uppercase;
+    color: var(--accent);
+    font-weight: 600;
+    margin-bottom: 10px;
+  }
+  h1.title {
+    font-family: "Fraunces", Georgia, serif;
+    font-weight: 600;
+    font-size: clamp(30px, 4.4vw, 42px);
+    line-height: 1.08;
+    margin: 0;
+    text-wrap: balance;
+    letter-spacing: -0.01em;
+  }
+  .masthead-meta {
+    text-align: right;
+    font-family: "IBM Plex Mono", monospace;
+    font-size: 12px;
+    color: var(--ink-soft);
+    line-height: 1.7;
+    white-space: nowrap;
+  }
+  .masthead-meta strong { color: var(--ink); font-weight: 600; }
+
+  .lede {
+    font-size: 17px;
+    line-height: 1.65;
+    color: var(--ink-soft);
+    max-width: 68ch;
+    margin: 0 0 44px;
+  }
+  .lede strong { color: var(--ink); font-weight: 600; }
+
+  .summary-label {
+    font-family: "IBM Plex Mono", monospace;
+    font-size: 11.5px;
+    letter-spacing: 0.09em;
+    text-transform: uppercase;
+    color: var(--ink-soft);
+    font-weight: 600;
+    margin: 0 0 14px;
+  }
+  .tiles {
+    display: grid;
+    grid-template-columns: repeat(4, 1fr);
+    gap: 1px;
+    background: var(--line);
+    border: 1px solid var(--line);
+    border-radius: 10px;
+    overflow: hidden;
+    margin-bottom: 52px;
+  }
+  .tile {
+    background: var(--surface);
+    padding: 20px 18px 18px;
+    display: flex;
+    flex-direction: column;
+    gap: 6px;
+  }
+  .tile-value {
+    font-family: "Fraunces", Georgia, serif;
+    font-weight: 600;
+    font-size: 27px;
+    font-variant-numeric: tabular-nums;
+    letter-spacing: -0.01em;
+    line-height: 1.05;
+  }
+  .tile.recovered .tile-value { color: var(--accent-ink); }
+  .tile.pending .tile-value { color: var(--amber); }
+  .tile.risk .tile-value { color: var(--rust); }
+  .tile-caption {
+    font-size: 12.5px;
+    color: var(--ink-soft);
+    line-height: 1.4;
+  }
+  .tile-count {
+    font-family: "IBM Plex Mono", monospace;
+    font-size: 11px;
+    color: var(--ink-soft);
+  }
+
+  .case {
+    margin-bottom: 46px;
+    padding-top: 34px;
+    border-top: 1px solid var(--line);
+  }
+  .case-head {
+    display: flex;
+    align-items: baseline;
+    gap: 14px;
+    margin-bottom: 14px;
+    flex-wrap: wrap;
+  }
+  .case-num {
+    font-family: "IBM Plex Mono", monospace;
+    font-size: 13px;
+    color: var(--ink-soft);
+    font-weight: 500;
+  }
+  h2.case-title {
+    font-family: "Fraunces", Georgia, serif;
+    font-weight: 600;
+    font-size: 22px;
+    margin: 0;
+    text-wrap: balance;
+    flex: 1;
+    min-width: 240px;
+  }
+  .pill {
+    display: inline-flex;
+    align-items: center;
+    gap: 6px;
+    font-family: "IBM Plex Mono", monospace;
+    font-size: 11px;
+    font-weight: 600;
+    letter-spacing: 0.04em;
+    text-transform: uppercase;
+    padding: 4px 10px;
+    border-radius: 100px;
+    white-space: nowrap;
+  }
+  .pill::before { content: ""; width: 6px; height: 6px; border-radius: 50%; }
+  .pill.resolved { background: var(--accent-soft); color: var(--accent-ink); }
+  .pill.resolved::before { background: var(--accent); }
+  .pill.pending { background: var(--amber-soft); color: var(--amber); }
+  .pill.pending::before { background: var(--amber); }
+  .pill.hold { background: var(--rust-soft); color: var(--rust); }
+  .pill.hold::before { background: var(--rust); }
+
+  .case-figure {
+    font-family: "IBM Plex Mono", monospace;
+    font-size: 13px;
+    color: var(--ink-soft);
+    margin-bottom: 18px;
+  }
+  .case-figure b { color: var(--ink); font-weight: 600; font-variant-numeric: tabular-nums; }
+
+  .cols {
+    display: grid;
+    grid-template-columns: repeat(3, 1fr);
+    gap: 20px;
+    margin-bottom: 20px;
+  }
+  .col-label {
+    font-family: "IBM Plex Mono", monospace;
+    font-size: 10.5px;
+    letter-spacing: 0.08em;
+    text-transform: uppercase;
+    color: var(--ink-soft);
+    margin-bottom: 6px;
+  }
+  .col-body { font-size: 14.5px; color: var(--ink); }
+  .col.cause .col-label { color: var(--rust); }
+  .col.consequence .col-label { color: var(--amber); }
+  .col.mitigation .col-label { color: var(--accent); }
+
+  .table-wrap {
+    overflow-x: auto;
+    border: 1px solid var(--line);
+    border-radius: 8px;
+    margin-top: 6px;
+  }
+  table {
+    width: 100%;
+    border-collapse: collapse;
+    font-size: 13px;
+    background: var(--surface);
+  }
+  thead th {
+    text-align: left;
+    font-family: "IBM Plex Mono", monospace;
+    font-size: 10.5px;
+    letter-spacing: 0.05em;
+    text-transform: uppercase;
+    color: var(--ink-soft);
+    font-weight: 600;
+    padding: 9px 14px;
+    background: var(--surface-sunken);
+    border-bottom: 1px solid var(--line);
+    position: sticky;
+    top: 0;
+  }
+  td {
+    padding: 8px 14px;
+    border-bottom: 1px solid var(--line-soft);
+    font-variant-numeric: tabular-nums;
+  }
+  td.num, th.num { text-align: right; font-family: "IBM Plex Mono", monospace; }
+  td.mono, th.mono { font-family: "IBM Plex Mono", monospace; }
+  tbody tr:last-child td { border-bottom: none; }
+  tbody tr:hover { background: var(--surface-sunken); }
+  td.neg { color: var(--rust); }
+  .scroll-table { max-height: 420px; overflow-y: auto; }
+  .scroll-table thead th { top: 0; }
+
+  details.list-toggle {
+    border: 1px solid var(--line);
+    border-radius: 8px;
+    background: var(--surface);
+    margin-top: 6px;
+  }
+  details.list-toggle summary {
+    cursor: pointer;
+    padding: 10px 14px;
+    font-family: "IBM Plex Mono", monospace;
+    font-size: 12px;
+    color: var(--accent-ink);
+    font-weight: 600;
+    list-style: none;
+    display: flex;
+    align-items: center;
+    gap: 8px;
+  }
+  details.list-toggle summary::before { content: "▸"; font-size: 10px; }
+  details.list-toggle[open] summary::before { content: "▾"; }
+  details.list-toggle summary::-webkit-details-marker { display: none; }
+  .contract-grid {
+    display: grid;
+    grid-template-columns: repeat(auto-fill, minmax(84px, 1fr));
+    gap: 6px;
+    padding: 4px 14px 14px;
+    font-family: "IBM Plex Mono", monospace;
+    font-size: 12px;
+    color: var(--ink-soft);
+  }
+  .contract-grid span {
+    background: var(--surface-sunken);
+    border-radius: 5px;
+    padding: 3px 7px;
+    text-align: center;
+  }
+
+  .note {
+    font-size: 13px;
+    color: var(--ink-soft);
+    background: var(--surface-sunken);
+    border-left: 3px solid var(--accent);
+    padding: 10px 14px;
+    border-radius: 0 6px 6px 0;
+    margin-top: 14px;
+  }
+  .note.warn { border-left-color: var(--rust); }
+  .note b { color: var(--ink); }
+
+  .openlist {
+    list-style: none;
+    padding: 0;
+    margin: 0;
+    display: flex;
+    flex-direction: column;
+    gap: 12px;
+  }
+  .openlist li {
+    display: grid;
+    grid-template-columns: 22px 1fr;
+    gap: 10px;
+    align-items: start;
+    font-size: 14.5px;
+  }
+  .openlist .n {
+    font-family: "IBM Plex Mono", monospace;
+    font-size: 12px;
+    color: var(--ink-soft);
+    padding-top: 2px;
+  }
+
+  footer {
+    margin-top: 60px;
+    padding-top: 20px;
+    border-top: 1px solid var(--line);
+    font-size: 12px;
+    color: var(--ink-soft);
+    display: flex;
+    justify-content: space-between;
+    flex-wrap: wrap;
+    gap: 10px;
+  }
+  footer .mono { font-family: "IBM Plex Mono", monospace; }
+
+  @media (max-width: 720px) {
+    .tiles { grid-template-columns: repeat(2, 1fr); }
+    .cols { grid-template-columns: 1fr; }
+    .masthead { flex-direction: column; align-items: flex-start; }
+    .masthead-meta { text-align: left; }
+  }
+</style>
+
+<div class="doc">
+
+  <div class="masthead">
+    <div>
+      <div class="masthead-eyebrow">Informe de auditoría interna · Cobranza ACH</div>
+      <h1 class="title">Contratos Agosto<br>— Ventas</h1>
+    </div>
+    <div class="masthead-meta">
+      Preparado para <strong>Ventas / Gerencia</strong><br>
+      Org: <strong>MONEE</strong> (legal-credit.com)<br>
+      Corte de datos: <strong>10-sep-2026</strong><br>
+      Alcance: <strong>94 contratos</strong> (lista de Ventas)
+    </div>
+  </div>
+
+  <p class="lede">
+    Estado real, verificado en vivo hoy contra Salesforce, del cobro de agosto de los
+    <strong>94 contratos</strong> que Ventas identificó (91 de la lista original + 3 adicionales
+    encontrados después). Este informe cubre <strong>únicamente</strong> estos contratos y sus
+    pagos — no incluye los hallazgos del informe general que salieron de barridos más amplios de
+    todo el sistema.
+  </p>
+
+  <div class="summary-label">Resumen en cifras — estado del cobro de agosto</div>
+  <div class="tiles">
+    <div class="tile risk">
+      <div class="tile-value">$0</div>
+      <div class="tile-caption">Confirmado como cobrado por el banco — de los 94, ninguno tiene confirmación bancaria todavía</div>
+      <div class="tile-count">0 contratos</div>
+    </div>
+    <div class="tile pending">
+      <div class="tile-value">$8,510</div>
+      <div class="tile-caption">Transmitido al banco, esperando confirmación — espera normal, 2 a 8 días</div>
+      <div class="tile-count">82 contratos</div>
+    </div>
+    <div class="tile risk">
+      <div class="tile-value">$992</div>
+      <div class="tile-caption">Rechazado por el banco, sin reintentar todavía</div>
+      <div class="tile-count">8 contratos</div>
+    </div>
+    <div class="tile">
+      <div class="tile-value">$99</div>
+      <div class="tile-caption">Ni siquiera transmitido — contrato completamente detenido</div>
+      <div class="tile-count">1 contrato</div>
+    </div>
+  </div>
+
+  <!-- ============ GRUPO A ============ -->
+  <div class="case">
+    <div class="case-head">
+      <span class="case-num">A</span>
+      <h2 class="case-title">Venía cobrando con normalidad — agosto se saltó por completo</h2>
+      <span class="pill hold">En espera del banco</span>
+    </div>
+    <div class="case-figure">14 contratos · <b>$1,202</b> en cuotas de agosto, transmitidas pero sin confirmar</div>
+    <div class="cols">
+      <div class="col cause">
+        <div class="col-label">Causa</div>
+        <div class="col-body">Suscripción mensual cobrando sin falta (última cuota, 15-jul). El evento masivo del 11 y 17 de agosto reprogramó la próxima fecha directo a septiembre — el mismo mecanismo del Caso 01 del informe general — sin ningún intento de cobro en agosto.</div>
+      </div>
+      <div class="col consequence">
+        <div class="col-label">Consecuencia</div>
+        <div class="col-body">14 clientes con un mes de servicio sin facturar. Se creó una cuota de recuperación (Late Payment Fee) por contrato, transmitida al banco el 03-sep.</div>
+      </div>
+      <div class="col mitigation">
+        <div class="col-label">Acción</div>
+        <div class="col-body">Ninguna de las 14 tiene todavía confirmación de cobro — <b>las 14 siguen "ACH TRANSMITTED"</b>, 7 días de espera (dentro de lo normal). Monitorear; si pasan de 15 días sin reporte, son candidatas al proceso manual de aceptación por timeout.</div>
+      </div>
+    </div>
+    <details class="list-toggle">
+      <summary>Ver los 14 contratos</summary>
+      <div class="contract-grid">
+        <span>00308511</span><span>00309018</span><span>00311264</span><span>00311627</span><span>00313768</span><span>00314155</span><span>00315423</span><span>00315580</span><span>00316339</span><span>00316404</span><span>00316562</span><span>00316870</span><span>00317571</span><span>00317670</span>
+      </div>
+    </details>
+  </div>
+
+  <!-- ============ GRUPO B ============ -->
+  <div class="case">
+    <div class="case-head">
+      <span class="case-num">B</span>
+      <h2 class="case-title">Nunca llegaron a facturar su primera suscripción</h2>
+      <span class="pill hold">En espera del banco</span>
+    </div>
+    <div class="case-figure">33 contratos · <b>$3,603</b> — su pago de activación (AC) sigue sin resolverse</div>
+    <div class="cols">
+      <div class="col cause">
+        <div class="col-label">Causa</div>
+        <div class="col-body">Contratos que nunca tuvieron un solo pago de suscripción mensual — no es "agosto perdido", es que el contrato nunca llegó a esa etapa. Su primer pago (AC, activación) sigue pendiente de resolverse.</div>
+      </div>
+      <div class="col consequence">
+        <div class="col-label">Consecuencia</div>
+        <div class="col-body">29 transmitidos al banco, esperando confirmación (espera normal). <b>4 ya fueron rechazados y no se han reintentado todavía</b> — 00318377 ($139), 00318383 ($139), 00318405 ($99), 00318428 ($99), reportados "Pending" el 01-sep.</div>
+      </div>
+      <div class="col mitigation">
+        <div class="col-label">Acción</div>
+        <div class="col-body">Monitorear los 29 en espera normal. <b>Revisar y decidir reintento</b> para los 4 rechazados — llevan 9 días sin acción.</div>
+      </div>
+    </div>
+    <details class="list-toggle">
+      <summary>Ver los 33 contratos</summary>
+      <div class="contract-grid">
+        <span>00317565</span><span>00317735</span><span>00317763</span><span>00317801</span><span>00317809</span><span>00317840</span><span>00317847</span><span>00317872</span><span>00317875</span><span>00317883</span><span>00317937</span><span>00317951</span><span>00317995</span><span>00318025</span><span>00318063</span><span>00318103</span><span>00318107</span><span>00318108</span><span>00318116</span><span>00318144</span><span>00318162</span><span>00318179</span><span>00318183</span><span>00318192</span><span>00318237</span><span>00318377</span><span>00318378</span><span>00318379</span><span>00318383</span><span>00318394</span><span>00318405</span><span>00318428</span><span>00318431</span>
+      </div>
+    </details>
+  </div>
+
+  <!-- ============ GRUPO E ============ -->
+  <div class="case">
+    <div class="case-head">
+      <span class="case-num">C</span>
+      <h2 class="case-title">Contratos nuevos — su primera cuota cayó en septiembre</h2>
+      <span class="pill hold">En espera del banco</span>
+    </div>
+    <div class="case-figure">43 contratos · <b>$4,697</b> — primera suscripción de su vida, no hay "agosto" que perder</div>
+    <div class="cols">
+      <div class="col cause">
+        <div class="col-label">Causa</div>
+        <div class="col-body">Contratos activados hacia fines de agosto / inicios de septiembre — su primera cuota mensual naturalmente cae en septiembre. No es un cobro de agosto perdido; simplemente no existían como suscripción activa en agosto.</div>
+      </div>
+      <div class="col consequence">
+        <div class="col-label">Consecuencia</div>
+        <div class="col-body">39 transmitidos al banco, esperando confirmación (espera normal, 2-8 días). <b>4 ya fueron rechazados</b> — 00317949 ($99, Pending), 00318027 ($139, Return), 00318098 ($139, Return), 00317983 ($139, Return).</div>
+      </div>
+      <div class="col mitigation">
+        <div class="col-label">Acción</div>
+        <div class="col-body">Monitorear los 39 en espera normal. <b>Revisar y reintentar</b> los 4 rechazados.</div>
+      </div>
+    </div>
+    <details class="list-toggle">
+      <summary>Ver los 43 contratos</summary>
+      <div class="contract-grid">
+        <span>00317859</span><span>00317914</span><span>00317933</span><span>00317941</span><span>00317949</span><span>00317952</span><span>00317955</span><span>00317958</span><span>00317961</span><span>00317963</span><span>00317964</span><span>00317967</span><span>00317968</span><span>00317969</span><span>00317972</span><span>00317980</span><span>00317983</span><span>00317988</span><span>00317990</span><span>00317991</span><span>00317996</span><span>00317997</span><span>00317998</span><span>00318003</span><span>00318005</span><span>00318011</span><span>00318013</span><span>00318014</span><span>00318016</span><span>00318023</span><span>00318027</span><span>00318043</span><span>00318047</span><span>00318056</span><span>00318057</span><span>00318071</span><span>00318075</span><span>00318082</span><span>00318085</span><span>00318086</span><span>00318087</span><span>00318089</span><span>00318098</span>
+      </div>
+    </details>
+  </div>
+
+  <!-- ============ GRUPO F ============ -->
+  <div class="case">
+    <div class="case-head">
+      <span class="case-num">D</span>
+      <h2 class="case-title">Contrato completamente detenido</h2>
+      <span class="pill hold">Requiere decisión</span>
+    </div>
+    <div class="case-figure">1 contrato (00318139) · <b>$99</b> — ni el primer pago se ha transmitido</div>
+    <div class="cols">
+      <div class="col cause">
+        <div class="col-label">Causa</div>
+        <div class="col-body">Contrato creado el 04-ago-2026, todavía en "Payment Process". Su única orden (AC, $99) está en estado "Pending" sin fecha de próxima transacción — nunca se transmitió al banco.</div>
+      </div>
+      <div class="col consequence">
+        <div class="col-label">Consecuencia</div>
+        <div class="col-body">Es el caso más atrasado de los 94 — no hay ningún pago, ni exitoso ni fallido, en más de un mes desde la creación del contrato.</div>
+      </div>
+      <div class="col mitigation">
+        <div class="col-label">Acción</div>
+        <div class="col-body">Decisión requerida: ¿se transmite el AC pendiente ahora, o se da de baja el contrato? No se resuelve solo.</div>
+      </div>
+    </div>
+  </div>
+
+  <!-- ============ ADICIONALES ============ -->
+  <div class="case">
+    <div class="case-head">
+      <span class="case-num">＋</span>
+      <h2 class="case-title">Los 3 contratos adicionales de Ventas</h2>
+      <span class="pill pending">Sin impacto en agosto</span>
+    </div>
+    <div class="cols">
+      <div class="col">
+        <div class="col-label">00317534 y 00317786 (ACH)</div>
+        <div class="col-body">Su pago de activación (AC) ya se cobró con éxito hace semanas/meses (02-jun y 23/29-jul). Ninguno ha llegado todavía a la etapa de facturación mensual — no hay cobro de agosto que evaluar, sin problema pendiente.</div>
+      </div>
+      <div class="col">
+        <div class="col-label">00318313 (Tarjeta de Crédito)</div>
+        <div class="col-body">Método de pago Tarjeta de Crédito (Chargent) — el paquete Chargent está desinstalado de MONEE, no queda ningún objeto consultable para ver su historial de pagos. Sin visibilidad desde este pipeline; hay que pedir su estado directo a Ventas o al procesador de tarjetas.</div>
+      </div>
+    </div>
+  </div>
+
+  <footer>
+    <span>Preparado por Claude Code a solicitud de Carlos López (legal-credit.com)</span>
+    <span class="mono">Fuente: org Salesforce MONEE · Alcance: lista de Ventas (94 contratos) · Verificado en vivo 10-sep-2026</span>
+  </footer>
+
+</div>
