@@ -21,6 +21,11 @@ Este archivo es la **fuente de verdad compartida entre las dos máquinas** del u
    largo de las sesiones, para consulta rápida y copiar/pegar directo a un reporte gerencial.
    **Agregar una fila cada vez que aparezca un hallazgo técnico nuevo** (no un ajuste de datos
    puntual) — no es este archivo, es un archivo aparte en la raíz del repo.
+6. **[Tareas pendientes](TAREAS_PENDIENTES.md)** — lista acumulativa de temas abiertos/en espera/
+   pausados, de cualquier hilo de trabajo. **Si el usuario pregunta "¿qué tenemos pendiente?" en
+   cualquier sesión, leer este archivo primero** antes de reconstruir la respuesta desde cero —
+   y mantenerlo actualizado (mover a "Cerrado recientemente" lo que se resuelva, agregar fila nueva
+   cuando algo quede abierto).
 
 ---
 
