@@ -17,17 +17,23 @@ Org de Salesforce: siempre **MONEE** (producción) vía `sf` CLI (`sf data query
 | **ACH Returns** | `COLLECTIONS/RETURNS/` | PDF "ACH Returns/Notification of Change" (Banco Popular) vía OneDrive | Devoluciones ACH (NSF, cuenta inválida, etc.) con código de retorno (R01, R04, R08, R10, R11...) |
 | **ACH Reportados / Transmission** | `COLLECTIONS/ACH_REPORTADOS/` | CSV `ACH_YYYYMMDD*.csv` (OneDrive) + `ContentVersion` "ACH%" subidos a Salesforce | Qué payments fueron transmitidos al banco y cuándo (no si se cobraron) |
 
-Cada uno tiene su propio `build_index.py`/parser/`.apex`/`run_*.sh`, orquestados juntos por `COLLECTIONS/run_all_imports.sh` (modo `dryrun` por default, `apply` para aplicar de verdad; un fallo en uno no aborta los otros dos).
+Cada uno tiene su propio `build_index.py`/parser/`.apex`/`run_*.sh`. **Comandos de uso diario (ver `CLAUDE.md` sección 2 para el detalle completo y las reglas de negocio detrás):**
+- `./run_daily_new_files.sh apply` — uso diario normal, los 3 pipelines en un paso, solo archivos nunca antes indexados.
+- `./run_daily_catchup.sh apply` (o `CONFIRM_OLD=1 ./run_daily_catchup.sh apply` para más de 2 meses atrás) — reprocesa a propósito histórico ya indexado.
+- `run_all_imports.sh` quedó **reemplazado** por los dos anteriores — no usarlo más, se deja en el repo solo por referencia histórica.
 
 ## 2. Mapa de archivos e índices
 
 ```
 COLLECTIONS/
 ├── build_index.py              # escanea OneDrive, clasifica PDF por contenido (Returns vs Collection), llama a los 2 extractores
-├── build_pending_deltas.py     # decide quién "gana" cuando un Payment aparece en Returns Y Collection
+├── build_pending_deltas.py     # decide quién "gana" cuando un Payment aparece en Returns Y Collection (fuerza-incluye lo de *_last_run_delta.csv sin importar --days-back, ver CLAUDE.md Rule 1)
+├── build_daily_apply_plan.py   # usado por run_daily_catchup.sh: lista fechas pendientes del índice y arma el CSV por fecha especifica
 ├── buscar_payment.py           # diagnóstico: 1 o más PY-xxxxx → estado en vivo (SOQL) + los 3 índices históricos
 ├── mark_transmitted_accepted.apex   # manual: acepta payments transmitidos 15+ días sin reporte
-├── run_all_imports.sh
+├── run_daily_new_files.sh      # COMANDO DIARIO -- los 3 pipelines, solo archivos nunca antes indexados (ver CLAUDE.md sección 2)
+├── run_daily_catchup.sh        # reprocesa histórico ya indexado, día por día, con gate de 2 meses (CONFIRM_OLD=1)
+├── run_all_imports.sh          # REEMPLAZADO por los 2 de arriba -- no usar, referencia histórica
 ├── index/
 │   ├── collections_index.csv          # histórico completo Check Collection
 │   ├── collections_last_run_delta.csv # solo lo nuevo de la corrida más reciente
@@ -98,9 +104,10 @@ Todos: `DRY_RUN=true` por default, comparan contra el estado ACTUAL de `SM_Payme
 2. Si algo no cuadra entre el estado en vivo y el histórico, mirar primero si el Payment tiene el tag `PRC_AUT_15D_SIN_REPORTE` en `SM_Historical_Collection_Status__c` (aceptado por timeout, no por reporte real).
 3. Si parece una regresión bloqueada, buscar en `regresiones_manual_review.log` (generado por los `.sh`, hoy vacío).
 
-## 7. Cosas pendientes / conocidas al momento de escribir este skill (2026-09-07)
+## 7. Cosas pendientes / conocidas (actualizado 2026-09-10)
 
 - El bug de `SM_PaymentHandler.updateACHOrderInfo()` (sección 5) sigue sin corregir.
 - `fetch_salesforce_files.py` usa API v60.0, desactualizado respecto al resto del proyecto (v64.0/v67.0) — housekeeping menor, ya señalado en `CLAUDE.md`.
-- No existe un `.md` dedicado al pipeline de Collections aparte de este skill — el resto de la documentación vive como comentarios extensos dentro de los propios scripts.
+- Las reglas de negocio del proceso diario (qué se procesa, qué se represa detrás de confirmación) viven en `CLAUDE.md` sección 2, no aquí — este skill es la referencia técnica del pipeline, `CLAUDE.md` es la de reglas operativas/decisiones del usuario.
+- 84 contratos ACH legacy (2019-2025) sin orden AC son un asunto de migración conocido, no tocar salvo que se pida — ver `CLAUDE.md` sección 2.3.
 - Antes de asumir que algo de aquí sigue vigente, relee el script/clase citado — este documento es una fotografía, no una fuente en vivo.
