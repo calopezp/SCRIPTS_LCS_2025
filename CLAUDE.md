@@ -5,7 +5,7 @@
 El usuario (calopezp) trabaja este repo desde dos computadoras, sincronizadas vía GitHub (`origin` = `https://github.com/calopezp/SCRIPTS_LCS_2025.git`, rama `main`):
 
 - **ANTIGUA** — `C:\SALESFORCE\LCS\SCRIPTS_LCS_2025\` (usuario Windows: Carlos Lopez New)
-- **NUEVA** — `C:\SALESFORCE\LCS\SCRIPTS_LCS_2025\`
+- **NUEVA** — `C:\SALESFORCE\LCS\SCRIPTS_LCS_2025\` (usuario Windows: Gatito)
 
 Este archivo viaja con el repo (se sincroniza en cada `push`/`pull`), a diferencia de la memoria local de Claude Code (`~/.claude/projects/.../memory/`), que vive por separado en cada máquina y **no** se sincroniza automáticamente. Si trabajas desde una sesión nueva en cualquiera de las dos máquinas, este archivo es la fuente de verdad compartida — la memoria local de Claude Code puede tener detalle adicional pero es específica de esa máquina.
 
