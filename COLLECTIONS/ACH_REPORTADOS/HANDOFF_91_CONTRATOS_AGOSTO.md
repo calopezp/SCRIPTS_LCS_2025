@@ -1,6 +1,6 @@
 # Traspaso — Revisión 91 contratos (cobro de agosto 2026) y hallazgos derivados
 
-**Última actualización: 2026-09-09, sesión en ANTIGUA (`C:\SALESFORCE\LCS\SCRIPTS_LCS_2025`).**
+**Última actualización: 2026-09-10, sesión en NUEVA (`C:\SALESFORCE\LCS\SCRIPTS_LCS_2025`).**
 Este archivo es la fuente de verdad para retomar este trabajo desde cualquiera de las dos
 máquinas (ver `CLAUDE.md`) — la memoria local de Claude Code (`~/.claude/projects/.../memory/`)
 tiene más detalle narrativo pero **no viaja entre máquinas**; este archivo sí, vía git.
@@ -112,7 +112,40 @@ reactivación pertenece a esta lista, pasarlo a `Canceled` en vez de `Initiated`
 `Contratos_para_Cancelar_LOG.csv`. Sin cambios pendientes aquí (cruce ya validado, 0 solapamiento
 con los 100 reactivados de la sección 3).
 
-## 7. Pendiente explícito para la próxima sesión (aún no iniciado)
+## 7. Pagos "en Collection" sin veredicto final, dentro de los 217 contratos del informe — ANALIZADO 2026-09-10, PENDIENTE DECISIÓN
+
+A pedido de Carlos, se categorizaron todos los pagos de Check Collection/Returns con estado
+distinto a `COLLECTED`/`ACCEPTED`/`NOT_COLLECTED`, **scoped a los 217 contratos únicos que cubren
+los casos 1, 2, 4, 5 y 6 del informe ejecutivo** (casos 3 y "otros ajustes" quedaron fuera — no
+hay un CSV con su lista de contratos en el repo). Metodología: SOQL en vivo contra MONEE +
+cruce contra `index/collections_index.csv` e `index/returns_index.csv` completos (no solo el
+delta reciente).
+
+De 328 pagos con estado "no limpio", **214 son en realidad terminales con otro nombre** —
+`REJECTED|RETURN` (114, el ACH ya fue devuelto por el banco, la LPF ya se generó sola) y
+`REFUNDED|REFUNDED`/`CANCELLED|NOT_COLLECTED` (14) — no están pendientes de nada.
+
+Los **200 `REJECTED|PENDING` restantes** sí son genuinamente ambiguos, y se dividen en:
+
+- **A) Backlog nuestro — 50 pagos, $4,331.50.** Ya tenemos `COLLECTED`/`NOT_COLLECTED` en el
+  índice local (reportes de oct-2025 a mar-2026, todos con 6-11 meses de antigüedad), contrato
+  activo, pero nunca se aplicó a Salesforce. Cae bajo la Regla 2 (nunca tocar >2 meses sin
+  confirmación explícita) — no es un bug, es la regla funcionando como se diseñó. **Pendiente:
+  Carlos tiene que confirmar explícitamente si corre `CONFIRM_OLD=1 ./run_daily_catchup.sh apply`
+  para este backlog específico** (instrucción de la Regla 2 sigue vigente — no inferir el OK de un
+  "procesa todo" genérico).
+- **B) Falta trabajar realmente — 1 pago, $99.** `PY-01810250` (contrato 00316842, Cancelado) —
+  mismo patrón de bug ya documentado con `PY-01876062`/ACH-27553 en `update_check_collection.apex`
+  (aplicar en bulk sobre un contrato Cancelado puede tumbar toda la oleada del día por una
+  validation rule). Aislado a propósito, sigue sin resolver.
+- **C) Genuinamente pendiente de respuesta del banco — 149 pagos, $14,338**, por antigüedad del
+  último reporte conocido: 0-15d (20, $2,017), 16-30d (12, $1,070), 31-60d (18, $1,754),
+  **60+d (99, $9,497)** — el bloque más grande, vale la pena vigilarlo igual que el caso 5.
+
+**No se ha agregado todavía al informe ejecutivo HTML** (`reporte_ejecutivo_gerencia.html`) —
+Carlos pidió dejarlo para trabajarlo más adelante. Si se retoma, candidato natural a "Caso 07".
+
+## 8. Pendiente explícito para la próxima sesión (aún no iniciado)
 
 **Script Apex consolidado de "errores y fixes"** — para correr ocasionalmente y detectar si
 reaparece alguno de estos patrones (AC Completed sin Payment, LPF Stopped nunca reactivada, doble
