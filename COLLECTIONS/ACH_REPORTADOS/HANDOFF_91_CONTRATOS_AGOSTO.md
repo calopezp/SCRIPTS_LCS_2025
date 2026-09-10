@@ -127,13 +127,39 @@ De 328 pagos con estado "no limpio", **214 son en realidad terminales con otro n
 
 Los **200 `REJECTED|PENDING` restantes** sí son genuinamente ambiguos, y se dividen en:
 
-- **A) Backlog nuestro — 50 pagos, $4,331.50.** Ya tenemos `COLLECTED`/`NOT_COLLECTED` en el
-  índice local (reportes de oct-2025 a mar-2026, todos con 6-11 meses de antigüedad), contrato
-  activo, pero nunca se aplicó a Salesforce. Cae bajo la Regla 2 (nunca tocar >2 meses sin
-  confirmación explícita) — no es un bug, es la regla funcionando como se diseñó. **Pendiente:
-  Carlos tiene que confirmar explícitamente si corre `CONFIRM_OLD=1 ./run_daily_catchup.sh apply`
-  para este backlog específico** (instrucción de la Regla 2 sigue vigente — no inferir el OK de un
-  "procesa todo" genérico).
+- **A) Backlog nuestro — 50 pagos, $4,331.50. PARCIALMENTE APLICADO 2026-09-10 (14 de 50).**
+  Carlos confirmó explícitamente aplicar este backlog específico (Regla 2 satisfecha). En vez de
+  `run_daily_catchup.sh` (que hubiera tocado TODO el backlog viejo del sistema, no solo estos 50),
+  se armó un CSV scoped con exactamente estas 50 filas — extraídas de `collections_index.csv`,
+  desplegadas como `StaticResource:CheckCollectionImport` — y se corrió
+  `update_check_collection.apex` (DRY RUN primero, confirmó 50/50 match, 0 bloqueados; luego real).
+  **Resultado: 14 aplicados con éxito, 36 fallaron** por un bug nuevo descubierto en el camino (ver
+  abajo) — **verificado que los 36 quedaron sin cambios, nada corrupto ni a medias**. El script
+  quedó de vuelta en `DRY_RUN = true`. `CheckCollectionImport.csv`/`ACHReturnsImport.csv`
+  (static resources) quedaron con el contenido scoped de esta corrida, no con su contenido
+  "normal" del flujo diario — replace antes de la próxima corrida normal del pipeline.
+  **Pendiente: decidir cómo seguir con los 36 bloqueados** (ver bug abajo).
+
+  **BUG NUEVO DESCUBIERTO 2026-09-10 — `SM_FeePaymentToDependentContract.cls:181`** hace
+  referencia a un campo `SM_Chargent_Orders_Transaction__c` que ya no existe en el org (parece
+  borrado al desinstalar Chargent, la clase nunca se actualizó). Cuando `SM_PaymentTrigger`
+  procesa en bloque un lote que incluye al menos un pago Fee/AC/LPF yendo a `ACCEPTED` en un
+  contrato Master con dependientes, esa clase truena (`System.SObjectException: Invalid field`) y
+  tumba **todo el lote bulkificado**, no solo el registro que la disparó — así cayeron los 36 de
+  la Oleada 1 (36 registros) aunque probablemente solo uno o pocos de ellos son los que realmente
+  tocan ese código. Es código de la migración de Chargent — **no tocar sin confirmar con Carlos
+  primero** (misma regla de la sección 3 de `CLAUDE.md`). Candidato a: (a) aislar registro por
+  registro para encontrar cuál dispara el bug y separarlo del resto (mismo patrón que el caso del
+  contrato Cancelado), o (b) que Carlos decida corregir la clase directamente.
+
+  **Reconciliación de pagos por contrato (los 29 contratos de estos 50 pagos)** — a pedido de
+  Carlos, conteo de pagos `Subscription` `ACCEPTED` vs. meses transcurridos desde el primer cobro,
+  por contrato: **ninguno de los 29 está al día ni tiene cobros de más — los 29 están debiendo**,
+  entre $79 y $714. Casos que destacan más allá del backlog de hoy: `00316097` (6 de 7 meses
+  fallidos confirmados), `00270432` (5 meses seguidos sin cobrar, marzo-julio 2026, en curso ahora
+  mismo — verificado con su historial completo), `00275989` (5 fallos confirmados), `00315643` (3
+  de 9 meses fallidos, contrato reciente). Carlos dijo dejarlo en espera por ahora, no investigar
+  más todavía.
 - **B) Falta trabajar realmente — 1 pago, $99. RESUELTO 2026-09-10.** `PY-01810250` (contrato
   00316842, Cancelado) — mismo patrón de bug ya documentado con `PY-01876062`/ACH-27553 en
   `update_check_collection.apex` (aplicar en bulk sobre un contrato Cancelado puede tumbar toda la
