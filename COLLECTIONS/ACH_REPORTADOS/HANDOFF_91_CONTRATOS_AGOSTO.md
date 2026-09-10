@@ -36,6 +36,32 @@ ya cancelados). Todas corregidas y **ya confirmado que cobraron con éxito**: **
 (12 órdenes activas, todas `Completed` al 2026-09-09). Las 3 de contratos cancelados se corrigieron
 a `Canceled` (sin cobro esperado, correcto).
 
+**Nota 2026-09-10 — intento de reconstruir la lista de los 15 contratos, NO LOGRADO.** Este es el
+"Caso 03" del informe ejecutivo general (`reporte_ejecutivo_gerencia.html`), y nunca quedó guardada
+la lista de contratos en ningún archivo del repo (por eso el "217 contratos verificados" del
+masthead del informe no lo incluye). Se intentó reconstruir vía `SM_ACH_Order__History` (Field =
+`SM_Payment_Status__c`), encontrando la corrida masiva real: **34 órdenes pasaron de `Pending` a
+`Completed` el 13 y 14 de agosto a las 18:50 (proceso automático, no manual)** — 31 tipo AC + 3
+Late Payment Fee. Filtrando por "sin ningún Payment `ACCEPTED`" salieron 18 candidatos, pero
+Carlos corrigió el criterio con las reglas de negocio reales:
+- `Completed` + Payment en `ACH TRANSMITTED` = **normal**, no es un error — se marcará como
+  `ACCEPTED` en cuanto llegue el reporte de Returns/Collection, mientras no venga rechazado.
+- `Canceled` + sin ningún Payment = **puede ser legítimo** — el proceso que crea Payments corre
+  todos los días a las 2:50; si la orden se cancela antes de esa corrida, nunca llega a tener
+  Payment. También puede ser una orden que no aplicaba para cobro, o creada por error/duplicidad.
+- Payment `REJECTED` + `SM_Check_Collection_Status__c = PENDING` = el banco lo sigue procesando
+  (misma regla ya documentada en `feedback_check_collection_pending_return_meaning.md`), no un
+  rechazo final tampoco.
+
+Aplicando estas 3 reglas a los 18 candidatos, **quedaron 0 casos reales** (el único que parecía
+distinto, `ACH-28525`/00318203, resultó ser `REJECTED`+`PENDING` — normal, no roto). Conclusión:
+**no se pudo reconstruir la lista de los 15 contratos originales del Caso 03 por esta vía** — o ya
+se corrigieron sin dejar rastro distinguible en el historial de campos, o el criterio original usado
+en su momento (probablemente revisión manual) no es replicable así. Carlos decidió cerrar el intento
+por ahora (2026-09-10) — no reintentar salvo que aparezca una pista nueva (una nota, un CSV, algo
+que Carlos recuerde). Mismo destino esperado para "Otros ajustes operativos" (23 contratos, sin lista
+guardada, criterios todavía más difusos) — no se intentó reconstruir, probablemente igual de difícil.
+
 ## 3. LPF `Stopped` nunca reactivadas (rechazo ya resuelto `Not_Collected`) — CERRADO
 
 101 órdenes encontradas org-wide → 100 tras exclusiones (Cancelled/Finalized/VIP/Test/FullPayment/
