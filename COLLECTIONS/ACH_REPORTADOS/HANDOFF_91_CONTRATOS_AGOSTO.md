@@ -150,21 +150,45 @@ Los **200 `REJECTED|PENDING` restantes** sí son genuinamente ambiguos, y se div
   con el contenido scoped de esta corrida, no con su contenido "normal" del flujo diario — replace
   antes de la próxima corrida normal del pipeline.
 
-  **Pendiente: `PY-01786030` (00315538) sigue bloqueado por el bug real — falta decidir si Carlos
-  corrige `SM_FeePaymentToDependentContract.cls` o se sigue procesando manual/aislado caso por
-  caso.**
+  **`PY-01786030` (00315538) — RESUELTO 2026-09-10.** Ver el bug de fondo y su fix abajo; una vez
+  desplegado el fix, falta reprocesar este pago puntual (no se reintentó todavía después del
+  deploy — es un `.apex` de una sola fila, trivial cuando se necesite).
 
-  **BUG NUEVO DESCUBIERTO 2026-09-10 — `SM_FeePaymentToDependentContract.cls:181`** hace
-  referencia a un campo `SM_Chargent_Orders_Transaction__c` que ya no existe en el org (parece
-  borrado al desinstalar Chargent, la clase nunca se actualizó). Cuando `SM_PaymentTrigger`
-  procesa en bloque un lote que incluye al menos un pago Fee/AC/LPF yendo a `ACCEPTED` en un
-  contrato Master con dependientes, esa clase truena (`System.SObjectException: Invalid field`) y
-  tumba **todo el lote bulkificado**, no solo el registro que la disparó — así cayeron los 36 de
-  la Oleada 1 (36 registros) aunque probablemente solo uno o pocos de ellos son los que realmente
-  tocan ese código. Es código de la migración de Chargent — **no tocar sin confirmar con Carlos
-  primero** (misma regla de la sección 3 de `CLAUDE.md`). Candidato a: (a) aislar registro por
-  registro para encontrar cuál dispara el bug y separarlo del resto (mismo patrón que el caso del
-  contrato Cancelado), o (b) que Carlos decida corregir la clase directamente.
+  **BUG DESCUBIERTO Y CORREGIDO 2026-09-10 — `SM_FeePaymentToDependentContract.cls:181` y
+  `SM_AcPaymentToDependentContract.cls:120`** hacían referencia a un campo
+  `SM_Chargent_Orders_Transaction__c` que ya no existe en el org (parece borrado al desinstalar
+  Chargent, las clases nunca se actualizaron). Cuando `SM_PaymentTrigger` procesa en bloque un
+  lote que incluye al menos un pago Fee/AC/LPF yendo a `ACCEPTED` en un contrato Master con
+  dependientes, esa clase truena (`System.SObjectException: Invalid field`) y tumba **todo el
+  lote bulkificado**, no solo el registro que la disparó — así cayeron los 36 de la Oleada 1.
+
+  **Fix desplegado a MONEE, confirmado por Carlos y verificado en vivo (LastModifiedDate
+  2026-09-10T18:29:29):** la línea se comentó (no se borró) en ambas clases, con la nota
+  `// PARTE APP DE CHARGENT. ELIMINADA JUL 2026`. Para lograr un deploy limpio con
+  `RunSpecifiedTests` (ver regla nueva en `CLAUDE.md` sección 1) hizo falta además:
+  - Comentar completo `SM_FeePaymentToDependentContractTest.clonePaymentsByChargentOk` — probaba
+    un escenario que ya no puede ocurrir (un pago originado desde una orden de Chargent), y
+    fallaba por una razón *distinta* y más sutil: `hasChargentTransactionAccess()` siempre
+    devuelve `true` bajo `Test.isRunningTest()` (bypass que asumía que Chargent seguía disponible
+    en tests), lo que hacía que el test SÍ intentara la consulta con la relación
+    `SM_Chargent_Orders_Transaction__r` — confirmado con un script de diagnóstico aparte que esa
+    consulta específica falla con "Didn't understand relationship". En producción real (fuera de
+    tests) esta función ya detectaba correctamente que Chargent no está disponible y evitaba la
+    consulta — por eso el bug real (`PY-01786030`) era otra cosa completamente distinta (la línea
+    181, incondicional, sin protección de `hasChargentTransactionAccess()`).
+  - Agregar `clonePaymentsByAcOk`, un test nuevo (reutiliza el master/dependientes de `makeData()`)
+    porque `SM_AcPaymentToDependentContract` no tenía NINGÚN test que la cubriera (0% bloqueaba el
+    deploy bajo `RunSpecifiedTests`, que sí exige mínimo de cobertura por clase, a diferencia del
+    agregado del org completo).
+
+  Resultado final del deploy: 4/4 tests, 0 fallos, 0 advertencias de cobertura
+  (`SM_AcPaymentToDependentContract` 52/53 líneas, `SM_FeePaymentToDependentContract` 69/78).
+
+  **Pendiente real ahora:** hay **1,764 pagos Fee/AC/LPF sin cobrar ($215,034.21) en 47 contratos
+  Master con dependientes** que tenían este mismo riesgo latente (verificado 2026-09-10, antes del
+  fix) — con el fix ya en producción, cualquiera de ellos debería poder procesarse sin problema la
+  próxima vez que se trabaje ese backlog, pero **no se ha vuelto a intentar ninguno todavía** para
+  confirmarlo en la práctica.
 
   **Reconciliación de pagos por contrato (los 29 contratos de estos 50 pagos)** — a pedido de
   Carlos, conteo de pagos `Subscription` `ACCEPTED` vs. meses transcurridos desde el primer cobro,
