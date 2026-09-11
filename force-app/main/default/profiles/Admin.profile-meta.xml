@@ -5,4 +5,14 @@
         <field>SM_Payment__c.SM_Transmission_Date_ACH_File__c</field>
         <readable>true</readable>
     </fieldPermissions>
+    <fieldPermissions>
+        <editable>false</editable>
+        <field>Contract.SM_Plan_Months_Whole_Text__c</field>
+        <readable>true</readable>
+    </fieldPermissions>
+    <fieldPermissions>
+        <editable>false</editable>
+        <field>Contract.SM_Plan_Months_Letters__c</field>
+        <readable>true</readable>
+    </fieldPermissions>
 </Profile>
