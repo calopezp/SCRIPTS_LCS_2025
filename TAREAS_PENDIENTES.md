@@ -30,8 +30,9 @@ cualquier sesión, **leer este archivo primero** en vez de reconstruir la respue
 | 2026-09-06 | Migración de Chargent — `SM_ContractHandler`/`SM_ContractHandlerTest` | Sincronizar manualmente MONEE/PREPROD/repo (MONEE tiene la cáscara vacía de `SM_ContractHandler`; PREPROD tiene la lógica real) | Carlos lo está validando y sincronizando él mismo — **NO TOCAR sin confirmar primero** (ver `CLAUDE.md` sección 3) |
 | 2026-09-06 | Winter '27 (aplica a MONEE 10-oct-2026) — "Enable Profile Filtering" | Correr el Test Run / *login-as* no-admin para confirmar que `SM_TestSmartDataFactory` y los tests de `SM_ContractHandlerTest` siguen pasando bajo el nuevo enforcement | Antes del 10-oct-2026; toca clases de la migración de Chargent, coordinar con Carlos |
 | 2026-09-06 | Winter '27 — "Adopt Authorized Email Domains" | Confirmar con Carlos si alguna vez se pidió a Salesforce Support desactivar la verificación de cambio de email para MONEE | Requiere que Carlos lo confirme, no es verificable desde el código |
-| 2026-09-06 | Conector "Salesforce - Beta" | Sigue sin poder autorizar (error `ofid_d0347292fb8fe49c`) | Mientras tanto, `sf` CLI cubre las consultas de solo lectura necesarias |
 | — | Informe general — Caso 03 / "Otros ajustes" | Lista de contratos original nunca se guardó; se intentó reconstruir (2026-09-10) sin éxito | **Cerrado por ahora** (ver `BITACORA_HALLAZGOS_TECNICOS.md` y handoff sección 2) — no reintentar sin una pista nueva |
+| 2026-09-12 | `SM_ACPaymentActivationHandler` no tiene la misma paridad de exclusiones que el flow de ACH (`CONTRACT_Create_ACH_Subscription_Order`/`PAYMENT_Accumulate_AC_On_Contract`) — no chequea `Is_Test_Contract__c`, `Is_VIP_Contract__c`, `SM_Customer_Cancellation__c` ni `Contract_Type__c='Dependent'`, solo status cerrados y `SM_Requires_AC_Payment__c` | En la práctica no debería importar (test/VIP no deberían tener pagos ChargeBee reales; dependientes no suelen tener `SM_Requires_AC_Payment__c=true`), pero no está garantizado por código | Pendiente decidir si se agregan esos mismos guards al handler para paridad total, o se deja así — no se tocó en esta sesión |
+| 2026-09-12 | 15 contratos con Fee/Late payment fee `ACCEPTED` sin que el AC se haya pagado nunca (`00317665, 00317717, 00317745, 00317772, 00317795, 00317826, 00317881, 00317948, 00317970, 00318036, 00318040, 00318101, 00318141, 00318153, 00318175`) | Sugiere que el cobro de Fee/Subscription no está esperando a que el AC se complete — posible brecha de negocio separada, no investigada | No investigado — detectado como efecto colateral de validar la lista de 26 candidatos ChargeBee, fuera del alcance pedido |
 
 ---
 
@@ -39,8 +40,10 @@ cualquier sesión, **leer este archivo primero** en vez de reconstruir la respue
 
 | Fecha de cierre | Tema | Resultado |
 |---|---|---|
+| 2026-09-12 | Activación de contrato al pagar AC — ChargeBee/Credit Card, ACH, y el Subscription Order de ACH | 3 bugs reales encontrados y corregidos (handler nuevo ChargeBee/CC, flow ACH extendido, versión 2 sin activar de `CONTRACT_Create_ACH_Subscription_Order`). Backfill: 11 contratos ChargeBee/CC + 2 ACH activados, Subscription Orders creados sin duplicados. Ver `BITACORA_HALLAZGOS_TECNICOS.md` |
 | 2026-09-10 | Bug `SM_Chargent_Orders_Transaction__c` | Corregido, desplegado a producción, validado con un caso real |
 | 2026-09-10 | Backlog $4,331.50 (50 pagos) | 50/50 aplicados |
 | 2026-09-10 | `PY-01876062` y `PY-01810250` (bug contrato Cancelado) | Ambos resueltos, aplicados manualmente |
 | 2026-09-10 | Script `SM_PaymentTrigger` toggle | Descartado por Carlos, eliminado del repo |
 | 2026-09-10 | 1,557 pagos "ruido histórico" | Omitido por decisión explícita de Carlos, no se investiga |
+| 2026-09-10 | Conector "Salesforce - Beta" | Descartado por decisión explícita de Carlos — no se va a seguir intentando autorizar; `sf` CLI cubre las consultas de solo lectura necesarias |

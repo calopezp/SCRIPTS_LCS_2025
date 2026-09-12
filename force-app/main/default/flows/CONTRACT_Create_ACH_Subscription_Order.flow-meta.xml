@@ -291,7 +291,7 @@
             <targetReference>If_Exists_Contract</targetReference>
         </connector>
     </start>
-    <status>Active</status>
+    <status>Draft</status>
     <variables>
         <name>sf_Contract</name>
         <dataType>SObject</dataType>

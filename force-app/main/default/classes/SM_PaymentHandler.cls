@@ -9,6 +9,7 @@
  * 1.0   04-08-2021   Jonathan S. Pachon Ariza -> jpachon.ariza@gmail.com   Initial Version
  * 1.1   06-29-2021   Camilo J. Camilo Jimenex -> cjimenez@legal-credit.com  Initial Version
  * 1.2   09-07-2026   Juan Duarte / Carlos Lopez -> Ajustes por cancelacion de CHARGENT
+ * 1.3   09-12-2026   Carlos Alberto Lopez Prada -> Fix NPE en updateRelatedRecordsByPaymentStatusUpdates
 **/
 public without sharing class SM_PaymentHandler extends SM_TriggerHandler{
     public SM_PaymentHandler(String triggerName) {
@@ -28,14 +29,11 @@ public without sharing class SM_PaymentHandler extends SM_TriggerHandler{
     }
 
     override public void afterInsert(){
-        Boolean canAccessChargent = hasChargentObjectAccess();
         updateACHOrderInfo(Trigger.new);
         // SFDCMP-363 Send Aggrement
         updateContractInfo(Trigger.new);
          //SFDCMP-352
-         if (canAccessChargent) {
-             processRejectedPaymentsChargentOrder(Trigger.newMap, Trigger.oldMap);
-         }
+
          // SMMCI-36
         upsertInvoiceByPayment(Trigger.newMap, null);
         // SMMCI-29
@@ -72,8 +70,8 @@ public without sharing class SM_PaymentHandler extends SM_TriggerHandler{
 
     /**
     * @description This method set Installment_number__c when create Payment
-    * @author Diego Jacanamijoy -> djacanamijoy@legal-credit.com | 10/08/2022 
-    * @param newRecords 
+    * @author Diego Jacanamijoy -> djacanamijoy@legal-credit.com | 10/08/2022
+    * @param newRecords
     **/
     private void upsertInvoiceByPayment(Map<Id, SObject> newRecordsMap, Map<Id, SObject> oldRecordsMap) {
 
@@ -85,7 +83,7 @@ public without sharing class SM_PaymentHandler extends SM_TriggerHandler{
             /** Check change status or new record */
             SM_Payment__c oldPayment = (SM_Payment__c)oldRecordsMap?.get(payment.Id);
             Boolean changeStatusOrNew = oldPayment == null || SM_Utils.isChangedField(payment, oldPayment, 'Payment_Status__c');
-            
+
             Boolean hasSupportedSource = payment.SM_ACH_Order__c <> null;
             if (changeStatusOrNew && hasSupportedSource) {
                 validaPayments.add(payment.Id);
@@ -98,16 +96,16 @@ public without sharing class SM_PaymentHandler extends SM_TriggerHandler{
     }
 
     /**
-    * @description 
-    * @author Diego Jacanamijoy -> djacanamijoy@legal-credit.com | 16/08/2022 
-    * @param newRecords 
-    * @param oldRecordsMap 
+    * @description
+    * @author Diego Jacanamijoy -> djacanamijoy@legal-credit.com | 16/08/2022
+    * @param newRecords
+    * @param oldRecordsMap
     **/
     private void clonePayments(List<SM_Payment__c> newRecords, Map<Id, SObject> oldRecordsMap) {
 
         Set<Id> paymentIds = new Set<Id>();//Ids to validate
         String firstPaymentType;
-        
+
         for (SM_Payment__c newPayment : newRecords) {
 
             /** Check change status or new record */
@@ -120,7 +118,7 @@ public without sharing class SM_PaymentHandler extends SM_TriggerHandler{
                 paymentIds.add(newPayment.Id);
             }
         }
-        
+
         /** Check payment ids to validate */
         if (!paymentIds.isEmpty()) {
 
@@ -133,7 +131,7 @@ public without sharing class SM_PaymentHandler extends SM_TriggerHandler{
 
                 new SM_FeePaymentToDependentContract(paymentIds);
             }
-            
+
         }
     }
 
@@ -253,6 +251,13 @@ public without sharing class SM_PaymentHandler extends SM_TriggerHandler{
         for (SM_Payment__c payment : newRecords) {
             SM_Payment__c oldPayment = (SM_Payment__c)oldRecordsMap.get(payment.Id);
             SM_ACH_Order__c achOrder = achOrdersById.get(payment.SM_ACH_Order__c);
+            // calp 09-12-2026 :: payments with no SM_ACH_Order__c (ChargeBee/Credit Card/Cash)
+            // have no ACH Order to update - without this guard, achOrder is null here and the
+            // switch below throws an uncaught NullPointerException, rolling back the whole
+            // transaction any time such a payment's status changes to ACCEPTED/REJECTED.
+            if (achOrder == null) {
+                continue;
+            }
             if (SM_Utils.isChangedField(payment, oldPayment, 'Payment_Status__c')) {
                 String paymentStatus = payment.Payment_Status__c;
                 // SMPII-141

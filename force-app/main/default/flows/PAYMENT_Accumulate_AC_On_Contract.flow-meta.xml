@@ -53,39 +53,68 @@
                     <elementReference>Last_Quarter_Start_DateTime</elementReference>
                 </rightValue>
             </conditions>
+            <conditions>
+                <leftValueReference>$Record.SM_Contract__r.SM_AC_collected__c</leftValueReference>
+                <operator>EqualTo</operator>
+                <rightValue>
+                    <booleanValue>false</booleanValue>
+                </rightValue>
+            </conditions>
             <connector>
                 <targetReference>Update_Contract_AC_Accumulation</targetReference>
             </connector>
             <label>Contract Eligible</label>
         </rules>
     </decisions>
+    <decisions>
+        <name>If_AC_Total_Reached</name>
+        <label>If AC Total Reached</label>
+        <locationX>0</locationX>
+        <locationY>0</locationY>
+        <defaultConnectorLabel>Default Outcome</defaultConnectorLabel>
+        <rules>
+            <name>AC_Total_Reached</name>
+            <conditionLogic>and</conditionLogic>
+            <conditions>
+                <leftValueReference>New_Charged_AC_Amount</leftValueReference>
+                <operator>GreaterThanOrEqualTo</operator>
+                <rightValue>
+                    <elementReference>$Record.SM_Contract__r.SM_Total_AC__c</elementReference>
+                </rightValue>
+            </conditions>
+            <connector>
+                <targetReference>Activate_Contract_AC_Complete</targetReference>
+            </connector>
+            <label>AC Total Reached</label>
+        </rules>
+    </decisions>
     <environments>Default</environments>
-    <formulas>
-        <name>New_Charged_AC_Amount</name>
-        <dataType>Currency</dataType>
-        <scale>2</scale>
-        <expression>IF(ISBLANK($Record.SM_Contract__r.SM_Charged_AC_Amount__c), 0, $Record.SM_Contract__r.SM_Charged_AC_Amount__c) + $Record.SM_ACH_Order__r.SM_Total__c</expression>
-    </formulas>
-    <formulas>
-        <name>New_Charged_AC_Fees</name>
-        <dataType>Number</dataType>
-        <scale>0</scale>
-        <expression>IF(ISBLANK($Record.SM_Contract__r.SM_Charged_AC_Fees__c), 0, $Record.SM_Contract__r.SM_Charged_AC_Fees__c) + 1</expression>
-    </formulas>
     <formulas>
         <name>Current_Quarter_Start_Month</name>
         <dataType>Number</dataType>
-        <scale>0</scale>
         <expression>FLOOR((MONTH(TODAY())-1)/3)*3+1</expression>
+        <scale>0</scale>
     </formulas>
     <formulas>
         <name>Last_Quarter_Start_DateTime</name>
         <dataType>DateTime</dataType>
         <expression>IF(
-    Current_Quarter_Start_Month - 3 &lt;= 0,
-    DATETIMEVALUE(DATE(YEAR(TODAY())-1, Current_Quarter_Start_Month - 3 + 12, 1)),
-    DATETIMEVALUE(DATE(YEAR(TODAY()), Current_Quarter_Start_Month - 3, 1))
+    {!Current_Quarter_Start_Month} - 3 &lt;= 0,
+    DATETIMEVALUE(DATE(YEAR(TODAY())-1, {!Current_Quarter_Start_Month} - 3 + 12, 1)),
+    DATETIMEVALUE(DATE(YEAR(TODAY()), {!Current_Quarter_Start_Month} - 3, 1))
 )</expression>
+    </formulas>
+    <formulas>
+        <name>New_Charged_AC_Amount</name>
+        <dataType>Currency</dataType>
+        <expression>IF(ISBLANK($Record.SM_Contract__r.SM_Charged_AC_Amount__c), 0, $Record.SM_Contract__r.SM_Charged_AC_Amount__c) + $Record.SM_ACH_Order__r.SM_Total__c</expression>
+        <scale>2</scale>
+    </formulas>
+    <formulas>
+        <name>New_Charged_AC_Fees</name>
+        <dataType>Number</dataType>
+        <expression>IF(ISBLANK($Record.SM_Contract__r.SM_Charged_AC_Fees__c), 0, $Record.SM_Contract__r.SM_Charged_AC_Fees__c) + 1</expression>
+        <scale>0</scale>
     </formulas>
     <interviewLabel>PAYMENT: Accumulate AC On Contract {!$Flow.CurrentDateTime}</interviewLabel>
     <label>PAYMENT: Accumulate AC On Contract</label>
@@ -113,6 +142,9 @@
         <label>Update Contract AC Accumulation</label>
         <locationX>0</locationX>
         <locationY>0</locationY>
+        <connector>
+            <targetReference>If_AC_Total_Reached</targetReference>
+        </connector>
         <filterLogic>and</filterLogic>
         <filters>
             <field>Id</field>
@@ -143,6 +175,39 @@
             <field>SM_Payment_Received__c</field>
             <value>
                 <booleanValue>true</booleanValue>
+            </value>
+        </inputAssignments>
+        <object>Contract</object>
+    </recordUpdates>
+    <recordUpdates>
+        <name>Activate_Contract_AC_Complete</name>
+        <label>Activate Contract (AC Complete)</label>
+        <locationX>0</locationX>
+        <locationY>0</locationY>
+        <filterLogic>and</filterLogic>
+        <filters>
+            <field>Id</field>
+            <operator>EqualTo</operator>
+            <value>
+                <elementReference>$Record.SM_Contract__c</elementReference>
+            </value>
+        </filters>
+        <inputAssignments>
+            <field>SM_AC_collected__c</field>
+            <value>
+                <booleanValue>true</booleanValue>
+            </value>
+        </inputAssignments>
+        <inputAssignments>
+            <field>Status</field>
+            <value>
+                <stringValue>Activated</stringValue>
+            </value>
+        </inputAssignments>
+        <inputAssignments>
+            <field>StartDate</field>
+            <value>
+                <elementReference>$Flow.CurrentDate</elementReference>
             </value>
         </inputAssignments>
         <object>Contract</object>
