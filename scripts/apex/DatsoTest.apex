@@ -1,5 +1,5 @@
-String accountId = '00148790';
-String contratoId = '00315695';
+String accountId = '00151730';
+String contratoId = '00317189';
 
 // Query Account(s) by customer number
 List<Account> accData = [
@@ -142,6 +142,7 @@ if (!cnts.isEmpty()) {
     System.debug('No Contracts found for Account: ' + accData[0].Id);
 }
 
+/*
 /"SM_Bank__c","SM_Bank__r.Name","SM_ACH_Account_Number__c"
 "a278W00000CwyRFQAZ","TEST CIBERSOURCE BANK","001234567895"
 
