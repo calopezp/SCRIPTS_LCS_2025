@@ -58,6 +58,61 @@ private class SM_ACH_Flow_MonitorTest {
         System.assert(anomalies[0].contains('REVISAR'));
     }
 
+    // Truco estandar de Apex para poblar una subquery (relacion hija, ej. ACH_Orders__r) en un
+    // SObject en memoria sin insertar/consultar - putSObject solo sirve para relaciones padre
+    // (un solo registro), no para listas.
+    private static Contract fakeContractWithAchOrders(Id contractId, String paymentMethod, List<SM_ACH_Order__c> achOrders) {
+        Map<String, Object> contractMap = new Map<String, Object>{
+            'Id' => contractId,
+            'SM_Payment_methods__c' => paymentMethod,
+            'ACH_Orders__r' => new Map<String, Object>{
+                'totalSize' => achOrders.size(),
+                'done' => true,
+                'records' => achOrders
+            }
+        };
+        return (Contract) JSON.deserialize(JSON.serialize(contractMap), Contract.class);
+    }
+
+    @isTest
+    static void testBuildActivatedContractsSection_empty() {
+        String section = SM_ACH_Flow_Monitor.buildActivatedContractsSection(new List<Contract>());
+        System.assert(section.contains('ninguno'));
+    }
+
+    @isTest
+    static void testBuildActivatedContractsSection_achWithSubscription() {
+        Id fakeContractId = (Id) '800000000000004';
+        Contract c = fakeContractWithAchOrders(fakeContractId, 'ACH', new List<SM_ACH_Order__c>{
+            new SM_ACH_Order__c(SM_Payment_Type__c = 'Subscription')
+        });
+
+        String section = SM_ACH_Flow_Monitor.buildActivatedContractsSection(new List<Contract>{ c });
+        System.assert(section.contains('Subscription Order OK'));
+    }
+
+    @isTest
+    static void testBuildActivatedContractsSection_achMissingSubscription() {
+        Id fakeContractId = (Id) '800000000000005';
+        Contract c = fakeContractWithAchOrders(fakeContractId, 'ACH', new List<SM_ACH_Order__c>());
+
+        String section = SM_ACH_Flow_Monitor.buildActivatedContractsSection(new List<Contract>{ c });
+        System.assert(section.contains('SIN Subscription Order'));
+    }
+
+    @isTest
+    static void testBuildActivatedContractsSection_chargebee() {
+        Id fakeContractId = (Id) '800000000000006';
+        Contract c = new Contract(
+            Id = fakeContractId,
+            SM_Payment_methods__c = 'Credit Card',
+            CB_Subscription__c = 'a5Q000000000001'
+        );
+
+        String section = SM_ACH_Flow_Monitor.buildActivatedContractsSection(new List<Contract>{ c });
+        System.assert(section.contains('Subscription ChargeBee OK'));
+    }
+
     @isTest
     static void testBuildAnomalies_duplicates() {
         Id fakeContractId = (Id) '800000000000003';

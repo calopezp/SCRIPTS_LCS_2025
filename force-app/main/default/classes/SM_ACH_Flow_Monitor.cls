@@ -1,17 +1,26 @@
 public class SM_ACH_Flow_Monitor implements Schedulable {
 
-    public static final Date END_DATE = Date.newInstance(2026, 9, 2);
     public static final String NOTIFY_EMAIL = 'clopez@legal-credit.com';
 
     public void execute(SchedulableContext ctx) {
         runDailyCheck();
-        if (Date.today() >= END_DATE) {
-            System.abortJob(ctx.getTriggerId());
-        }
     }
 
     public static void runDailyCheck() {
         DateTime since = DateTime.now().addHours(-24);
+
+        // calp 2026-09-12 :: contratos que se activaron en las ultimas 24h, sin importar el
+        // medio de pago (ACH, ChargeBee, Credit Card, Cash) - todas las rutas de activacion
+        // de este org (SM_paymentTGR_Handler, SM_chargentOrTr_Handler, SM_ACPaymentActivationHandler,
+        // PAYMENT_Accumulate_AC_On_Contract) ponen StartDate = hoy exactamente cuando activan,
+        // asi que es la senal mas confiable de "se activo hoy" sin depender de field history.
+        List<Contract> activatedToday = [
+            SELECT Id, ContractNumber, Status, SM_Payment_methods__c, CB_Subscription__c,
+                   SM_AC_collected__c, SM_Net_AC__c, SM_Net_Monthly_offer__c, StartDate,
+                   (SELECT Id, SM_Payment_Type__c FROM ACH_Orders__r WHERE SM_Payment_Type__c = 'Subscription')
+            FROM Contract
+            WHERE Status = 'Activated' AND StartDate = TODAY
+        ];
 
         List<Contract> recentContracts = [
             SELECT Id, ContractNumber, Status, SM_Requires_AC_Payment__c, SM_Requires_RC_Payment__c,
@@ -42,8 +51,16 @@ public class SM_ACH_Flow_Monitor implements Schedulable {
         ];
 
         List<String> anomalies = buildAnomalies(recentContracts, activeOrders);
+        // Un contrato ACH activado sin su Subscription Order es la misma clase de bug que se
+        // corrigio 2026-09-12 (CONTRACT_Create_ACH_Subscription_Order) - si vuelve a pasar,
+        // que se vea como anomalia y dispare el [REVISAR] del asunto, no que se pierda en la lista.
+        for (Contract c : activatedToday) {
+            if (c.SM_Payment_methods__c == 'ACH' && c.ACH_Orders__r.isEmpty()) {
+                anomalies.add('ALERTA: Contrato ' + c.ContractNumber + ' se activo por ACH pero no tiene Subscription Order');
+            }
+        }
 
-        sendEmail(recentContracts.size(), newOrdersCount, anomalies);
+        sendEmail(recentContracts.size(), newOrdersCount, anomalies, activatedToday);
     }
 
     /**
@@ -92,8 +109,33 @@ public class SM_ACH_Flow_Monitor implements Schedulable {
         return anomalies;
     }
 
-    private static void sendEmail(Integer contractCount, Integer orderCount, List<String> anomalies) {
-        String body = 'Monitoreo diario - Automatizacion ACH Orders (CONTRACT_10_After_Save_Orchestrator, '
+    /**
+     * @description Seccion "contratos activados hoy" - cualquier medio de pago (ACH, ChargeBee,
+     * Credit Card, Cash). Separada para poder probarla con datos en memoria.
+     */
+    public static String buildActivatedContractsSection(List<Contract> activatedToday) {
+        if (activatedToday.isEmpty()) {
+            return 'Contratos activados hoy (cualquier medio de pago): ninguno.\n';
+        }
+        String section = 'Contratos activados hoy (' + activatedToday.size() + '), cualquier medio de pago:\n';
+        for (Contract c : activatedToday) {
+            Decimal amount = c.SM_Net_AC__c != null ? c.SM_Net_AC__c : c.SM_Net_Monthly_offer__c;
+            String subscriptionNote;
+            if (c.SM_Payment_methods__c == 'ACH') {
+                subscriptionNote = c.ACH_Orders__r.isEmpty() ? ' - SIN Subscription Order (ver anomalias)' : ' - Subscription Order OK';
+            } else if (c.CB_Subscription__c != null) {
+                subscriptionNote = ' - Subscription ChargeBee OK';
+            } else {
+                subscriptionNote = '';
+            }
+            section += '- ' + c.ContractNumber + ' (' + c.SM_Payment_methods__c + ', AC ' + (amount != null ? amount.format() : '?') + ')' + subscriptionNote + '\n';
+        }
+        return section;
+    }
+
+    private static void sendEmail(Integer contractCount, Integer orderCount, List<String> anomalies, List<Contract> activatedToday) {
+        String body = buildActivatedContractsSection(activatedToday) + '\n'
+            + 'Monitoreo diario - Automatizacion ACH Orders (CONTRACT_10_After_Save_Orchestrator, '
             + 'CONTRACT_Create_ACH_AC_Order, CONTRACT_Create_ACH_Subscription_Order)\n\n'
             + 'Contratos ACH en Payment Process/Activated tocados en las ultimas 24h: ' + contractCount + '\n'
             + 'SM_ACH_Order__c nuevas en las ultimas 24h: ' + orderCount + '\n\n';
@@ -106,11 +148,10 @@ public class SM_ACH_Flow_Monitor implements Schedulable {
                 body += '- ' + a + '\n';
             }
         }
-        body += '\nMonitoreo automatico activo hasta ' + END_DATE.format() + '.';
 
         Messaging.SingleEmailMessage mail = new Messaging.SingleEmailMessage();
         mail.setToAddresses(new String[]{ NOTIFY_EMAIL });
-        mail.setSubject((anomalies.isEmpty() ? '[OK] ' : '[REVISAR] ') + 'Monitoreo ACH Orders - ' + Date.today().format());
+        mail.setSubject((anomalies.isEmpty() ? '[OK] ' : '[REVISAR] ') + 'Monitoreo Contratos Activados - ' + Date.today().format());
         mail.setPlainTextBody(body);
         if (!Test.isRunningTest()) {
             Messaging.sendEmail(new Messaging.SingleEmailMessage[]{ mail });
