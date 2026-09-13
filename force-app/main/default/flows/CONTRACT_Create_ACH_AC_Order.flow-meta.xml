@@ -410,20 +410,6 @@
                 <stringValue>AC</stringValue>
             </value>
         </filters>
-        <filters>
-            <field>SM_Payment_Status__c</field>
-            <operator>NotEqualTo</operator>
-            <value>
-                <stringValue>Completed</stringValue>
-            </value>
-        </filters>
-        <filters>
-            <field>SM_Payment_Status__c</field>
-            <operator>NotEqualTo</operator>
-            <value>
-                <stringValue>Canceled</stringValue>
-            </value>
-        </filters>
         <getFirstRecordOnly>true</getFirstRecordOnly>
         <object>SM_ACH_Order__c</object>
         <sortField>CreatedDate</sortField>
