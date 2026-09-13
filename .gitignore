@@ -50,6 +50,10 @@ $RECYCLE.BIN/
 # Local personal backups, not project artifacts
 .backup_local/
 
+# Scratch folder for one-off exports/reports (CSVs from ad-hoc queries, etc.) -
+# local convenience, not project artifacts, never committed
+TEMP/
+
 # Large one-time data exports too big for GitHub (100MB limit)
 CHARGENT_MIGRACION/ChargentOrders__Transaction__c.csv
 

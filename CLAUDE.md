@@ -43,6 +43,11 @@ Este archivo es la **fuente de verdad compartida entre las dos máquinas** del u
   migración de Chargent como `SM_ContractHandlerTest`, más otros no relacionados) — `RunLocalTests`
   corre el 100% del org y tumba cualquier deploy, sin importar qué tan chico o correcto sea, por fallos
   que no tienen nada que ver con el cambio real.
+- **`TEMP/` (raíz del repo) es la carpeta para exports/reportes puntuales** (CSVs de queries
+  ad-hoc, listados que se le entregan a Carlos, etc.) — está en `.gitignore`, nunca se comitea, es
+  local a cada máquina. Preferirla sobre el scratchpad de sesión (`~/.claude/.../scratchpad/`) para
+  cualquier archivo que Carlos vaya a necesitar encontrar después en VS Code/el disco — el scratchpad
+  vive en una ruta temporal por sesión, difícil de ubicar.
 
 ---
 
