@@ -22,6 +22,7 @@ cualquier sesión, **leer este archivo primero** en vez de reconstruir la respue
 
 | Desde | Tema | Qué falta | Bloqueado por / contexto |
 |---|---|---|---|
+| 2026-09-13 | Horario del job "SM Contracts Activated Monitor - Daily" | Reprogramar el cron de `0 0 14 * * ?` a `0 0 13 * * ?` (sigue interpretándose en Europe/Madrid, el timezone personal de Carlos) cuando Madrid salga de horario de verano (~fin de octubre 2026) — si no, la corrida se corre 1 hora y deja de caer a las 8:00 AM Puerto Rico (PR no tiene DST) | Esperando la fecha del cambio de horario en España |
 | 2026-09-10 | Contrato 00318139 | Confirmar que el batch diario efectivamente transmitió el AC (se le asignó fecha de próxima transacción el 15-ago, pero al cierre de la sesión seguía sin ningún Payment creado) | Nada — solo falta revisar en la próxima sesión |
 | 2026-09-09 | Caso 06 informe general — lote `ADJ_AC_ERR_12AGO` | Decidir el mecanismo de reembolso de $4,382.47 (61 contratos cobrados de más) — reembolso directo, crédito al próximo ciclo, o ajuste contra próxima cuota | Decisión de negocio de Carlos |
 | 2026-09-05 | Caso 05 informe general — doble cobro 29-jul/24-26-ago | 6 órdenes ($544) siguen sin veredicto final del banco, 15+ días — candidato a escalar con el banco/procesador | Esperando al banco — no se puede tocar hasta veredicto (`ACCEPTED` o `NOT_COLLECTED`) |
