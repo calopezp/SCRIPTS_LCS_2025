@@ -65,7 +65,7 @@ public without sharing class SM_ACPaymentActivationHandler extends SM_TriggerHan
         Map<Id, Contract> contractsById = new Map<Id, Contract>([
             SELECT Id, Status, SM_Requires_AC_Payment__c, SM_AC_collected__c, SM_Total_AC__c,
                    SM_Charged_AC_Amount__c, SM_Charged_AC_Fees__c, SM_Partially_Charged_AC_Fees__c,
-                   SM_Failed_AC_Fees__c, SM_Payment_Received__c, StartDate
+                   SM_Failed_AC_Fees__c, SM_Payment_Received__c, StartDate, SM_Id_Salesforce_LCS__c
             FROM Contract
             WHERE Id IN :contractIds
         ]);
@@ -100,6 +100,9 @@ public without sharing class SM_ACPaymentActivationHandler extends SM_TriggerHan
                 contract.SM_AC_collected__c = true;
                 contract.StartDate = Date.today();
                 contract.Status = SM_ContractHelper.status.ACTIVATED;
+                contract.SM_Id_Salesforce_LCS__c = SM_AutomationLogHelper.appendNote(
+                    contract.SM_Id_Salesforce_LCS__c, 'SM_ACPaymentActivationHandler', 'Contrato activado por pago AC'
+                );
             }
 
             contractsToUpdate.add(contract.Id);

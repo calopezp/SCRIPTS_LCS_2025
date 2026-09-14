@@ -70,12 +70,13 @@ public without sharing class SM_ACPaymentActivationHandlerTest {
             insert newNonAchAcPayment(ct.Id, 'ACCEPTED', 99);
         Test.stopTest();
 
-        Contract updated = [SELECT Status, SM_AC_collected__c, SM_Charged_AC_Amount__c, SM_Payment_Received__c, StartDate FROM Contract WHERE Id = :ct.Id];
+        Contract updated = [SELECT Status, SM_AC_collected__c, SM_Charged_AC_Amount__c, SM_Payment_Received__c, StartDate, SM_Id_Salesforce_LCS__c FROM Contract WHERE Id = :ct.Id];
         System.assertEquals('Activated', updated.Status, 'Contract should activate once the AC payment is accepted.');
         System.assertEquals(true, updated.SM_AC_collected__c, 'SM_AC_collected__c should be set.');
         System.assertEquals(99, updated.SM_Charged_AC_Amount__c, 'Charged AC amount should equal the payment amount.');
         System.assertEquals(true, updated.SM_Payment_Received__c, 'Payment received should be set.');
         System.assertEquals(Date.today(), updated.StartDate, 'StartDate should move to today on activation.');
+        System.assert(updated.SM_Id_Salesforce_LCS__c.startsWith('AUTO: SM_ACPaymentActivationHandler'), 'An automation marker should identify what activated the contract.');
     }
 
     // NOTE: the symmetrical "insert as PENDING, then update to ACCEPTED" scenario (which

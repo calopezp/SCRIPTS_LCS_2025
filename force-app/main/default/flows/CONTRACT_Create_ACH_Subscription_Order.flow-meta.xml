@@ -124,6 +124,11 @@
         </rules>
     </decisions>
     <environments>Default</environments>
+    <formulas>
+        <name>AutomationNote</name>
+        <dataType>String</dataType>
+        <expression>"AUTO: CONTRACT_Create_ACH_Subscription_Order - Subscription Order creada - " &amp; TEXT(TODAY())</expression>
+    </formulas>
     <interviewLabel>CONTRACT: {!$Flow.CurrentDateTime}</interviewLabel>
     <label>CONTRACT: Create ACH Subscription Order</label>
     <processMetadataValues>
@@ -172,6 +177,12 @@
             <field>SM_Fee_to_collect__c</field>
             <value>
                 <numberValue>1.0</numberValue>
+            </value>
+        </inputAssignments>
+        <inputAssignments>
+            <field>SM_Id_Salesforce_LCS__c</field>
+            <value>
+                <elementReference>AutomationNote</elementReference>
             </value>
         </inputAssignments>
         <inputAssignments>
@@ -291,7 +302,7 @@
             <targetReference>If_Exists_Contract</targetReference>
         </connector>
     </start>
-    <status>Draft</status>
+    <status>Active</status>
     <variables>
         <name>sf_Contract</name>
         <dataType>SObject</dataType>

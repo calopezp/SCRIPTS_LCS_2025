@@ -3,6 +3,28 @@
     <apiVersion>67.0</apiVersion>
     <areMetricsLoggedToDataCloud>false</areMetricsLoggedToDataCloud>
     <decisions>
+        <name>If_AC_Total_Reached</name>
+        <label>If AC Total Reached</label>
+        <locationX>0</locationX>
+        <locationY>0</locationY>
+        <defaultConnectorLabel>Default Outcome</defaultConnectorLabel>
+        <rules>
+            <name>AC_Total_Reached</name>
+            <conditionLogic>and</conditionLogic>
+            <conditions>
+                <leftValueReference>New_Charged_AC_Amount</leftValueReference>
+                <operator>GreaterThanOrEqualTo</operator>
+                <rightValue>
+                    <elementReference>$Record.SM_Contract__r.SM_Total_ac__c</elementReference>
+                </rightValue>
+            </conditions>
+            <connector>
+                <targetReference>Activate_Contract_AC_Complete</targetReference>
+            </connector>
+            <label>AC Total Reached</label>
+        </rules>
+    </decisions>
+    <decisions>
         <name>If_Contract_Eligible</name>
         <label>If Contract Eligible</label>
         <locationX>0</locationX>
@@ -66,28 +88,6 @@
             <label>Contract Eligible</label>
         </rules>
     </decisions>
-    <decisions>
-        <name>If_AC_Total_Reached</name>
-        <label>If AC Total Reached</label>
-        <locationX>0</locationX>
-        <locationY>0</locationY>
-        <defaultConnectorLabel>Default Outcome</defaultConnectorLabel>
-        <rules>
-            <name>AC_Total_Reached</name>
-            <conditionLogic>and</conditionLogic>
-            <conditions>
-                <leftValueReference>New_Charged_AC_Amount</leftValueReference>
-                <operator>GreaterThanOrEqualTo</operator>
-                <rightValue>
-                    <elementReference>$Record.SM_Contract__r.SM_Total_AC__c</elementReference>
-                </rightValue>
-            </conditions>
-            <connector>
-                <targetReference>Activate_Contract_AC_Complete</targetReference>
-            </connector>
-            <label>AC Total Reached</label>
-        </rules>
-    </decisions>
     <environments>Default</environments>
     <formulas>
         <name>Current_Quarter_Start_Month</name>
@@ -116,6 +116,11 @@
         <expression>IF(ISBLANK($Record.SM_Contract__r.SM_Charged_AC_Fees__c), 0, $Record.SM_Contract__r.SM_Charged_AC_Fees__c) + 1</expression>
         <scale>0</scale>
     </formulas>
+    <formulas>
+        <name>AutomationNote</name>
+        <dataType>String</dataType>
+        <expression>LEFT("AUTO: PAYMENT_Accumulate_AC_On_Contract - Contrato activado, AC completo - " &amp; TEXT(TODAY()) &amp; IF(ISBLANK($Record.SM_Contract__r.SM_Id_Salesforce_LCS__c), "", " // " &amp; $Record.SM_Contract__r.SM_Id_Salesforce_LCS__c), 255)</expression>
+    </formulas>
     <interviewLabel>PAYMENT: Accumulate AC On Contract {!$Flow.CurrentDateTime}</interviewLabel>
     <label>PAYMENT: Accumulate AC On Contract</label>
     <processMetadataValues>
@@ -137,6 +142,45 @@
         </value>
     </processMetadataValues>
     <processType>AutoLaunchedFlow</processType>
+    <recordUpdates>
+        <name>Activate_Contract_AC_Complete</name>
+        <label>Activate Contract (AC Complete)</label>
+        <locationX>0</locationX>
+        <locationY>0</locationY>
+        <filterLogic>and</filterLogic>
+        <filters>
+            <field>Id</field>
+            <operator>EqualTo</operator>
+            <value>
+                <elementReference>$Record.SM_Contract__c</elementReference>
+            </value>
+        </filters>
+        <inputAssignments>
+            <field>SM_AC_collected__c</field>
+            <value>
+                <booleanValue>true</booleanValue>
+            </value>
+        </inputAssignments>
+        <inputAssignments>
+            <field>SM_Id_Salesforce_LCS__c</field>
+            <value>
+                <elementReference>AutomationNote</elementReference>
+            </value>
+        </inputAssignments>
+        <inputAssignments>
+            <field>StartDate</field>
+            <value>
+                <elementReference>$Flow.CurrentDate</elementReference>
+            </value>
+        </inputAssignments>
+        <inputAssignments>
+            <field>Status</field>
+            <value>
+                <stringValue>Activated</stringValue>
+            </value>
+        </inputAssignments>
+        <object>Contract</object>
+    </recordUpdates>
     <recordUpdates>
         <name>Update_Contract_AC_Accumulation</name>
         <label>Update Contract AC Accumulation</label>
@@ -175,39 +219,6 @@
             <field>SM_Payment_Received__c</field>
             <value>
                 <booleanValue>true</booleanValue>
-            </value>
-        </inputAssignments>
-        <object>Contract</object>
-    </recordUpdates>
-    <recordUpdates>
-        <name>Activate_Contract_AC_Complete</name>
-        <label>Activate Contract (AC Complete)</label>
-        <locationX>0</locationX>
-        <locationY>0</locationY>
-        <filterLogic>and</filterLogic>
-        <filters>
-            <field>Id</field>
-            <operator>EqualTo</operator>
-            <value>
-                <elementReference>$Record.SM_Contract__c</elementReference>
-            </value>
-        </filters>
-        <inputAssignments>
-            <field>SM_AC_collected__c</field>
-            <value>
-                <booleanValue>true</booleanValue>
-            </value>
-        </inputAssignments>
-        <inputAssignments>
-            <field>Status</field>
-            <value>
-                <stringValue>Activated</stringValue>
-            </value>
-        </inputAssignments>
-        <inputAssignments>
-            <field>StartDate</field>
-            <value>
-                <elementReference>$Flow.CurrentDate</elementReference>
             </value>
         </inputAssignments>
         <object>Contract</object>
