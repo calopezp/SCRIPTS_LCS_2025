@@ -146,7 +146,7 @@ def print_result(payment_name: str):
     transmission_rows = search_index(TRANSMISSION_INDEX_CSV, payment_name)
 
     if returns_rows:
-        print(f"  [Indice historico RETURNS] {len(returns_rows)} coincidencia(s):")
+        print(f"\n  [Indice historico RETURNS] {len(returns_rows)} coincidencia(s):")
         for row in returns_rows:
             print(f"    - {row.get('SM_Check_Collection_Date__c')}"
                   f"  |  Codigo: {row.get('SM_Return_code__c')}"
@@ -156,23 +156,23 @@ def print_result(payment_name: str):
         print("  [Indice historico RETURNS] no aparece en ningun PDF indexado")
 
     if coll_rows:
-        print(f"  [Indice historico COLLECTIONS] {len(coll_rows)} coincidencia(s):")
+        print(f"\n  [Indice historico COLLECTIONS] {len(coll_rows)} coincidencia(s):")
         for row in coll_rows:
             print(f"    - {row.get('SM_Check_Collection_Date__c')}"
                   f"  |  Seccion: {row.get('Section')}"
                   f"  |  Razon: {row.get('Reason')}"
                   f"  |  Fuente: {row.get('Source_File')}")
     else:
-        print("  [Indice historico COLLECTIONS] no aparece en ningun PDF indexado")
+        print("\n  [Indice historico COLLECTIONS] no aparece en ningun PDF indexado")
 
     if transmission_rows:
-        print(f"  [Indice historico ACH REPORTADOS (Transmission)] {len(transmission_rows)} coincidencia(s):")
+        print(f"\n  [Indice historico ACH REPORTADOS (Transmission)] {len(transmission_rows)} coincidencia(s):")
         for row in transmission_rows:
             print(f"    - {row.get('SM_Transmission_Date_ACH_File__c')}"
                   f"  |  Monto: {row.get('Amount')}"
                   f"  |  Fuente: {row.get('Source_File')}")
     else:
-        print("  [Indice historico ACH REPORTADOS (Transmission)] no aparece en ningun archivo indexado")
+        print("\n  [Indice historico ACH REPORTADOS (Transmission)] no aparece en ningun archivo indexado")
 
     print()
 
