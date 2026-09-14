@@ -403,16 +403,25 @@ if (!DRY_RUN) {
             List<RowData> waveRows = waves.get(w);
             List<SM_Payment__c> waveUpdate = new List<SM_Payment__c>();
             for (RowData r : waveRows) {
-                waveUpdate.add(new SM_Payment__c(
+                SM_Payment__c p = new SM_Payment__c(
                     Id = r.matchedPaymentId,
                     Payment_Status__c = r.status,
                     SM_Check_Collection_Date__c = r.collDate,
                     SM_Check_Collection__c = r.coll,
                     SM_Check_Collection_Status__c = r.collStatus,
                     SM_Check_Collection_Return_Reason__c = r.reasonShort,
-                    SM_Return_code__c = r.returnCode,
                     SM_Historical_Collection_Status__c = r.newHistorical
-                ));
+                );
+                // Check Collection reports almost never carry a NACHA code (r.returnCode is
+                // null) -- unlike update_ach_returns.apex, whose reports always do. Only
+                // include the field when THIS row actually has a code (rare, ej. "R07 AUTH
+                // REVOKED" en la razon de un Check Collection), para no pisar con null un
+                // codigo real que el pipeline de Returns ya le habia puesto antes (bug real
+                // encontrado 2026-09-14: PY-01895480 perdio su R01 asi).
+                if (r.returnCode != null) {
+                    p.SM_Return_code__c = r.returnCode;
+                }
+                waveUpdate.add(p);
             }
             List<Database.SaveResult> results = Database.update(waveUpdate, false);
             Integer okCount = 0;

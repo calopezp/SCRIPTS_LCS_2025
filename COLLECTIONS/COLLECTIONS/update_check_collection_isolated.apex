@@ -190,9 +190,13 @@ if (!DRY_RUN) {
             SM_Check_Collection__c = r.coll,
             SM_Check_Collection_Status__c = r.collStatus,
             SM_Check_Collection_Return_Reason__c = r.reasonShort,
-            SM_Return_code__c = r.returnCode,
             SM_Historical_Collection_Status__c = r.newHistorical
         );
+        // Ver la misma nota en update_check_collection.apex: no pisar con null un codigo de
+        // retorno real que Returns ya haya puesto (bug encontrado 2026-09-14, PY-01895480).
+        if (r.returnCode != null) {
+            toUpdate.SM_Return_code__c = r.returnCode;
+        }
         try {
             Database.SaveResult res = Database.update(toUpdate, false);
             if (res.isSuccess()) {
