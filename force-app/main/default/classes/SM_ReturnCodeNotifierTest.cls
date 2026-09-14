@@ -1,13 +1,12 @@
 /**
- * @description Coverage for SM_ReturnCodeNotifier - see that class for why R02 (ACCOUNT
- * CLOSED) and R10 (CUSTOMER ADVISES NOT AUTHORIZED) returns need their own standing report.
+ * @description Coverage for SM_ReturnCodeNotifier - see that class for why R02, R10,
+ * R04/R13, R07, and R16 returns each need their own standing report.
  * @author Carlos Alberto Lopez Prada
  */
 @IsTest
 public without sharing class SM_ReturnCodeNotifierTest {
 
-    private static final String CODE = 'R02';
-    private static final String LABEL = 'ACCOUNT CLOSED';
+    private static final String LABEL = 'R02 (ACCOUNT CLOSED)';
     private static final String EXPLANATION = 'la cuenta ya no existe.';
 
     @TestSetup
@@ -30,7 +29,7 @@ public without sharing class SM_ReturnCodeNotifierTest {
         codePayment.SM_Contract__r = ct;
 
         Test.startTest();
-            String report = SM_ReturnCodeNotifier.buildReport(new List<SM_Payment__c>{ codePayment }, new List<SM_Payment__c>(), CODE, LABEL, EXPLANATION);
+            String report = SM_ReturnCodeNotifier.buildReport(new List<SM_Payment__c>{ codePayment }, new List<SM_Payment__c>(), LABEL, EXPLANATION);
         Test.stopTest();
 
         System.assert(report.contains(ct.ContractNumber), 'The report should list the contract with the unresolved return code.');
@@ -49,7 +48,7 @@ public without sharing class SM_ReturnCodeNotifierTest {
         );
 
         Test.startTest();
-            String report = SM_ReturnCodeNotifier.buildReport(new List<SM_Payment__c>{ codePayment }, new List<SM_Payment__c>{ acceptedAfter }, CODE, LABEL, EXPLANATION);
+            String report = SM_ReturnCodeNotifier.buildReport(new List<SM_Payment__c>{ codePayment }, new List<SM_Payment__c>{ acceptedAfter }, LABEL, EXPLANATION);
         Test.stopTest();
 
         System.assert(report.contains('OJO'), 'A payment accepted after the return code should surface the recovery flag.');
@@ -63,7 +62,7 @@ public without sharing class SM_ReturnCodeNotifierTest {
         codePayment.SM_Contract__r = ct;
 
         Test.startTest();
-            String report = SM_ReturnCodeNotifier.buildReport(new List<SM_Payment__c>{ codePayment }, new List<SM_Payment__c>(), CODE, LABEL, EXPLANATION);
+            String report = SM_ReturnCodeNotifier.buildReport(new List<SM_Payment__c>{ codePayment }, new List<SM_Payment__c>(), LABEL, EXPLANATION);
         Test.stopTest();
 
         System.assert(!report.contains(ct.ContractNumber), 'A Cancelled contract is no longer actionable and should be excluded.');
@@ -83,5 +82,29 @@ public without sharing class SM_ReturnCodeNotifierTest {
             SM_ReturnCodeNotifier.sendR10Report();
         Test.stopTest();
         System.assert(true, 'sendR10Report should run end-to-end (live SOQL) without throwing.');
+    }
+
+    @IsTest
+    static void sendsInvalidAccountReportWithoutError() {
+        Test.startTest();
+            SM_ReturnCodeNotifier.sendInvalidAccountReport();
+        Test.stopTest();
+        System.assert(true, 'sendInvalidAccountReport (R04+R13) should run end-to-end (live SOQL) without throwing.');
+    }
+
+    @IsTest
+    static void sendsR07ReportWithoutError() {
+        Test.startTest();
+            SM_ReturnCodeNotifier.sendR07Report();
+        Test.stopTest();
+        System.assert(true, 'sendR07Report should run end-to-end (live SOQL) without throwing.');
+    }
+
+    @IsTest
+    static void sendsR16ReportWithoutError() {
+        Test.startTest();
+            SM_ReturnCodeNotifier.sendR16Report();
+        Test.stopTest();
+        System.assert(true, 'sendR16Report should run end-to-end (live SOQL) without throwing.');
     }
 }

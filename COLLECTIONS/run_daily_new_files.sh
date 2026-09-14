@@ -10,10 +10,12 @@ set -e
 #      Return primero, despues Collection, sin importar la fecha interna
 #      de cada fila (Rule 1: un archivo nuevo se procesa completo).
 #   3. Despues corre ACH Reportados (run_transmission_import.sh).
-#   4. En modo apply, manda 2 correos (notify_r02.apex y notify_r10.apex, ambos via
+#   4. En modo apply, manda 5 correos (notify_r02.apex, notify_r10.apex,
+#      notify_invalid_account.apex, notify_r07.apex, notify_r16.apex -- todos via
 #      SM_ReturnCodeNotifier.cls) con la lista actual de contratos con un ACH Return R02
-#      (cuenta cerrada) o R10 (cliente no autoriza el cobro) sin resolver -- ninguno de los
-#      2 se arregla reintentando el mismo metodo de pago.
+#      (cuenta cerrada), R10 (cliente no autoriza), R04/R13 (cuenta/routing invalido),
+#      R07 (autorizacion revocada), o R16 (cuenta congelada) sin resolver -- ninguno se
+#      arregla reintentando el mismo metodo de pago.
 #
 # Corte de 1 semana por archivo (no por fecha interna de la fila): un
 # archivo NUNCA antes visto pero con mas de 7 dias de antiguedad en disco
@@ -126,6 +128,36 @@ if [ "$MODE" = "apply" ]; then
     R10_EXIT=$?
     set -e
     [ $R10_EXIT -ne 0 ] && echo "AVISO: notify_r10.apex termino con codigo $R10_EXIT (revisar arriba)."
+
+    echo ""
+    echo "############################################################"
+    echo "# Notificacion: contratos con ACH Return R04/R13 (cuenta/routing invalido)"
+    echo "############################################################"
+    set +e
+    sf apex run -o MONEE -f "$SCRIPT_DIR/notify_invalid_account.apex"
+    INVALID_ACCT_EXIT=$?
+    set -e
+    [ $INVALID_ACCT_EXIT -ne 0 ] && echo "AVISO: notify_invalid_account.apex termino con codigo $INVALID_ACCT_EXIT (revisar arriba)."
+
+    echo ""
+    echo "############################################################"
+    echo "# Notificacion: contratos con ACH Return R07 (autorizacion revocada)"
+    echo "############################################################"
+    set +e
+    sf apex run -o MONEE -f "$SCRIPT_DIR/notify_r07.apex"
+    R07_EXIT=$?
+    set -e
+    [ $R07_EXIT -ne 0 ] && echo "AVISO: notify_r07.apex termino con codigo $R07_EXIT (revisar arriba)."
+
+    echo ""
+    echo "############################################################"
+    echo "# Notificacion: contratos con ACH Return R16 (cuenta congelada)"
+    echo "############################################################"
+    set +e
+    sf apex run -o MONEE -f "$SCRIPT_DIR/notify_r16.apex"
+    R16_EXIT=$?
+    set -e
+    [ $R16_EXIT -ne 0 ] && echo "AVISO: notify_r16.apex termino con codigo $R16_EXIT (revisar arriba)."
 fi
 
 if [ -s "$ARCHIVOS_VIEJOS_CSV" ]; then
