@@ -10,9 +10,10 @@ set -e
 #      Return primero, despues Collection, sin importar la fecha interna
 #      de cada fila (Rule 1: un archivo nuevo se procesa completo).
 #   3. Despues corre ACH Reportados (run_transmission_import.sh).
-#   4. En modo apply, manda un correo (notify_r02.apex / SM_ReturnCodeNotifier.cls) con la
-#      lista actual de contratos con un ACH Return R02 (cuenta cerrada) sin resolver -- no es
-#      NSF, reintentar no sirve, hace falta que el cliente actualice su metodo de pago.
+#   4. En modo apply, manda 2 correos (notify_r02.apex y notify_r10.apex, ambos via
+#      SM_ReturnCodeNotifier.cls) con la lista actual de contratos con un ACH Return R02
+#      (cuenta cerrada) o R10 (cliente no autoriza el cobro) sin resolver -- ninguno de los
+#      2 se arregla reintentando el mismo metodo de pago.
 #
 # Corte de 1 semana por archivo (no por fecha interna de la fila): un
 # archivo NUNCA antes visto pero con mas de 7 dias de antiguedad en disco
@@ -115,6 +116,16 @@ if [ "$MODE" = "apply" ]; then
     R02_EXIT=$?
     set -e
     [ $R02_EXIT -ne 0 ] && echo "AVISO: notify_r02.apex termino con codigo $R02_EXIT (revisar arriba)."
+
+    echo ""
+    echo "############################################################"
+    echo "# Notificacion: contratos con ACH Return R10 (cliente no autoriza)"
+    echo "############################################################"
+    set +e
+    sf apex run -o MONEE -f "$SCRIPT_DIR/notify_r10.apex"
+    R10_EXIT=$?
+    set -e
+    [ $R10_EXIT -ne 0 ] && echo "AVISO: notify_r10.apex termino con codigo $R10_EXIT (revisar arriba)."
 fi
 
 if [ -s "$ARCHIVOS_VIEJOS_CSV" ]; then
