@@ -22,7 +22,6 @@ cualquier sesión, **leer este archivo primero** en vez de reconstruir la respue
 
 | Desde | Tema | Qué falta | Bloqueado por / contexto |
 |---|---|---|---|
-| 2026-09-14 | Backfill de los 231 pagos "vivos" (contrato activo, pago sin éxito) que quedaron con `SM_Return_code__c` vacío por el bug ya corregido de `update_check_collection.apex` | De esos 231: 226 son R01/2 son R09 (no afectan las alertas, no urge). Solo **1 R02 y 1 R04** afectan directamente los conteos de los correos de hoy | Carlos no confirmó todavía si corregir los 231 completos o solo los 2 relevantes — sin tocar |
 | 2026-09-13 | Re-auditar el resto de los pagos `PENDING` de los **últimos 6 meses** (marzo-septiembre 2026, no incluye 2025) con la lógica de fecha corregida (parser de nombre de archivo, no orden de fila del CSV) | El cruce original puede tener más huecos como los 15 nuevos que aparecieron solo en el Grupo B — alcance real del backlog desconocido hasta re-correrlo | Carlos dijo que lo puede pedir después — no es urgente, pendiente que lo confirme |
 | 2026-09-13 | Horario del job "SM Contracts Activated Monitor - Daily" | Reprogramar el cron de `0 0 14 * * ?` a `0 0 13 * * ?` (sigue interpretándose en Europe/Madrid, el timezone personal de Carlos) cuando Madrid salga de horario de verano (~fin de octubre 2026) — si no, la corrida se corre 1 hora y deja de caer a las 8:00 AM Puerto Rico (PR no tiene DST) | Esperando la fecha del cambio de horario en España |
 | 2026-09-09 | Caso 06 informe general — lote `ADJ_AC_ERR_12AGO` | Decidir el mecanismo de reembolso de $4,382.47 (61 contratos cobrados de más) — reembolso directo, crédito al próximo ciclo, o ajuste contra próxima cuota | Decisión de negocio de Carlos |
@@ -43,6 +42,7 @@ cualquier sesión, **leer este archivo primero** en vez de reconstruir la respue
 
 | Fecha de cierre | Tema | Resultado |
 |---|---|---|
+| 2026-09-14 | Backfill de `SM_Return_code__c` vacíos (bug de `update_check_collection.apex`, ya corregido) | 230/230 pagos "vivos" corregidos — **solo** se tocó `SM_Return_code__c`, verificado que `Payment_Status__c`/`SM_Check_Collection_Status__c` quedaron intactos. 1 caso excluido a propósito (`PY-01870821`, código malformado "ROl" en el reporte original, no se adivinó). Incluye los 2 casos que afectaban los correos de hoy (`PY-01828923` R02, `PY-01828958` R04) |
 | 2026-09-14 | Contrato `00317534` — `ACH-27859` (mitad de AC + penalidad, $84.5) sin fecha de próxima transacción | Carlos lo activó directamente (paso de TC a ACH) — verificado en vivo, `SM_Next_Transaction_Date__c = 2026-07-06` ya está asignada |
 | 2026-09-14 | 5 contratos ACH con AC completo sin activar (`00317934, 00317935, 00317965, 00318211, 00318375`) | Verificados contra Payments reales, los 5 activados (`SM_AC_collected__c=true`, `Status=Activated`) y su Subscription Order creada automáticamente (`ACH-29537` a `ACH-29541`) — sin duplicados de orden AC. `00318211` reveló un doble cobro de AC real, ver fila de pendientes |
 | 2026-09-14 | `ACH-28192` (00309045) — posible cobro duplicado | Carlos lo revisó directamente y confirmó que está correcto ("OK") |
