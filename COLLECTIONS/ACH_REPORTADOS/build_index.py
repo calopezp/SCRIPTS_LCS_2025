@@ -23,6 +23,24 @@ Es incremental: cada archivo ya indexado (por nombre) se salta en corridas
 posteriores. Los Files de Salesforce tambien se descargan de forma
 incremental (solo los ContentVersion nuevos).
 
+Corte de 4 meses / año anterior por archivo NUEVO (instrucción explícita del
+usuario, 2026-09-15 -- mismo criterio que ya existía para Returns/Collection
+en build_index.py de COLLECTIONS/, ver NEW_FILE_MAX_AGE_DAYS ahí): un archivo
+nunca antes visto pero cuyo NOMBRE trae una fecha de más de
+NEW_FILE_MAX_AGE_DAYS días, o de un año anterior al actual, NO entra al
+delta de hoy (no se aplica solo en Salesforce) -- queda reportado en
+ARCHIVOS_VIEJOS_CSV para que el usuario decida aplicarlo manualmente
+(./run_transmission_import.sh "<ruta al csv>" apply, el modo de un solo
+archivo, que no filtra por fecha). Sí queda indexado en transmission_index.csv
+(no se pierde del histórico), solo no se transmite a Salesforce automático.
+
+Todo archivo nuevo examinado en la corrida (con registros, vacío, con error,
+o sin fecha reconocible en el nombre) se marca como "visto" en SCANNED_LOG_CSV
+para que nunca se vuelva a reportar cada día -- antes, un archivo vacío o sin
+fecha parseable no dejaba ningún rastro (no escribía fila en
+transmission_raw_log.csv) y por lo tanto se re-escaneaba y reportaba en la
+consola en TODAS las corridas futuras, para siempre.
+
 Uso:
     python build_index.py            # actualiza el índice (incremental)
     python build_index.py --rebuild  # borra el índice y reprocesa todo
@@ -31,6 +49,7 @@ Uso:
 import argparse
 import csv
 import importlib.util
+from datetime import date
 from pathlib import Path
 
 SCRIPT_DIR = Path(__file__).resolve().parent
@@ -38,6 +57,9 @@ INDEX_DIR = SCRIPT_DIR / "index"
 INDEX_CSV = INDEX_DIR / "transmission_index.csv"
 RAW_LOG_CSV = INDEX_DIR / "transmission_raw_log.csv"
 DELTA_CSV = INDEX_DIR / "last_run_delta.csv"
+SCANNED_LOG_CSV = INDEX_DIR / "scanned_files_log.csv"
+ARCHIVOS_VIEJOS_CSV = INDEX_DIR / "archivos_viejos_pendientes_confirmacion.csv"
+NEW_FILE_MAX_AGE_DAYS = 120  # ~4 meses
 
 SOURCE_DIR = Path(r"C:\OneDrive - LCS\COMPILADO COLLECTIONS\ACH Reportados")
 SF_FILES_DIR = SCRIPT_DIR / "sf_files"
@@ -58,11 +80,33 @@ extractor = _load_module("extract_ach_transmission", SCRIPT_DIR / "extract_ach_t
 sf_fetcher = _load_module("fetch_salesforce_files", SCRIPT_DIR / "fetch_salesforce_files.py")
 
 
-def _already_indexed(log_csv: Path) -> set:
-    if not log_csv.exists():
-        return set()
-    with log_csv.open(newline="", encoding="utf-8") as f:
-        return {row["Source_File"] for row in csv.DictReader(f)}
+def _already_indexed() -> set:
+    """Union de RAW_LOG_CSV (archivos con registros reales ya aplicados) y
+    SCANNED_LOG_CSV (archivos ya examinados sin importar el resultado -- vacíos,
+    con error, sin fecha reconocible, o viejos) -- cualquiera de los dos cuenta
+    como "ya visto", así ningún archivo se re-escanea para siempre."""
+    seen = set()
+    for log_csv in (RAW_LOG_CSV, SCANNED_LOG_CSV):
+        if not log_csv.exists():
+            continue
+        with log_csv.open(newline="", encoding="utf-8") as f:
+            seen |= {row["Source_File"] for row in csv.DictReader(f)}
+    return seen
+
+
+def _mark_scanned(entries, quiet=False):
+    """Registra archivos examinados en esta corrida que NO dejaron fila en
+    RAW_LOG_CSV (vacíos, con error, o sin fecha reconocible) -- sin esto,
+    _already_indexed() nunca los ve como "vistos" y se re-escanean cada día."""
+    if not entries:
+        return
+    write_header = not SCANNED_LOG_CSV.exists() or SCANNED_LOG_CSV.stat().st_size == 0
+    with SCANNED_LOG_CSV.open("a", newline="", encoding="utf-8") as f:
+        writer = csv.DictWriter(f, fieldnames=["Source_File", "Scanned_Date", "Reason"])
+        if write_header:
+            writer.writeheader()
+        for name, reason in entries:
+            writer.writerow({"Source_File": name, "Scanned_Date": date.today().isoformat(), "Reason": reason})
 
 
 def _sync_salesforce_files(quiet=False):
@@ -90,13 +134,13 @@ def _find_files():
 def update_index(rebuild=False, quiet=False):
     INDEX_DIR.mkdir(exist_ok=True)
     if rebuild:
-        for p in (INDEX_CSV, RAW_LOG_CSV, DELTA_CSV):
+        for p in (INDEX_CSV, RAW_LOG_CSV, DELTA_CSV, SCANNED_LOG_CSV, ARCHIVOS_VIEJOS_CSV):
             if p.exists():
                 p.unlink()
 
     _sync_salesforce_files(quiet=quiet)
 
-    seen = _already_indexed(RAW_LOG_CSV)
+    seen = _already_indexed()
     files = _find_files()
     new_files = [f for f in files if f.name not in seen]
 
@@ -110,33 +154,44 @@ def update_index(rebuild=False, quiet=False):
 
     write_header = not RAW_LOG_CSV.exists() or RAW_LOG_CSV.stat().st_size == 0
     total_new_rows = 0
-    skipped_files = []
+    skipped_files = []  # (name, reason) -- 0 registros, error, o sin fecha -- se marcan como vistos igual
+    old_files = []  # (name, age_days, row_count) -- vistos + indexados, pero NO entran al delta de hoy
     delta_rows = []
+    today = date.today()
 
     with RAW_LOG_CSV.open("a", newline="", encoding="utf-8") as f:
         writer = csv.DictWriter(f, fieldnames=RAW_FIELDNAMES)
         if write_header:
             writer.writeheader()
         for fp in new_files:
-            date = extractor.date_from_filename(fp)
-            if date is None:
+            date_str = extractor.date_from_filename(fp)
+            if date_str is None:
                 skipped_files.append((fp.name, "no se pudo determinar la fecha del nombre del archivo"))
                 continue
             try:
-                records = extractor.extract_records(str(fp), transmission_date=date)
+                records = extractor.extract_records(str(fp), transmission_date=date_str)
             except Exception as exc:
                 skipped_files.append((fp.name, f"error al leer: {exc}"))
                 continue
             if not records:
                 skipped_files.append((fp.name, "0 registros (vacío, feriado, o estructura distinta)"))
                 continue
+
+            file_date = date.fromisoformat(date_str)
+            age_days = (today - file_date).days
+            is_old = age_days > NEW_FILE_MAX_AGE_DAYS or file_date.year < today.year
+
             for r in records:
                 r["Source_File"] = fp.name
                 writer.writerow(r)
-                delta_rows.append(dict(r))
+                if not is_old:
+                    delta_rows.append(dict(r))
             total_new_rows += len(records)
             if not quiet:
                 print(f"  + {fp.name}: {len(records)} registro(s)")
+
+            if is_old:
+                old_files.append((fp.name, age_days, len(records)))
 
     if not quiet:
         print(f"Archivos nuevos procesados: {len(new_files)} -> {total_new_rows} fila(s) agregadas al log crudo.")
@@ -145,8 +200,33 @@ def update_index(rebuild=False, quiet=False):
             for name, reason in skipped_files:
                 print(f"    - {name}: {reason}")
 
+    _mark_scanned(skipped_files, quiet=quiet)
+    _write_old_files_report(old_files, quiet=quiet)
     _write_delta(delta_rows, quiet=quiet)
     _rebuild_deduped_index(quiet=quiet)
+
+
+def _write_old_files_report(old_files, quiet=False):
+    """Archivos nuevos (nunca antes indexados) con más de NEW_FILE_MAX_AGE_DAYS
+    días de antigüedad (o de un año anterior) según la fecha que trae el
+    NOMBRE del archivo. Ya quedaron indexados en RAW_LOG_CSV/INDEX_CSV (no se
+    pierden del histórico), pero sus payments NO entraron al delta de hoy --
+    se sobreescribe cada corrida (refleja solo lo encontrado en ESTA corrida,
+    igual que DELTA_CSV)."""
+    if ARCHIVOS_VIEJOS_CSV.exists():
+        ARCHIVOS_VIEJOS_CSV.unlink()
+    if not old_files:
+        return
+    with ARCHIVOS_VIEJOS_CSV.open("w", newline="", encoding="utf-8") as f:
+        writer = csv.writer(f)
+        writer.writerow(["Source_File", "Antiguedad_Dias", "Filas"])
+        for name, age_days, count in old_files:
+            writer.writerow([name, age_days, count])
+    if not quiet:
+        print(f"  AVISO: {len(old_files)} archivo(s) nuevo(s) pero de MAS DE {NEW_FILE_MAX_AGE_DAYS} DIAS (o de un año anterior)")
+        print(f"  -> indexados, pero NO incluidos en el delta de hoy -> {ARCHIVOS_VIEJOS_CSV}")
+        for name, age_days, count in old_files:
+            print(f"     - {name} ({age_days} dias, {count} fila(s)) -- procesar manual si corresponde: ./run_transmission_import.sh \"<ruta>\" apply")
 
 
 def _write_delta(delta_rows, quiet=False):
