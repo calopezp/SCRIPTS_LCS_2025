@@ -52,14 +52,13 @@ public without sharing class SM_LateFeeReconciliationHandler extends SM_TriggerH
             return;
         }
 
-        String today = Date.today().format();
         for (SM_ACH_Order__c lateFee : staleLateFees) {
-            String note = 'Cancelado por pago de Cobro original - ' + lateFee.SM_Failed_payment__r.Name + ' COLLECTED ' + today;
             lateFee.SM_Payment_Status__c = 'Canceled';
             lateFee.SM_Next_Transaction_Date__c = null;
-            lateFee.SM_Id_Salesforce_LCS__c = String.isBlank(lateFee.SM_Id_Salesforce_LCS__c)
-                ? note
-                : note + ' // ' + lateFee.SM_Id_Salesforce_LCS__c;
+            lateFee.SM_Id_Salesforce_LCS__c = SM_AutomationLogHelper.appendNote(
+                lateFee.SM_Id_Salesforce_LCS__c, 'SM_LateFeeReconciliationHandler',
+                'Cancelado por pago de Cobro original ' + lateFee.SM_Failed_payment__r.Name + ' COLLECTED'
+            );
         }
 
         SM_BypassManager.disableValidationRules();

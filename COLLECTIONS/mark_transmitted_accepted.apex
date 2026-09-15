@@ -13,8 +13,15 @@
  * y se marcan ACCEPTED/COLLECTED, con los mismos campos que se
  * registrarian si el banco hubiera confirmado el cobro.
  *
+ * Regla de negocio confirmada por Comercial (2026-09-14): mientras un
+ * pago no aparezca en los reportes de RETURN/COLLECTION y hayan pasado
+ * mas de 15 dias, se reporta como cobrado. Validado ese mismo dia
+ * contra los 255 pagos ya marcados por este mecanismo ($28,449.82) --
+ * ninguno se marco con menos de 15 dias reales transcurridos, el
+ * mecanismo esta funcionando como se espera.
+ *
  * PRE-REQUISITO: correr primero el import de Returns/Collection del
- * dia (run_all_imports.sh apply, o run_import_return.sh /
+ * dia (run_daily_new_files.sh apply, o run_import_return.sh /
  * run_import_collection.sh) para que cualquier reporte real que SI
  * llego ya este aplicado -- este script solo mira el estado ACTUAL en
  * Salesforce, no escanea PDFs.

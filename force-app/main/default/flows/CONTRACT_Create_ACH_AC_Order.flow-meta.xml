@@ -166,6 +166,11 @@
         <expression>IF(ISBLANK({!sf_Contract.SM_AC_Split_Date__c}), {!sf_Contract.SM_Net_AC__c}, {!sf_Contract.SM_Net_AC__c} / 2)</expression>
         <scale>2</scale>
     </formulas>
+    <formulas>
+        <name>AutomationNote</name>
+        <dataType>String</dataType>
+        <expression>"AUTO: CONTRACT_Create_ACH_AC_Order - Orden AC creada - " &amp; TEXT(TODAY())</expression>
+    </formulas>
     <interviewLabel>CONTRACT: {!$Flow.CurrentDateTime}</interviewLabel>
     <label>CONTRACT: Create ACH AC Order</label>
     <processMetadataValues>
@@ -217,6 +222,12 @@
             <field>SM_Fee_to_collect__c</field>
             <value>
                 <numberValue>1.0</numberValue>
+            </value>
+        </inputAssignments>
+        <inputAssignments>
+            <field>SM_Id_Salesforce_LCS__c</field>
+            <value>
+                <elementReference>AutomationNote</elementReference>
             </value>
         </inputAssignments>
         <inputAssignments>
@@ -315,6 +326,12 @@
             <field>SM_Fee_to_collect__c</field>
             <value>
                 <numberValue>1.0</numberValue>
+            </value>
+        </inputAssignments>
+        <inputAssignments>
+            <field>SM_Id_Salesforce_LCS__c</field>
+            <value>
+                <elementReference>AutomationNote</elementReference>
             </value>
         </inputAssignments>
         <inputAssignments>

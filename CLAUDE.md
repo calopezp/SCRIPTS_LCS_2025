@@ -48,6 +48,22 @@ Este archivo es la **fuente de verdad compartida entre las dos máquinas** del u
   local a cada máquina. Preferirla sobre el scratchpad de sesión (`~/.claude/.../scratchpad/`) para
   cualquier archivo que Carlos vaya a necesitar encontrar después en VS Code/el disco — el scratchpad
   vive en una ruta temporal por sesión, difícil de ubicar.
+- **Toda automatización nueva (trigger/handler Apex o Flow) que modifique `SM_Payment__c`,
+  `SM_ACH_Order__c` o `Contract` debe dejar una marca identificable en `SM_Id_Salesforce_LCS__c`**
+  (campo "ANOTACIONES", existe en los 3 objetos) usando el formato
+  `"AUTO: <NombreDelProceso> - <qué hizo> - <fecha>"`, preservando siempre el valor anterior
+  (append con `" // "`, nunca pisar). Razón (confirmado 2026-09-14): todo — tus clics manuales, los
+  jobs programados, y lo que corre `sf` CLI/Claude Code — queda con la misma identidad de usuario
+  (`clopez@legal-credit.com`) en `LastModifiedById`, así que sin una marca de texto es imposible
+  distinguir después qué proceso tocó un registro (caso real: 2 `SM_ACH_Order__c` nuevas aparecieron
+  en el contrato `00317929` sin que ningún job programado ni acción conocida las explicara). Patrón
+  ya usado antes de esta regla por `COLLECTIONS/COLLECTIONS/update_check_collection.apex`
+  (`"PRC_AUT: <STATUS> //"` en `SM_Historical_Collection_Status__c`). Apex: usar el helper
+  `SM_AutomationLogHelper.appendNote(existingValue, processName, action)`. Flow: fórmula de texto
+  con `TEXT(TODAY())`, envuelta en `LEFT(..., 255)` (o 200 si el campo es de `SM_ACH_Order__c`, que
+  tiene el límite más corto). Ya aplicado a `SM_ACPaymentActivationHandler`,
+  `SM_LateFeeReconciliationHandler`, y los 3 flows de ACH (`PAYMENT_Accumulate_AC_On_Contract`,
+  `CONTRACT_Create_ACH_AC_Order`, `CONTRACT_Create_ACH_Subscription_Order`).
 
 ---
 

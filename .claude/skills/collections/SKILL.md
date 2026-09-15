@@ -18,7 +18,7 @@ Org de Salesforce: siempre **MONEE** (producción) vía `sf` CLI (`sf data query
 | **ACH Reportados / Transmission** | `COLLECTIONS/ACH_REPORTADOS/` | CSV `ACH_YYYYMMDD*.csv` (OneDrive) + `ContentVersion` "ACH%" subidos a Salesforce | Qué payments fueron transmitidos al banco y cuándo (no si se cobraron) |
 
 Cada uno tiene su propio `build_index.py`/parser/`.apex`/`run_*.sh`. **Comandos de uso diario (ver `CLAUDE.md` sección 2 para el detalle completo y las reglas de negocio detrás):**
-- `./run_daily_new_files.sh apply` — uso diario normal, los 3 pipelines en un paso, solo archivos nunca antes indexados.
+- `./run_daily_new_files.sh apply` — uso diario normal, los 3 pipelines en un paso, solo archivos nunca antes indexados. En modo `apply` también dispara 5 notificaciones de return codes (ver sección 4 abajo).
 - `./run_daily_catchup.sh apply` (o `CONFIRM_OLD=1 ./run_daily_catchup.sh apply` para más de 2 meses atrás) — reprocesa a propósito histórico ya indexado.
 - `run_all_imports.sh` quedó **reemplazado** por los dos anteriores — no usarlo más, se deja en el repo solo por referencia histórica.
 
@@ -31,7 +31,12 @@ COLLECTIONS/
 ├── build_daily_apply_plan.py   # usado por run_daily_catchup.sh: lista fechas pendientes del índice y arma el CSV por fecha especifica
 ├── buscar_payment.py           # diagnóstico: 1 o más PY-xxxxx → estado en vivo (SOQL) + los 3 índices históricos
 ├── mark_transmitted_accepted.apex   # manual: acepta payments transmitidos 15+ días sin reporte
-├── run_daily_new_files.sh      # COMANDO DIARIO -- los 3 pipelines, solo archivos nunca antes indexados (ver CLAUDE.md sección 2)
+├── notify_r02.apex              # correo con contratos que tienen ACH Return R02 (cuenta cerrada) sin resolver -- ver SM_ReturnCodeNotifier.cls, sección 5
+├── notify_r10.apex              # igual pero para R10 (cliente no autoriza el cobro) -- misma clase, ver sección 5
+├── notify_invalid_account.apex  # igual pero para R04+R13 (cuenta/routing invalido, un solo reporte combinado) -- misma clase, ver sección 5
+├── notify_r07.apex              # igual pero para R07 (autorizacion revocada, no un cargo puntual disputado como R10) -- misma clase, ver sección 5
+├── notify_r16.apex              # igual pero para R16 (cuenta congelada, usualmente orden legal) -- misma clase, ver sección 5
+├── run_daily_new_files.sh      # COMANDO DIARIO -- los 3 pipelines + 5 notify_*.apex en modo apply, solo archivos nunca antes indexados (ver CLAUDE.md sección 2)
 ├── run_daily_catchup.sh        # reprocesa histórico ya indexado, día por día, con gate de 2 meses (CONFIRM_OLD=1)
 ├── run_all_imports.sh          # REEMPLAZADO por los 2 de arriba -- no usar, referencia histórica
 ├── index/
@@ -86,6 +91,7 @@ Todos: `DRY_RUN=true` por default, comparan contra el estado ACTUAL de `SM_Payme
   - Cada cambio real deja rastro en `SM_Historical_Collection_Status__c` con prefijo `"PRC_AUT: <STATUS> //"` (Text(150), se trunca desde el final si no cabe).
 - **`mark_transmitted_accepted.apex`**: marca `ACCEPTED`/`COLLECTED` los payments en `Payment_Status__c='ACH TRANSMITTED'` con `SM_Transmission_Date_ACH_File__c` de 15+ días (`DAYS_SINCE_TRANSMITTED`) y sin ningún reporte (`SM_Check_Collection_Status__c = null`). Historial: `"PRC_AUT_15D_SIN_REPORTE: ACCEPTED //"`. **Es manual y deliberadamente NO está en `run_all_imports.sh`** (decisión explícita documentada en el propio script) — requiere correr antes el import diario de Returns/Collection.
 - **`update_transmission_date.apex`**: solo llena `SM_Transmission_Date_ACH_File__c` por `Payment_Name`, sin comparar estado. Aborta si el CSV trae >9000 filas.
+- **`notify_r02.apex` / `notify_r10.apex` / `notify_invalid_account.apex` / `notify_r07.apex` / `notify_r16.apex`** (nuevos 2026-09-14): invocan `SM_ReturnCodeNotifier.sendR02Report()` / `.sendR10Report()` / `.sendInvalidAccountReport()` / `.sendR07Report()` / `.sendR16Report()` — correo con contratos activos que tienen un `SM_Payment__c.SM_Return_code__c` en `R02` (ACCOUNT CLOSED), `R10` (CUSTOMER ADVISES NOT AUTHORIZED), `R04`/`R13` (número de cuenta/routing inválido, un solo reporte combinado), `R07` (autorización revocada permanentemente — no un cargo puntual disputado como R10) o `R16` (cuenta congelada, usualmente orden legal) sin resolver. Ninguno se arregla reintentando el mismo método de pago. Excluye contratos `Cancelled`/`Finalized`/`SM_Customer_Cancellation__c=true`; marca "OJO" si hubo un pago `ACCEPTED` después del último return (posible ya resuelto). Se disparan solo en modo `apply` de `run_daily_new_files.sh`. Distinto del CSV de R10 para Comercial (`CheckCollectionImport_R10_ClienteSolicitoDevolucion.csv`, generado por `extract_check_collection.py` por corrida) — ese es seguimiento comercial puntual, este es un correo acumulativo del estado actual en Salesforce. **R01/R09 (NSF, se resuelve solo reintentando) y R08 (pago detenido — puede ser puntual) quedaron deliberadamente fuera**, ver `BITACORA_HALLAZGOS_TECNICOS.md` para el detalle completo del análisis de los 24 códigos.
 
 ## 5. Clases Apex de negocio relacionadas (fuera de `COLLECTIONS/`)
 
