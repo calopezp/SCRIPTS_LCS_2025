@@ -1,0 +1,491 @@
+Compiled successfully.
+Executed successfully.
+
+67.0 APEX_CODE,DEBUG;APEX_PROFILING,INFO
+Execute Anonymous: /*
+Execute Anonymous:  * update_ach_returns.apex
+Execute Anonymous:  * -----------------------
+Execute Anonymous:  * Ejecutar como Anonymous Apex (VS Code + SFDX CLI: "SFDX: Execute Anonymous Apex").
+Execute Anonymous:  *
+Execute Anonymous:  * PRE-REQUISITO:
+Execute Anonymous:  *   1. Generar el CSV con extract_ach_returns.py
+Execute Anonymous:  *   2. Copiarlo a: force-app/main/default/staticresources/ACHReturnsImport.csv
+Execute Anonymous:  *   3. Crear el meta file: force-app/main/default/staticresources/ACHReturnsImport.resource-meta.xml
+Execute Anonymous:  *        <?xml version="1.0" encoding="UTF-8"?>
+Execute Anonymous:  *        <StaticResource xmlns="http://soap.sforce.com/2006/04/metadata">
+Execute Anonymous:  *            <cacheControl>Private</cacheControl>
+Execute Anonymous:  *            <contentType>text/csv</contentType>
+Execute Anonymous:  *        </StaticResource>
+Execute Anonymous:  *   4. Deploy: sf project deploy start -m StaticResource:ACHReturnsImport
+Execute Anonymous:  *
+Execute Anonymous:  * MODO DE USO:
+Execute Anonymous:  *   - Corre primero con DRY_RUN = true  -> solo imprime el preview, NO actualiza nada.
+Execute Anonymous:  *   - Revisa el debug log completo.
+Execute Anonymous:  *   - Si todo esta correcto, cambia DRY_RUN a false y corre de nuevo -> aplica el UPDATE real.
+Execute Anonymous:  *
+Execute Anonymous:  * Antes de armar el update, compara cada fila del CSV contra el estado
+Execute Anonymous:  * ACTUAL del Payment en Salesforce -- si ya coincide en todos los campos,
+Execute Anonymous:  * se salta (no se re-aplica). Asi el CSV puede traer el historico completo
+Execute Anonymous:  * de un mes (no solo lo nuevo de hoy) sin re-tocar lo que ya quedo bien.
+Execute Anonymous:  *
+Execute Anonymous:  * Cada vez que un Payment SI cambia (no para los que se saltan por ya
+Execute Anonymous:  * estar aplicados), se antepone una marca al campo
+Execute Anonymous:  * SM_Historical_Collection_Status__c: "PRC_AUT: <STATUS> //" + lo que ya
+Execute Anonymous:  * habia (se conserva el historico, nunca se pisa). El campo es Text(150),
+Execute Anonymous:  * asi que si no alcanza se trunca desde el final (se pierde el historico
+Execute Anonymous:  * mas viejo, se conserva siempre lo mas reciente).
+Execute Anonymous:  */
+Execute Anonymous: 
+Execute Anonymous: // ============ CONFIGURACION ============
+Execute Anonymous: Boolean DRY_RUN = true; // <-- cambiar a false para ejecutar el update real
+Execute Anonymous: String STATIC_RESOURCE_NAME = 'ACHReturnsImport';
+Execute Anonymous: Integer HISTORICAL_MAX_LENGTH = 150; // Text(150) -- SM_Historical_Collection_Status__c
+Execute Anonymous: // ========================================
+Execute Anonymous: 
+Execute Anonymous: System.debug(' -> ======================================================');
+Execute Anonymous: System.debug(' -> MODO: ' + (DRY_RUN ? 'DRY RUN (solo preview, sin cambios)' : 'EJECUCION REAL (se va a actualizar)'));
+Execute Anonymous: System.debug(' -> ======================================================');
+Execute Anonymous: 
+Execute Anonymous: // 1) Leer el Static Resource (CSV generado por el script Python)
+Execute Anonymous: StaticResource sr = [
+Execute Anonymous:     SELECT Body
+Execute Anonymous:     FROM StaticResource
+Execute Anonymous:     WHERE Name = :STATIC_RESOURCE_NAME
+Execute Anonymous:     LIMIT 1
+Execute Anonymous: ];
+Execute Anonymous: String csvBody = sr.Body.toString();
+Execute Anonymous: 
+Execute Anonymous: // 2) Parsear el CSV (sin comas dentro de los valores, asi que split simple es seguro)
+Execute Anonymous: List<String> lines = csvBody.split('\r\n');
+Execute Anonymous: if (lines.size() == 1) {
+Execute Anonymous:     lines = csvBody.split('\n'); // por si el line ending viene distinto
+Execute Anonymous: }
+Execute Anonymous: 
+Execute Anonymous: List<String> headers = lines[0].split(',');
+Execute Anonymous: Integer idxPaymentName   = headers.indexOf('Payment_Name');
+Execute Anonymous: Integer idxStatus        = headers.indexOf('Payment_Status__c');
+Execute Anonymous: Integer idxCollDate      = headers.indexOf('SM_Check_Collection_Date__c');
+Execute Anonymous: Integer idxColl          = headers.indexOf('SM_Check_Collection__c');
+Execute Anonymous: Integer idxCollStatus    = headers.indexOf('SM_Check_Collection_Status__c');
+Execute Anonymous: Integer idxReturnCode    = headers.indexOf('SM_Return_code__c');
+Execute Anonymous: Integer idxReturnChange  = headers.indexOf('SM_Return_Change__c');
+Execute Anonymous: 
+Execute Anonymous: // Wrapper para llevar la data parseada + el resultado del match
+Execute Anonymous: class RowData {
+Execute Anonymous:     String paymentName;
+Execute Anonymous:     String status;
+Execute Anonymous:     Date collDate;
+Execute Anonymous:     Boolean coll;
+Execute Anonymous:     String collStatus;
+Execute Anonymous:     String returnCode;
+Execute Anonymous:     String returnChange;
+Execute Anonymous:     Id matchedPaymentId;
+Execute Anonymous:     Id achOrderId;
+Execute Anonymous:     String contractNumber;
+Execute Anonymous:     String newHistorical;
+Execute Anonymous: }
+Execute Anonymous: 
+Execute Anonymous: List<RowData> rows = new List<RowData>();
+Execute Anonymous: Set<String> paymentNames = new Set<String>();
+Execute Anonymous: List<String> malformedRows = new List<String>();
+Execute Anonymous: 
+Execute Anonymous: for (Integer i = 1; i < lines.size(); i++) {
+Execute Anonymous:     if (String.isBlank(lines[i])) { continue; }
+Execute Anonymous:     List<String> cols = lines[i].split(',');
+Execute Anonymous: 
+Execute Anonymous:     // Una fila con un valor que no parsea (ej. fecha vacia -- caso raro de
+Execute Anonymous:     // extraccion en el PDF de origen) no debe tumbar el batch completo: se
+Execute Anonymous:     // salta y se reporta, no se aborta la ejecucion.
+Execute Anonymous:     try {
+Execute Anonymous:         RowData r = new RowData();
+Execute Anonymous:         r.paymentName  = cols[idxPaymentName].trim();
+Execute Anonymous:         r.status       = cols[idxStatus].trim();
+Execute Anonymous:         r.collDate     = Date.valueOf(cols[idxCollDate].trim());
+Execute Anonymous:         r.coll         = Boolean.valueOf(cols[idxColl].trim());
+Execute Anonymous:         r.collStatus   = cols[idxCollStatus].trim();
+Execute Anonymous:         r.returnCode   = cols[idxReturnCode].trim();
+Execute Anonymous:         r.returnChange = idxReturnChange < cols.size() ? cols[idxReturnChange].trim() : '';
+Execute Anonymous: 
+Execute Anonymous:         rows.add(r);
+Execute Anonymous:         paymentNames.add(r.paymentName);
+Execute Anonymous:     } catch (Exception ex) {
+Execute Anonymous:         String badName = cols.size() > idxPaymentName ? cols[idxPaymentName].trim() : '(fila ' + i + ')';
+Execute Anonymous:         malformedRows.add(badName + ' (' + ex.getMessage() + ')');
+Execute Anonymous:     }
+Execute Anonymous: }
+Execute Anonymous: 
+Execute Anonymous: System.debug(' -> Total filas leidas del CSV: ' + rows.size());
+Execute Anonymous: 
+Execute Anonymous: // 3) Buscar los registros SM_Payment__c que hagan match por Name (trayendo
+Execute Anonymous: // tambien el estado ACTUAL de los campos que vamos a actualizar, para poder
+Execute Anonymous: // comparar contra el target del CSV).
+Execute Anonymous: Map<String, SM_Payment__c> paymentByName = new Map<String, SM_Payment__c>();
+Execute Anonymous: for (SM_Payment__c p : [
+Execute Anonymous:     SELECT Id, Name, SM_ACH_Order__c, Payment_Status__c, SM_Check_Collection_Date__c,
+Execute Anonymous:            SM_Check_Collection__c, SM_Check_Collection_Status__c, SM_Return_code__c, SM_Return_Change__c,
+Execute Anonymous:            SM_Historical_Collection_Status__c, SM_Contract__r.ContractNumber, SM_Contract__r.Status
+Execute Anonymous:     FROM SM_Payment__c
+Execute Anonymous:     WHERE Name IN :paymentNames
+Execute Anonymous: ]) {
+Execute Anonymous:     paymentByName.put(p.Name, p);
+Execute Anonymous: }
+Execute Anonymous: 
+Execute Anonymous: // 3b) Para los candidatos de contrato Cancelado con Payment_Status__c
+Execute Anonymous: // cambiando (ver nota mas abajo), averiguar si su ACH Order tiene OTRO
+Execute Anonymous: // Payment (distinto a este) todavia "ACH TRANSMITTED" -- solo eso es un
+Execute Anonymous: // riesgo real de tumbar la oleada. Si el UNICO "ACH TRANSMITTED" de esa
+Execute Anonymous: // orden es el propio registro que se esta actualizando, al aplicarse deja
+Execute Anonymous: // de estarlo, asi que no hay conflicto real (confirmado 2026-09-08: 4 de
+Execute Anonymous: // 5 casos bloqueados el dia anterior eran falsos positivos por esto).
+Execute Anonymous: Set<Id> cancelledCandidateAchOrderIds = new Set<Id>();
+Execute Anonymous: for (RowData r : rows) {
+Execute Anonymous:     SM_Payment__c m = paymentByName.get(r.paymentName);
+Execute Anonymous:     if (m != null && m.SM_Contract__r != null && m.SM_Contract__r.Status == 'Cancelled' && m.Payment_Status__c != r.status && m.SM_ACH_Order__c != null) {
+Execute Anonymous:         cancelledCandidateAchOrderIds.add(m.SM_ACH_Order__c);
+Execute Anonymous:     }
+Execute Anonymous: }
+Execute Anonymous: Map<Id, Set<Id>> achTransmittedPaymentIdsByOrder = new Map<Id, Set<Id>>();
+Execute Anonymous: if (!cancelledCandidateAchOrderIds.isEmpty()) {
+Execute Anonymous:     for (SM_Payment__c p : [
+Execute Anonymous:         SELECT Id, SM_ACH_Order__c
+Execute Anonymous:         FROM SM_Payment__c
+Execute Anonymous:         WHERE SM_ACH_Order__c IN :cancelledCandidateAchOrderIds
+Execute Anonymous:         AND Payment_Status__c = 'ACH TRANSMITTED'
+Execute Anonymous:     ]) {
+Execute Anonymous:         if (!achTransmittedPaymentIdsByOrder.containsKey(p.SM_ACH_Order__c)) {
+Execute Anonymous:             achTransmittedPaymentIdsByOrder.put(p.SM_ACH_Order__c, new Set<Id>());
+Execute Anonymous:         }
+Execute Anonymous:         achTransmittedPaymentIdsByOrder.get(p.SM_ACH_Order__c).add(p.Id);
+Execute Anonymous:     }
+Execute Anonymous: }
+Execute Anonymous: 
+Execute Anonymous: // 4) Separar: sin match / descartado por fuera de orden / ya aplicado (no
+Execute Anonymous: // necesita cambios) / bloqueado por regresion (COLLECTED/ACCEPTED -> RETURN,
+Execute Anonymous: // nunca automatico) / bloqueado por contrato Cancelado (ver nota antes de la
+Execute Anonymous: // oleada 6) / pendiente de aplicar. Los reportes oficiales siempre priman --
+Execute Anonymous: // no hay bucket de "superado por evento mas reciente" (ver nota mas abajo).
+Execute Anonymous: List<RowData> matchedRows = new List<RowData>();
+Execute Anonymous: List<RowData> alreadyAppliedRows = new List<RowData>();
+Execute Anonymous: List<RowData> regressionBlockedRows = new List<RowData>();
+Execute Anonymous: List<RowData> cancelledContractBlockedRows = new List<RowData>();
+Execute Anonymous: List<RowData> staleRows = new List<RowData>();
+Execute Anonymous: List<String> notFound = new List<String>();
+Execute Anonymous: 
+Execute Anonymous: for (RowData r : rows) {
+Execute Anonymous:     SM_Payment__c match = paymentByName.get(r.paymentName);
+Execute Anonymous:     if (match == null) {
+Execute Anonymous:         notFound.add(r.paymentName);
+Execute Anonymous:         continue;
+Execute Anonymous:     }
+Execute Anonymous:     r.matchedPaymentId = match.Id;
+Execute Anonymous:     r.achOrderId = match.SM_ACH_Order__c;
+Execute Anonymous:     r.contractNumber = match.SM_Contract__r != null ? match.SM_Contract__r.ContractNumber : null;
+Execute Anonymous: 
+Execute Anonymous:     // Guard por fecha: si ya hay guardado un reporte MAS RECIENTE que este
+Execute Anonymous:     // (ej. un catch-up de atraso procesando fechas viejas fuera de orden, o
+Execute Anonymous:     // un PDF que llego tarde), esta fila NUNCA pisa lo que ya esta -- sin
+Execute Anonymous:     // esto, aplicar el historico completo en desorden podria hacer que un
+Execute Anonymous:     // Return viejo revierta un Check Collection mas nuevo (o viceversa)
+Execute Anonymous:     // solo porque se proceso despues. No es lo mismo que el guard de
+Execute Anonymous:     // regresion de abajo (ese bloquea COLLECTED/ACCEPTED->RETURN SIN
+Execute Anonymous:     // IMPORTAR FECHAS, por ser un estado de exito que requiere revision
+Execute Anonymous:     // manual); este es mas general y aplica a cualquier combinacion de
+Execute Anonymous:     // estados.
+Execute Anonymous:     if (match.SM_Check_Collection_Date__c != null && r.collDate < match.SM_Check_Collection_Date__c) {
+Execute Anonymous:         staleRows.add(r);
+Execute Anonymous:         continue;
+Execute Anonymous:     }
+Execute Anonymous: 
+Execute Anonymous:     String currentChange = match.SM_Return_Change__c == null ? '' : match.SM_Return_Change__c;
+Execute Anonymous:     String targetChange = r.returnChange == null ? '' : r.returnChange;
+Execute Anonymous: 
+Execute Anonymous:     Boolean alreadyApplied =
+Execute Anonymous:         match.Payment_Status__c == r.status &&
+Execute Anonymous:         match.SM_Check_Collection_Date__c == r.collDate &&
+Execute Anonymous:         match.SM_Check_Collection__c == r.coll &&
+Execute Anonymous:         match.SM_Check_Collection_Status__c == r.collStatus &&
+Execute Anonymous:         match.SM_Return_code__c == r.returnCode &&
+Execute Anonymous:         currentChange == targetChange;
+Execute Anonymous: 
+Execute Anonymous:     if (alreadyApplied) {
+Execute Anonymous:         alreadyAppliedRows.add(r);
+Execute Anonymous:         continue;
+Execute Anonymous:     }
+Execute Anonymous: 
+Execute Anonymous:     // Un pago de un contrato Cancelado cuyo Payment_Status__c va a cambiar
+Execute Anonymous:     // (ACCEPTED/REJECTED) dispara en SM_PaymentHandler.updateRelatedRecordsByPaymentStatusUpdates
+Execute Anonymous:     // un intento de marcar SU ACH Order relacionada como Canceled. Ese
+Execute Anonymous:     // metodo agrupa TODAS las ACH Orders de la oleada completa en un solo
+Execute Anonymous:     // Database.update() (sin allOrNone=false) -- si ESA orden en particular
+Execute Anonymous:     // tiene OTRO Payment (distinto a este) todavia "ACH TRANSMITTED"
+Execute Anonymous:     // (validation rule "You cannot cancel ACH order if you have any
+Execute Anonymous:     // Payment in Pending status transmitted"), tumba TODA la oleada, no
+Execute Anonymous:     // solo este registro (bug real detectado 2026-09-07 en
+Execute Anonymous:     // update_check_collection.apex: ACH-27553 / contrato 00317537 tumbo
+Execute Anonymous:     // los 161 pagos de la oleada completa; misma logica vulnerable aca).
+Execute Anonymous:     // Si el UNICO "ACH TRANSMITTED" de esa orden es el propio registro que
+Execute Anonymous:     // se esta actualizando, no hay conflicto real (al aplicarse deja de
+Execute Anonymous:     // estarlo) y se deja pasar normal. Probar a reintentar registro por
+Execute Anonymous:     // registro despues de que el trigger falle demostro ser poco confiable
+Execute Anonymous:     // (comportamiento inconsistente de la transaccion en Salesforce), asi
+Execute Anonymous:     // que en vez de eso este caso se detecta ANTES del DML y se separa para
+Execute Anonymous:     // revision manual -- igual que el guard de regresion de arriba.
+Execute Anonymous:     Boolean paymentStatusChanging = match.Payment_Status__c != r.status;
+Execute Anonymous:     Boolean contractCancelled = match.SM_Contract__r != null && match.SM_Contract__r.Status == 'Cancelled';
+Execute Anonymous:     if (contractCancelled && paymentStatusChanging) {
+Execute Anonymous:         Set<Id> stuckIds = achTransmittedPaymentIdsByOrder.get(match.SM_ACH_Order__c);
+Execute Anonymous:         Boolean hasOtherStuckSibling = stuckIds != null && (stuckIds.size() > 1 || !stuckIds.contains(match.Id));
+Execute Anonymous:         if (hasOtherStuckSibling) {
+Execute Anonymous:             cancelledContractBlockedRows.add(r);
+Execute Anonymous:             continue;
+Execute Anonymous:         }
+Execute Anonymous:     }
+Execute Anonymous: 
+Execute Anonymous:     // Un pago que ya esta COLLECTED/ACCEPTED nunca se revierte
+Execute Anonymous:     // automaticamente a RETURN/NOT_COLLECTED/PENDING -- sin importar
+Execute Anonymous:     // fechas, eso siempre queda para revision manual (regla de negocio
+Execute Anonymous:     // explicita). PENDING se agrego 2026-09-08 al ver el historico
+Execute Anonymous:     // completo (sin ventana de 45 dias): pagos ya COLLECTED por una via
+Execute Anonymous:     // que no quedo registrada en el indice local (reporte previo a que
+Execute Anonymous:     // existiera build_index.py, o correccion manual) se recalculaban
+Execute Anonymous:     // como "PENDING" (el ultimo estado que el indice SI conoce) y se
+Execute Anonymous:     // hubieran revertido sin este guard.
+Execute Anonymous:     // EXCEPCION: si ese COLLECTED/ACCEPTED viene de
+Execute Anonymous:     // mark_transmitted_accepted.apex (marca "...D_SIN_REPORTE:" al frente
+Execute Anonymous:     // del historico -- ver ese script), no es un cobro confirmado por el
+Execute Anonymous:     // banco, es solo una aceptacion por defecto tras N dias sin reporte.
+Execute Anonymous:     // Los reportes de Returns/Collection SIEMPRE priman sobre esa
+Execute Anonymous:     // aceptacion por defecto, asi que en ese caso SI se deja corregir.
+Execute Anonymous:     String latestHistoricalTag = match.SM_Historical_Collection_Status__c == null
+Execute Anonymous:         ? '' : match.SM_Historical_Collection_Status__c.split('//', 2)[0];
+Execute Anonymous:     Boolean acceptedByTimeoutRoutine = latestHistoricalTag.contains('D_SIN_REPORTE:');
+Execute Anonymous: 
+Execute Anonymous:     Boolean isCurrentlySuccess =
+Execute Anonymous:         (match.Payment_Status__c == 'ACCEPTED' || match.SM_Check_Collection_Status__c == 'COLLECTED')
+Execute Anonymous:         && !acceptedByTimeoutRoutine;
+Execute Anonymous:     Boolean isTargetRegression = r.collStatus == 'RETURN' || r.collStatus == 'NOT_COLLECTED' || r.collStatus == 'NOT COLLECTED' || r.collStatus == 'PENDING';
+Execute Anonymous: 
+Execute Anonymous:     if (isCurrentlySuccess && isTargetRegression) {
+Execute Anonymous:         regressionBlockedRows.add(r);
+Execute Anonymous:         continue;
+Execute Anonymous:     }
+Execute Anonymous: 
+Execute Anonymous:     // Los reportes oficiales de Returns/Collection SIEMPRE priman -- sin
+Execute Anonymous:     // importar que otro proceso (nuestro o externo, ej. el Flow que marca
+Execute Anonymous:     // NOT_COLLECTED/COLLECTED con guion bajo) haya tocado el registro
+Execute Anonymous:     // despues de la fecha del reporte. El unico caso que NO se aplica
+Execute Anonymous:     // solo es el bloqueado arriba por el guard de regresion
+Execute Anonymous:     // (COLLECTED/ACCEPTED -> RETURN/NOT COLLECTED), que es una regla
+Execute Anonymous:     // aparte y explicita.
+Execute Anonymous:     String tag = 'PRC_AUT: ' + r.collStatus.replace(' ', '_') + ' //';
+Execute Anonymous:     String previousHistorical = match.SM_Historical_Collection_Status__c == null ? '' : match.SM_Historical_Collection_Status__c;
+Execute Anonymous:     String newHistorical = tag + previousHistorical;
+Execute Anonymous:     if (newHistorical.length() > HISTORICAL_MAX_LENGTH) {
+Execute Anonymous:         newHistorical = newHistorical.substring(0, HISTORICAL_MAX_LENGTH);
+Execute Anonymous:     }
+Execute Anonymous:     r.newHistorical = newHistorical;
+Execute Anonymous:     matchedRows.add(r);
+Execute Anonymous: }
+Execute Anonymous: 
+Execute Anonymous: // 4b) Agrupar en OLEADAS por SM_ACH_Order__c: si varios returns del batch
+Execute Anonymous: // pertenecen a la misma orden ACH (ej. Fee + Late Fee del mismo contrato),
+Execute Anonymous: // actualizarlos todos en el mismo DML hace que SM_PaymentHandler (trigger
+Execute Anonymous: // AfterUpdate) intente actualizar esa misma orden ACH dos veces en la misma
+Execute Anonymous: // lista y falle con "Duplicate id in list", tumbando el batch completo.
+Execute Anonymous: // Cada orden ACH repetida se reparte en oleadas (1 registro por orden por
+Execute Anonymous: // oleada) y cada oleada se aplica con su propio Database.update() dentro de
+Execute Anonymous: // esta misma ejecucion -- asi TODOS quedan aplicados, no solo el primero.
+Execute Anonymous: Map<Id, Integer> waveByAchOrder = new Map<Id, Integer>();
+Execute Anonymous: Map<Integer, List<RowData>> waves = new Map<Integer, List<RowData>>();
+Execute Anonymous: Integer maxWave = 0;
+Execute Anonymous: 
+Execute Anonymous: for (RowData r : matchedRows) {
+Execute Anonymous:     Integer wave = 0;
+Execute Anonymous:     if (r.achOrderId != null) {
+Execute Anonymous:         wave = waveByAchOrder.containsKey(r.achOrderId) ? waveByAchOrder.get(r.achOrderId) + 1 : 0;
+Execute Anonymous:         waveByAchOrder.put(r.achOrderId, wave);
+Execute Anonymous:     }
+Execute Anonymous:     if (wave > maxWave) { maxWave = wave; }
+Execute Anonymous:     if (!waves.containsKey(wave)) { waves.put(wave, new List<RowData>()); }
+Execute Anonymous:     waves.get(wave).add(r);
+Execute Anonymous: }
+Execute Anonymous: 
+Execute Anonymous: // 5) Preview (solo lo que realmente se va a tocar, en el orden original del CSV)
+Execute Anonymous: for (RowData r : matchedRows) {
+Execute Anonymous:     System.debug(
+Execute Anonymous:         'PREVIEW -> ' + r.paymentName +
+Execute Anonymous:         ' | Payment_Status__c: ' + r.status +
+Execute Anonymous:         ' | SM_Check_Collection_Date__c: ' + r.collDate +
+Execute Anonymous:         ' | SM_Check_Collection__c: ' + r.coll +
+Execute Anonymous:         ' | SM_Check_Collection_Status__c: ' + r.collStatus +
+Execute Anonymous:         ' | SM_Return_code__c: ' + r.returnCode +
+Execute Anonymous:         ' | SM_Return_Change__c: ' + (String.isBlank(r.returnChange) ? '(vacio)' : r.returnChange) +
+Execute Anonymous:         ' | SM_Historical_Collection_Status__c -> [' + r.newHistorical + ']'
+Execute Anonymous:     );
+Execute Anonymous: }
+Execute Anonymous: 
+Execute Anonymous: System.debug(' -> ======================================================');
+Execute Anonymous: System.debug(' -> Total filas del CSV: ' + (rows.size() + malformedRows.size()));
+Execute Anonymous: if (!malformedRows.isEmpty()) {
+Execute Anonymous:     System.debug(' -> Filas MALFORMADAS (se saltan, revisar el PDF de origen): ' + malformedRows.size());
+Execute Anonymous:     System.debug(' ->   -> ' + malformedRows);
+Execute Anonymous: }
+Execute Anonymous: System.debug(' -> Registros SIN match (PY-XXXX no existe como Payment): ' + notFound.size());
+Execute Anonymous: if (!notFound.isEmpty()) {
+Execute Anonymous:     System.debug(' ->   -> Nombres no encontrados: ' + notFound);
+Execute Anonymous: }
+Execute Anonymous: System.debug(' -> Ya aplicados anteriormente (sin cambios, se omiten): ' + alreadyAppliedRows.size());
+Execute Anonymous: System.debug(' -> Descartados por ser mas viejos que el reporte ya guardado (fuera de orden): ' + staleRows.size());
+Execute Anonymous: if (!staleRows.isEmpty()) {
+Execute Anonymous:     List<String> staleNames = new List<String>();
+Execute Anonymous:     for (RowData r : staleRows) { staleNames.add(r.paymentName); }
+Execute Anonymous:     System.debug(' ->   -> Nombres: ' + staleNames);
+Execute Anonymous: }
+Execute Anonymous: if (!regressionBlockedRows.isEmpty()) {
+Execute Anonymous:     List<String> regressionNames = new List<String>();
+Execute Anonymous:     Set<String> regressionContracts = new Set<String>();
+Execute Anonymous:     for (RowData r : regressionBlockedRows) {
+Execute Anonymous:         regressionNames.add(r.paymentName);
+Execute Anonymous:         if (r.contractNumber != null) { regressionContracts.add(r.contractNumber); }
+Execute Anonymous:     }
+Execute Anonymous:     List<String> regressionContractsQuoted = new List<String>();
+Execute Anonymous:     for (String cn : regressionContracts) { regressionContractsQuoted.add('\'' + cn + '\''); }
+Execute Anonymous:     System.debug(' -> ***** ALERTA: ' + regressionBlockedRows.size() + ' pago(s) ya COLLECTED/ACCEPTED que este reporte de RETURN queria revertir -- NO SE APLICARON, ANALIZAR MANUALMENTE *****');
+Execute Anonymous:     System.debug(' ->   -> Nombres bloqueados por regresion: ' + regressionNames);
+Execute Anonymous:     System.debug(' ->   -> Contratos a analizar manualmente: ' + String.join(regressionContractsQuoted, ', '));
+Execute Anonymous: } else {
+Execute Anonymous:     System.debug(' -> Bloqueados por regresion (COLLECTED/ACCEPTED -> RETURN, nunca automatico): 0');
+Execute Anonymous: }
+Execute Anonymous: if (!cancelledContractBlockedRows.isEmpty()) {
+Execute Anonymous:     List<String> cancelledNames = new List<String>();
+Execute Anonymous:     Set<String> cancelledContracts = new Set<String>();
+Execute Anonymous:     for (RowData r : cancelledContractBlockedRows) {
+Execute Anonymous:         cancelledNames.add(r.paymentName);
+Execute Anonymous:         if (r.contractNumber != null) { cancelledContracts.add(r.contractNumber); }
+Execute Anonymous:     }
+Execute Anonymous:     List<String> cancelledContractsQuoted = new List<String>();
+Execute Anonymous:     for (String cn : cancelledContracts) { cancelledContractsQuoted.add('\'' + cn + '\''); }
+Execute Anonymous:     System.debug(' -> ***** ALERTA: ' + cancelledContractBlockedRows.size() + ' pago(s) de contrato(s) Cancelado(s) -- NO SE APLICARON (riesgo de tumbar la oleada completa por validation rule en la ACH Order), ANALIZAR MANUALMENTE *****');
+Execute Anonymous:     System.debug(' ->   -> Nombres bloqueados por contrato cancelado: ' + cancelledNames);
+Execute Anonymous:     System.debug(' ->   -> Contratos a analizar manualmente: ' + String.join(cancelledContractsQuoted, ', '));
+Execute Anonymous: } else {
+Execute Anonymous:     System.debug(' -> Bloqueados por contrato Cancelado (riesgo de tumbar la oleada): 0');
+Execute Anonymous: }
+Execute Anonymous: System.debug(' -> Pendientes de aplicar en esta corrida: ' + matchedRows.size());
+Execute Anonymous: System.debug(' -> Oleadas necesarias por colisiones de orden ACH repetida: ' + (matchedRows.isEmpty() ? 0 : (maxWave + 1)));
+Execute Anonymous: for (Integer w = 0; w <= maxWave && !matchedRows.isEmpty(); w++) {
+Execute Anonymous:     System.debug(' ->   -> Oleada ' + (w + 1) + ': ' + waves.get(w).size() + ' registro(s)');
+Execute Anonymous: }
+Execute Anonymous: System.debug(' -> ======================================================');
+Execute Anonymous: 
+Execute Anonymous: // 6) Ejecutar el update SOLO si DRY_RUN = false -- una oleada a la vez.
+Execute Anonymous: // Los pagos de contrato Cancelado que arriesgaban tumbar la oleada completa
+Execute Anonymous: // (ver el bloque de arriba, cancelledContractBlockedRows) ya quedaron
+Execute Anonymous: // afuera de matchedRows, asi que aca Database.update(waveUpdate, false)
+Execute Anonymous: // puede confiar en que una falla de validacion normal en UN Payment se
+Execute Anonymous: // reporta como SaveResult individual, sin tumbar al resto de la oleada.
+Execute Anonymous: if (!DRY_RUN) {
+Execute Anonymous:     if (matchedRows.isEmpty()) {
+Execute Anonymous:         System.debug(' -> No hay registros pendientes de aplicar.');
+Execute Anonymous:     } else {
+Execute Anonymous:         Integer totalOk = 0;
+Execute Anonymous:         Integer totalErr = 0;
+Execute Anonymous:         for (Integer w = 0; w <= maxWave; w++) {
+Execute Anonymous:             List<RowData> waveRows = waves.get(w);
+Execute Anonymous:             List<SM_Payment__c> waveUpdate = new List<SM_Payment__c>();
+Execute Anonymous:             for (RowData r : waveRows) {
+Execute Anonymous:                 waveUpdate.add(new SM_Payment__c(
+Execute Anonymous:                     Id = r.matchedPaymentId,
+Execute Anonymous:                     Payment_Status__c = r.status,
+Execute Anonymous:                     SM_Check_Collection_Date__c = r.collDate,
+Execute Anonymous:                     SM_Check_Collection__c = r.coll,
+Execute Anonymous:                     SM_Check_Collection_Status__c = r.collStatus,
+Execute Anonymous:                     SM_Return_code__c = r.returnCode,
+Execute Anonymous:                     SM_Return_Change__c = r.returnChange,
+Execute Anonymous:                     SM_Historical_Collection_Status__c = r.newHistorical
+Execute Anonymous:                 ));
+Execute Anonymous:             }
+Execute Anonymous:             List<Database.SaveResult> results = Database.update(waveUpdate, false);
+Execute Anonymous:             Integer okCount = 0;
+Execute Anonymous:             Integer errCount = 0;
+Execute Anonymous:             for (Integer i = 0; i < results.size(); i++) {
+Execute Anonymous:                 Database.SaveResult res = results[i];
+Execute Anonymous:                 if (res.isSuccess()) {
+Execute Anonymous:                     okCount++;
+Execute Anonymous:                 } else {
+Execute Anonymous:                     errCount++;
+Execute Anonymous:                     System.debug(
+Execute Anonymous:                         'ERROR actualizando ' + waveUpdate[i].Id + ': ' +
+Execute Anonymous:                         res.getErrors()[0].getMessage()
+Execute Anonymous:                     );
+Execute Anonymous:                 }
+Execute Anonymous:             }
+Execute Anonymous:             System.debug(' ->   -> Oleada ' + (w + 1) + ' completada -> Exitos: ' + okCount + ' | Errores: ' + errCount);
+Execute Anonymous:             totalOk += okCount;
+Execute Anonymous:             totalErr += errCount;
+Execute Anonymous:         }
+Execute Anonymous:         System.debug(' -> ======================================================');
+Execute Anonymous:         System.debug(' -> UPDATE COMPLETADO -> Exitos: ' + totalOk + ' | Errores: ' + totalErr);
+Execute Anonymous:         System.debug(' -> ======================================================');
+Execute Anonymous:     }
+Execute Anonymous: } else {
+Execute Anonymous:     System.debug(' -> DRY RUN activo: no se ejecuto ningun UPDATE. Cambia DRY_RUN a false para aplicar los cambios.');
+Execute Anonymous: }
+17:06:41.50 (50124122)|USER_INFO|[EXTERNAL]|0051U000007bbx5|clopez@legal-credit.com|(GMT+02:00) Central European Summer Time (Europe/Madrid)|GMT+02:00
+17:06:41.50 (50147512)|EXECUTION_STARTED
+17:06:41.50 (50167732)|CODE_UNIT_STARTED|[EXTERNAL]|execute_anonymous_apex
+17:06:41.50 (51555841)|USER_DEBUG|[41]|DEBUG| -> ======================================================
+17:06:41.50 (51609761)|USER_DEBUG|[42]|DEBUG| -> MODO: DRY RUN (solo preview, sin cambios)
+17:06:41.50 (51619141)|USER_DEBUG|[43]|DEBUG| -> ======================================================
+17:06:41.50 (77077238)|USER_DEBUG|[113]|DEBUG| -> Total filas leidas del CSV: 170
+17:06:41.50 (147707452)|USER_DEBUG|[311]|DEBUG|PREVIEW -> PY-01896064 &#124; Payment_Status__c: REJECTED &#124; SM_Check_Collection_Date__c: 2026-09-08 00:00:00 &#124; SM_Check_Collection__c: true &#124; SM_Check_Collection_Status__c: RETURN &#124; SM_Return_code__c: R01 &#124; SM_Return_Change__c: (vacio) &#124; SM_Historical_Collection_Status__c -> [PRC_AUT: RETURN //PRC_AUT: PENDING //PRC_AUT: RETURN //PRC_AUT: PENDING //PRC_AUT: RETURN //]
+17:06:41.50 (147773842)|USER_DEBUG|[311]|DEBUG|PREVIEW -> PY-01899114 &#124; Payment_Status__c: REJECTED &#124; SM_Check_Collection_Date__c: 2026-09-09 00:00:00 &#124; SM_Check_Collection__c: true &#124; SM_Check_Collection_Status__c: RETURN &#124; SM_Return_code__c: R05 &#124; SM_Return_Change__c: (vacio) &#124; SM_Historical_Collection_Status__c -> [PRC_AUT: RETURN //PRC_AUT: PENDING //PRC_AUT: RETURN //PRC_AUT: PENDING //PRC_AUT: RETURN //]
+17:06:41.50 (147806013)|USER_DEBUG|[311]|DEBUG|PREVIEW -> PY-01899129 &#124; Payment_Status__c: REJECTED &#124; SM_Check_Collection_Date__c: 2026-09-09 00:00:00 &#124; SM_Check_Collection__c: true &#124; SM_Check_Collection_Status__c: RETURN &#124; SM_Return_code__c: R01 &#124; SM_Return_Change__c: (vacio) &#124; SM_Historical_Collection_Status__c -> [PRC_AUT: RETURN //PRC_AUT: PENDING //PRC_AUT: RETURN //PRC_AUT: PENDING //PRC_AUT: RETURN //]
+17:06:41.50 (147819633)|USER_DEBUG|[311]|DEBUG|PREVIEW -> PY-01899134 &#124; Payment_Status__c: REJECTED &#124; SM_Check_Collection_Date__c: 2026-09-09 00:00:00 &#124; SM_Check_Collection__c: true &#124; SM_Check_Collection_Status__c: RETURN &#124; SM_Return_code__c: R01 &#124; SM_Return_Change__c: (vacio) &#124; SM_Historical_Collection_Status__c -> [PRC_AUT: RETURN //PRC_AUT: PENDING //PRC_AUT: RETURN //PRC_AUT: PENDING //PRC_AUT: RETURN //]
+17:06:41.50 (147832593)|USER_DEBUG|[311]|DEBUG|PREVIEW -> PY-01899143 &#124; Payment_Status__c: REJECTED &#124; SM_Check_Collection_Date__c: 2026-09-09 00:00:00 &#124; SM_Check_Collection__c: true &#124; SM_Check_Collection_Status__c: RETURN &#124; SM_Return_code__c: R16 &#124; SM_Return_Change__c: (vacio) &#124; SM_Historical_Collection_Status__c -> [PRC_AUT: RETURN //PRC_AUT: PENDING //PRC_AUT: RETURN //PRC_AUT: PENDING //PRC_AUT: RETURN //]
+17:06:41.50 (147845253)|USER_DEBUG|[311]|DEBUG|PREVIEW -> PY-01899169 &#124; Payment_Status__c: REJECTED &#124; SM_Check_Collection_Date__c: 2026-09-09 00:00:00 &#124; SM_Check_Collection__c: true &#124; SM_Check_Collection_Status__c: RETURN &#124; SM_Return_code__c: R01 &#124; SM_Return_Change__c: (vacio) &#124; SM_Historical_Collection_Status__c -> [PRC_AUT: RETURN //PRC_AUT: PENDING //PRC_AUT: RETURN //PRC_AUT: PENDING //PRC_AUT: RETURN //]
+17:06:41.50 (147857994)|USER_DEBUG|[311]|DEBUG|PREVIEW -> PY-01899192 &#124; Payment_Status__c: REJECTED &#124; SM_Check_Collection_Date__c: 2026-09-09 00:00:00 &#124; SM_Check_Collection__c: true &#124; SM_Check_Collection_Status__c: RETURN &#124; SM_Return_code__c: R01 &#124; SM_Return_Change__c: (vacio) &#124; SM_Historical_Collection_Status__c -> [PRC_AUT: RETURN //PRC_AUT: PENDING //PRC_AUT: RETURN //PRC_AUT: PENDING //PRC_AUT: RETURN //]
+17:06:41.50 (147871014)|USER_DEBUG|[311]|DEBUG|PREVIEW -> PY-01899200 &#124; Payment_Status__c: REJECTED &#124; SM_Check_Collection_Date__c: 2026-09-09 00:00:00 &#124; SM_Check_Collection__c: true &#124; SM_Check_Collection_Status__c: RETURN &#124; SM_Return_code__c: R01 &#124; SM_Return_Change__c: (vacio) &#124; SM_Historical_Collection_Status__c -> [PRC_AUT: RETURN //PRC_AUT: PENDING //PRC_AUT: RETURN //PRC_AUT: PENDING //PRC_AUT: RETURN //]
+17:06:41.50 (147883984)|USER_DEBUG|[311]|DEBUG|PREVIEW -> PY-01899201 &#124; Payment_Status__c: REJECTED &#124; SM_Check_Collection_Date__c: 2026-09-09 00:00:00 &#124; SM_Check_Collection__c: true &#124; SM_Check_Collection_Status__c: RETURN &#124; SM_Return_code__c: R07 &#124; SM_Return_Change__c: (vacio) &#124; SM_Historical_Collection_Status__c -> [PRC_AUT: RETURN //PRC_AUT: PENDING //PRC_AUT: RETURN //PRC_AUT: PENDING //PRC_AUT: RETURN //]
+17:06:41.50 (147896674)|USER_DEBUG|[311]|DEBUG|PREVIEW -> PY-01899202 &#124; Payment_Status__c: REJECTED &#124; SM_Check_Collection_Date__c: 2026-09-09 00:00:00 &#124; SM_Check_Collection__c: true &#124; SM_Check_Collection_Status__c: RETURN &#124; SM_Return_code__c: R01 &#124; SM_Return_Change__c: (vacio) &#124; SM_Historical_Collection_Status__c -> [PRC_AUT: RETURN //PRC_AUT: PENDING //PRC_AUT: RETURN //PRC_AUT: PENDING //PRC_AUT: RETURN //]
+17:06:41.50 (147909354)|USER_DEBUG|[311]|DEBUG|PREVIEW -> PY-01899228 &#124; Payment_Status__c: REJECTED &#124; SM_Check_Collection_Date__c: 2026-09-09 00:00:00 &#124; SM_Check_Collection__c: true &#124; SM_Check_Collection_Status__c: RETURN &#124; SM_Return_code__c: R01 &#124; SM_Return_Change__c: (vacio) &#124; SM_Historical_Collection_Status__c -> [PRC_AUT: RETURN //PRC_AUT: PENDING //PRC_AUT: RETURN //PRC_AUT: PENDING //PRC_AUT: RETURN //]
+17:06:41.50 (147921744)|USER_DEBUG|[311]|DEBUG|PREVIEW -> PY-01899237 &#124; Payment_Status__c: REJECTED &#124; SM_Check_Collection_Date__c: 2026-09-09 00:00:00 &#124; SM_Check_Collection__c: true &#124; SM_Check_Collection_Status__c: RETURN &#124; SM_Return_code__c: R01 &#124; SM_Return_Change__c: (vacio) &#124; SM_Historical_Collection_Status__c -> [PRC_AUT: RETURN //PRC_AUT: PENDING //PRC_AUT: RETURN //PRC_AUT: PENDING //PRC_AUT: RETURN //]
+17:06:41.50 (147934335)|USER_DEBUG|[311]|DEBUG|PREVIEW -> PY-01899238 &#124; Payment_Status__c: REJECTED &#124; SM_Check_Collection_Date__c: 2026-09-09 00:00:00 &#124; SM_Check_Collection__c: true &#124; SM_Check_Collection_Status__c: RETURN &#124; SM_Return_code__c: R01 &#124; SM_Return_Change__c: (vacio) &#124; SM_Historical_Collection_Status__c -> [PRC_AUT: RETURN //PRC_AUT: PENDING //PRC_AUT: RETURN //PRC_AUT: PENDING //PRC_AUT: RETURN //]
+17:06:41.50 (147947185)|USER_DEBUG|[311]|DEBUG|PREVIEW -> PY-01899239 &#124; Payment_Status__c: REJECTED &#124; SM_Check_Collection_Date__c: 2026-09-09 00:00:00 &#124; SM_Check_Collection__c: true &#124; SM_Check_Collection_Status__c: RETURN &#124; SM_Return_code__c: R01 &#124; SM_Return_Change__c: (vacio) &#124; SM_Historical_Collection_Status__c -> [PRC_AUT: RETURN //PRC_AUT: PENDING //PRC_AUT: RETURN //PRC_AUT: PENDING //PRC_AUT: RETURN //]
+17:06:41.50 (147960035)|USER_DEBUG|[311]|DEBUG|PREVIEW -> PY-01899240 &#124; Payment_Status__c: REJECTED &#124; SM_Check_Collection_Date__c: 2026-09-09 00:00:00 &#124; SM_Check_Collection__c: true &#124; SM_Check_Collection_Status__c: RETURN &#124; SM_Return_code__c: R01 &#124; SM_Return_Change__c: (vacio) &#124; SM_Historical_Collection_Status__c -> [PRC_AUT: RETURN //PRC_AUT: PENDING //PRC_AUT: RETURN //PRC_AUT: PENDING //PRC_AUT: RETURN //]
+17:06:41.50 (147973015)|USER_DEBUG|[311]|DEBUG|PREVIEW -> PY-01899241 &#124; Payment_Status__c: REJECTED &#124; SM_Check_Collection_Date__c: 2026-09-09 00:00:00 &#124; SM_Check_Collection__c: true &#124; SM_Check_Collection_Status__c: RETURN &#124; SM_Return_code__c: R01 &#124; SM_Return_Change__c: (vacio) &#124; SM_Historical_Collection_Status__c -> [PRC_AUT: RETURN //PRC_AUT: PENDING //PRC_AUT: RETURN //PRC_AUT: PENDING //PRC_AUT: RETURN //]
+17:06:41.50 (147986065)|USER_DEBUG|[311]|DEBUG|PREVIEW -> PY-01899916 &#124; Payment_Status__c: REJECTED &#124; SM_Check_Collection_Date__c: 2026-09-10 00:00:00 &#124; SM_Check_Collection__c: true &#124; SM_Check_Collection_Status__c: RETURN &#124; SM_Return_code__c: R01 &#124; SM_Return_Change__c: (vacio) &#124; SM_Historical_Collection_Status__c -> [PRC_AUT: RETURN //PRC_AUT: PENDING //PRC_AUT: RETURN //PRC_AUT: PENDING //PRC_AUT: RETURN //]
+17:06:41.50 (148005016)|USER_DEBUG|[323]|DEBUG| -> ======================================================
+17:06:41.50 (148019736)|USER_DEBUG|[324]|DEBUG| -> Total filas del CSV: 170
+17:06:41.50 (148031676)|USER_DEBUG|[329]|DEBUG| -> Registros SIN match (PY-XXXX no existe como Payment): 0
+17:06:41.50 (148041806)|USER_DEBUG|[333]|DEBUG| -> Ya aplicados anteriormente (sin cambios, se omiten): 13
+17:06:41.50 (148049296)|USER_DEBUG|[334]|DEBUG| -> Descartados por ser mas viejos que el reporte ya guardado (fuera de orden): 140
+17:06:41.50 (148345550)|USER_DEBUG|[338]|DEBUG| ->   -> Nombres: (PY-01894603, PY-01895363, PY-01895364, PY-01895365, PY-01895366, PY-01895368, PY-01895374, PY-01895375, PY-01895376, PY-01895380, ...)
+17:06:41.50 (148360470)|USER_DEBUG|[353]|DEBUG| -> Bloqueados por regresion (COLLECTED/ACCEPTED -> RETURN, nunca automatico): 0
+17:06:41.50 (148368920)|USER_DEBUG|[368]|DEBUG| -> Bloqueados por contrato Cancelado (riesgo de tumbar la oleada): 0
+17:06:41.50 (148381211)|USER_DEBUG|[370]|DEBUG| -> Pendientes de aplicar en esta corrida: 17
+17:06:41.50 (148389891)|USER_DEBUG|[371]|DEBUG| -> Oleadas necesarias por colisiones de orden ACH repetida: 1
+17:06:41.50 (148409231)|USER_DEBUG|[373]|DEBUG| ->   -> Oleada 1: 17 registro(s)
+17:06:41.50 (148415071)|USER_DEBUG|[375]|DEBUG| -> ======================================================
+17:06:41.50 (148427381)|USER_DEBUG|[428]|DEBUG| -> DRY RUN activo: no se ejecuto ningun UPDATE. Cambia DRY_RUN a false para aplicar los cambios.
+17:06:41.148 (148489762)|CUMULATIVE_LIMIT_USAGE
+17:06:41.148 (148489762)|LIMIT_USAGE_FOR_NS|(default)|
+  Number of SOQL queries: 3 out of 100
+  Number of query rows: 171 out of 50000
+  Number of SOSL queries: 0 out of 20
+  Number of DML statements: 0 out of 150
+  Number of Publish Immediate DML: 0 out of 150
+  Number of DML rows: 0 out of 10000
+  Maximum CPU time: 0 out of 10000
+  Maximum heap size: 0 out of 6000000
+  Number of callouts: 0 out of 100
+  Number of Email Invocations: 0 out of 10
+  Number of future calls: 0 out of 50
+  Number of queueable jobs added to the queue: 0 out of 50
+  Number of Mobile Apex push calls: 0 out of 10
+
+17:06:41.148 (148489762)|CUMULATIVE_LIMIT_USAGE_END
+
+17:06:41.50 (148563133)|CODE_UNIT_FINISHED|execute_anonymous_apex
+17:06:41.50 (148574923)|EXECUTION_FINISHED
+

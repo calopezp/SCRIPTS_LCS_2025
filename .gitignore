@@ -20,6 +20,9 @@ logs
 npm-debug.log*
 yarn-debug.log*
 yarn-error.log*
+# TEMP/ is tracked now (see below) -- don't let the blanket *.log rule hide its logs
+!TEMP/**/*.log
+!TEMP/*.log
 
 # Dependency directories
 node_modules/
@@ -49,10 +52,6 @@ $RECYCLE.BIN/
 
 # Local personal backups, not project artifacts
 .backup_local/
-
-# Scratch folder for one-off exports/reports (CSVs from ad-hoc queries, etc.) -
-# local convenience, not project artifacts, never committed
-TEMP/
 
 # Large one-time data exports too big for GitHub (100MB limit)
 CHARGENT_MIGRACION/ChargentOrders__Transaction__c.csv
