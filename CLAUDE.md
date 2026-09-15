@@ -44,10 +44,17 @@ Este archivo es la **fuente de verdad compartida entre las dos máquinas** del u
   corre el 100% del org y tumba cualquier deploy, sin importar qué tan chico o correcto sea, por fallos
   que no tienen nada que ver con el cambio real.
 - **`TEMP/` (raíz del repo) es la carpeta para exports/reportes puntuales** (CSVs de queries
-  ad-hoc, listados que se le entregan a Carlos, etc.) — está en `.gitignore`, nunca se comitea, es
-  local a cada máquina. Preferirla sobre el scratchpad de sesión (`~/.claude/.../scratchpad/`) para
-  cualquier archivo que Carlos vaya a necesitar encontrar después en VS Code/el disco — el scratchpad
-  vive en una ruta temporal por sesión, difícil de ubicar.
+  ad-hoc, listados que se le entregan a Carlos, scripts de backfill puntuales, etc.). Preferirla
+  sobre el scratchpad de sesión (`~/.claude/.../scratchpad/`) para cualquier archivo que Carlos vaya
+  a necesitar encontrar después en VS Code/el disco — el scratchpad vive en una ruta temporal por
+  sesión, difícil de ubicar. **Desde 2026-09-15 SÍ se comitea y sincroniza por git** (antes estaba en
+  `.gitignore` como "local a cada máquina"). Cambio explícito del usuario, motivo real: varios de los
+  archivos que se generan ahí (ej. el scope/resultado de un backfill, un cruce de discrepancias) dejaron
+  de ser descartables — se usan como reporte y como histórico de lo que se hizo, así que ahora es
+  parte importante del repositorio, no solo un scratch pad. Sigue siendo para archivos puntuales/ad-hoc
+  (no reemplaza `force-app/` ni `COLLECTIONS/`), pero su contenido debe viajar con el repo igual que
+  cualquier otro archivo, y conviene tratarlo con el mismo cuidado (nombres claros, no basura efímera
+  sin valor de referencia).
 - **Toda automatización nueva (trigger/handler Apex o Flow) que modifique `SM_Payment__c`,
   `SM_ACH_Order__c` o `Contract` debe dejar una marca identificable en `SM_Id_Salesforce_LCS__c`**
   (campo "ANOTACIONES", existe en los 3 objetos) usando el formato

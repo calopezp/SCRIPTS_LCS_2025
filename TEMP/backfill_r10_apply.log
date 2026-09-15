@@ -1,0 +1,601 @@
+Compiled successfully.
+Executed successfully.
+
+67.0 APEX_CODE,DEBUG;APEX_PROFILING,INFO
+Execute Anonymous: /*
+Execute Anonymous:  * backfill_r10_jun2026.apex
+Execute Anonymous:  * --------------------------
+Execute Anonymous:  * Instruccion explicita del usuario (2026-09-15): todo Payment de Junio
+Execute Anonymous:  * 2026 a la fecha que aparezca en los reportes de RETURN/COLLECTION como
+Execute Anonymous:  * R10 (Customer Advises Not Authorized) debe quedar en
+Execute Anonymous:  * Payment_Status__c = REJECTED, SM_Check_Collection_Status__c = NOT_COLLECTED,
+Execute Anonymous:  * SM_Return_code__c = R10, y con la razon real del reporte en
+Execute Anonymous:  * SM_Check_Collection_Return_Reason__c.
+Execute Anonymous:  *
+Execute Anonymous:  * Alcance identificado (TEMP/r10_backfill_scope.py, validado contra el
+Execute Anonymous:  * "reporte ganador" mas reciente por payment desde 2026-06-01): 23 pagos.
+Execute Anonymous:  * De esos, 21 ya estaban REJECTED pero con SM_Check_Collection_Status__c
+Execute Anonymous:  * en PENDING/RETURN (nunca se resolvieron a un estado final) y 2
+Execute Anonymous:  * (PY-01868816, PY-01885207 -- contrato 00316444, el caso de disputa que
+Execute Anonymous:  * origino este pedido) estaban incorrectamente en ACCEPTED/COLLECTED.
+Execute Anonymous:  *
+Execute Anonymous:  * NO debe disparar ningun automatismo (instruccion explicita) -- se usa
+Execute Anonymous:  * SM_TriggerHandler.avoidAllHandlerExcecution = true antes del update,
+Execute Anonymous:  * igual que en el backfill de SM_Return_code__c del 2026-09-14.
+Execute Anonymous:  *
+Execute Anonymous:  * Corre primero con DRY_RUN = true -> solo imprime el preview, NO
+Execute Anonymous:  * actualiza nada. Cuando el usuario autorice, cambiar a false.
+Execute Anonymous:  */
+Execute Anonymous: 
+Execute Anonymous: Boolean DRY_RUN = false; // Autorizado por el usuario 2026-09-15 tras revisar el preview
+Execute Anonymous: 
+Execute Anonymous: class PaymentFix {
+Execute Anonymous:     String paymentName;
+Execute Anonymous:     String reason;
+Execute Anonymous:     PaymentFix(String n, String r) {
+Execute Anonymous:         this.paymentName = n;
+Execute Anonymous:         this.reason = r;
+Execute Anonymous:     }
+Execute Anonymous: }
+Execute Anonymous: 
+Execute Anonymous: List<PaymentFix> fixes = new List<PaymentFix>{
+Execute Anonymous:         new PaymentFix('PY-01847651', 'R10 CUST ADV NOT'),
+Execute Anonymous:         new PaymentFix('PY-01847653', 'R10 CUST ADV NOT'),
+Execute Anonymous:         new PaymentFix('PY-01849219', 'R10 CUST ADV NOT'),
+Execute Anonymous:         new PaymentFix('PY-01849469', 'R10 CUST ADV NOT'),
+Execute Anonymous:         new PaymentFix('PY-01859586', 'R10 CUST ADV NOT'),
+Execute Anonymous:         new PaymentFix('PY-01859726', 'R10 CUST ADV NOT'),
+Execute Anonymous:         new PaymentFix('PY-01865165', 'R10 CUST ADV NOT'),
+Execute Anonymous:         new PaymentFix('PY-01868816', 'R10 CUST ADV NOT'),
+Execute Anonymous:         new PaymentFix('PY-01869482', 'CUSTOMER ADVISES NOT AUTHORIZED'),
+Execute Anonymous:         new PaymentFix('PY-01872218', 'CUSTOMER ADVISES NOT AUTHORIZED'),
+Execute Anonymous:         new PaymentFix('PY-01872289', 'R10 CUST ADV NOT'),
+Execute Anonymous:         new PaymentFix('PY-01880352', 'CUSTOMER ADVISES NOT AUTHORIZED'),
+Execute Anonymous:         new PaymentFix('PY-01880378', 'CUSTOMER ADVISES NOT AUTHORIZED'),
+Execute Anonymous:         new PaymentFix('PY-01880427', 'CUSTOMER ADVISES NOT AUTHORIZED'),
+Execute Anonymous:         new PaymentFix('PY-01883331', 'CUSTOMER ADVISES NOT AUTHORIZED'),
+Execute Anonymous:         new PaymentFix('PY-01884599', 'CUSTOMER ADVISES NOT AUTHORIZED'),
+Execute Anonymous:         new PaymentFix('PY-01884645', 'CUSTOMER ADVISES NOT AUTHORIZED'),
+Execute Anonymous:         new PaymentFix('PY-01884676', 'CUSTOMER ADVISES NOT AUTHORIZED'),
+Execute Anonymous:         new PaymentFix('PY-01884692', 'CUSTOMER ADVISES NOT AUTHORIZED'),
+Execute Anonymous:         new PaymentFix('PY-01885207', 'CUSTOMER ADVISES NOT AUTHORIZED'),
+Execute Anonymous:         new PaymentFix('PY-01889059', 'R10 CUST ADV NOT'),
+Execute Anonymous:         new PaymentFix('PY-01889111', 'R10 CUST ADV NOT'),
+Execute Anonymous:         new PaymentFix('PY-01894616', 'R10 CUST ADV NOT')
+Execute Anonymous: };
+Execute Anonymous: 
+Execute Anonymous: Map<String, PaymentFix> fixByName = new Map<String, PaymentFix>();
+Execute Anonymous: List<String> names = new List<String>();
+Execute Anonymous: for (PaymentFix pf : fixes) {
+Execute Anonymous:     fixByName.put(pf.paymentName, pf);
+Execute Anonymous:     names.add(pf.paymentName);
+Execute Anonymous: }
+Execute Anonymous: 
+Execute Anonymous: Map<Id, SM_Payment__c> current = new Map<Id, SM_Payment__c>([
+Execute Anonymous:         SELECT Id, Name, Payment_Status__c, SM_Check_Collection_Status__c,
+Execute Anonymous:                SM_Return_code__c, SM_Check_Collection_Return_Reason__c,
+Execute Anonymous:                SM_Historical_Collection_Status__c, SM_Contract__r.ContractNumber
+Execute Anonymous:         FROM SM_Payment__c
+Execute Anonymous:         WHERE Name IN :names
+Execute Anonymous: ]);
+Execute Anonymous: 
+Execute Anonymous: System.debug('=======================================================');
+Execute Anonymous: System.debug(' -> MODO: ' + (DRY_RUN ? 'DRY RUN (solo preview, sin cambios)' : 'EJECUCION REAL (se va a actualizar)'));
+Execute Anonymous: System.debug(' -> Candidatos encontrados en Salesforce: ' + current.size() + ' / ' + fixes.size());
+Execute Anonymous: System.debug('=======================================================');
+Execute Anonymous: 
+Execute Anonymous: List<SM_Payment__c> toUpdate = new List<SM_Payment__c>();
+Execute Anonymous: 
+Execute Anonymous: for (SM_Payment__c p : current.values()) {
+Execute Anonymous:     PaymentFix pf = fixByName.get(p.Name);
+Execute Anonymous:     if (pf == null) {
+Execute Anonymous:         continue;
+Execute Anonymous:     }
+Execute Anonymous: 
+Execute Anonymous:     String tag = 'PRC_AUT_R10_BACKFILL_JUN2026: REJECTED/NOT_COLLECTED //';
+Execute Anonymous:     String newHistorical = tag + (String.isBlank(p.SM_Historical_Collection_Status__c) ? '' : p.SM_Historical_Collection_Status__c);
+Execute Anonymous:     if (newHistorical.length() > 150) {
+Execute Anonymous:         newHistorical = newHistorical.substring(0, 150);
+Execute Anonymous:     }
+Execute Anonymous: 
+Execute Anonymous:     System.debug('---------------------------------------------------------');
+Execute Anonymous:     System.debug(p.Name + '  (Contrato ' + p.SM_Contract__r.ContractNumber + ')');
+Execute Anonymous:     System.debug('  ACTUAL -> Payment_Status=' + p.Payment_Status__c +
+Execute Anonymous:             ' | Collection_Status=' + p.SM_Check_Collection_Status__c +
+Execute Anonymous:             ' | Return_Code=' + p.SM_Return_code__c +
+Execute Anonymous:             ' | Reason=' + p.SM_Check_Collection_Return_Reason__c);
+Execute Anonymous:     System.debug('  NUEVO  -> Payment_Status=REJECTED | Collection_Status=NOT_COLLECTED' +
+Execute Anonymous:             ' | Return_Code=R10 | Reason=' + pf.reason);
+Execute Anonymous:     System.debug('  Historico nuevo -> ' + newHistorical);
+Execute Anonymous: 
+Execute Anonymous:     SM_Payment__c upd = new SM_Payment__c(
+Execute Anonymous:             Id = p.Id,
+Execute Anonymous:             Payment_Status__c = 'REJECTED',
+Execute Anonymous:             SM_Check_Collection_Status__c = 'NOT_COLLECTED',
+Execute Anonymous:             SM_Return_code__c = 'R10',
+Execute Anonymous:             SM_Check_Collection_Return_Reason__c = pf.reason,
+Execute Anonymous:             SM_Historical_Collection_Status__c = newHistorical
+Execute Anonymous:     );
+Execute Anonymous:     toUpdate.add(upd);
+Execute Anonymous: }
+Execute Anonymous: 
+Execute Anonymous: System.debug('=======================================================');
+Execute Anonymous: System.debug(' -> Total a actualizar: ' + toUpdate.size());
+Execute Anonymous: System.debug('=======================================================');
+Execute Anonymous: 
+Execute Anonymous: if (!DRY_RUN) {
+Execute Anonymous:     SM_TriggerHandler.avoidAllHandlerExcecution = true;
+Execute Anonymous:     Database.SaveResult[] results = Database.update(toUpdate, false);
+Execute Anonymous:     Integer ok = 0;
+Execute Anonymous:     Integer fail = 0;
+Execute Anonymous:     for (Database.SaveResult sr : results) {
+Execute Anonymous:         if (sr.isSuccess()) {
+Execute Anonymous:             ok++;
+Execute Anonymous:         } else {
+Execute Anonymous:             fail++;
+Execute Anonymous:             System.debug(' -> ERROR en ' + sr.getId() + ': ' + sr.getErrors());
+Execute Anonymous:         }
+Execute Anonymous:     }
+Execute Anonymous:     System.debug(' -> Actualizados OK: ' + ok + '  |  Fallidos: ' + fail);
+Execute Anonymous: } else {
+Execute Anonymous:     System.debug(' -> DRY RUN: no se realizo ningun cambio. Cambiar DRY_RUN a false para ejecutar.');
+Execute Anonymous: }
+17:46:59.44 (44622230)|USER_INFO|[EXTERNAL]|0051U000007bbx5|clopez@legal-credit.com|(GMT+02:00) Central European Summer Time (Europe/Madrid)|GMT+02:00
+17:46:59.44 (44648830)|EXECUTION_STARTED
+17:46:59.44 (44669480)|CODE_UNIT_STARTED|[EXTERNAL]|execute_anonymous_apex
+17:46:59.44 (70055296)|USER_DEBUG|[78]|DEBUG|=======================================================
+17:46:59.44 (70103817)|USER_DEBUG|[79]|DEBUG| -> MODO: EJECUCION REAL (se va a actualizar)
+17:46:59.44 (70188748)|USER_DEBUG|[80]|DEBUG| -> Candidatos encontrados en Salesforce: 23 / 23
+17:46:59.44 (70197558)|USER_DEBUG|[81]|DEBUG|=======================================================
+17:46:59.44 (70556253)|USER_DEBUG|[97]|DEBUG|---------------------------------------------------------
+17:46:59.44 (70683065)|USER_DEBUG|[98]|DEBUG|PY-01847651  (Contrato 00316701)
+17:46:59.44 (70722155)|USER_DEBUG|[99]|DEBUG|  ACTUAL -> Payment_Status=REJECTED &#124; Collection_Status=PENDING &#124; Return_Code=R10 &#124; Reason=R10
+17:46:59.44 (70736115)|USER_DEBUG|[103]|DEBUG|  NUEVO  -> Payment_Status=REJECTED &#124; Collection_Status=NOT_COLLECTED &#124; Return_Code=R10 &#124; Reason=R10 CUST ADV NOT
+17:46:59.44 (70767246)|USER_DEBUG|[105]|DEBUG|  Historico nuevo -> PRC_AUT_R10_BACKFILL_JUN2026: REJECTED/NOT_COLLECTED //PRC_AUT: PENDING //
+17:46:59.44 (70950998)|USER_DEBUG|[97]|DEBUG|---------------------------------------------------------
+17:46:59.44 (70963178)|USER_DEBUG|[98]|DEBUG|PY-01847653  (Contrato 00316700)
+17:46:59.44 (70972598)|USER_DEBUG|[99]|DEBUG|  ACTUAL -> Payment_Status=REJECTED &#124; Collection_Status=PENDING &#124; Return_Code=R10 &#124; Reason=R10
+17:46:59.44 (70978558)|USER_DEBUG|[103]|DEBUG|  NUEVO  -> Payment_Status=REJECTED &#124; Collection_Status=NOT_COLLECTED &#124; Return_Code=R10 &#124; Reason=R10 CUST ADV NOT
+17:46:59.44 (70984149)|USER_DEBUG|[105]|DEBUG|  Historico nuevo -> PRC_AUT_R10_BACKFILL_JUN2026: REJECTED/NOT_COLLECTED //PRC_AUT: PENDING //
+17:46:59.44 (71036839)|USER_DEBUG|[97]|DEBUG|---------------------------------------------------------
+17:46:59.44 (71045759)|USER_DEBUG|[98]|DEBUG|PY-01849219  (Contrato 00316581)
+17:46:59.44 (71053579)|USER_DEBUG|[99]|DEBUG|  ACTUAL -> Payment_Status=REJECTED &#124; Collection_Status=PENDING &#124; Return_Code=R10 &#124; Reason=R10
+17:46:59.44 (71062830)|USER_DEBUG|[103]|DEBUG|  NUEVO  -> Payment_Status=REJECTED &#124; Collection_Status=NOT_COLLECTED &#124; Return_Code=R10 &#124; Reason=R10 CUST ADV NOT
+17:46:59.44 (71068110)|USER_DEBUG|[105]|DEBUG|  Historico nuevo -> PRC_AUT_R10_BACKFILL_JUN2026: REJECTED/NOT_COLLECTED //PRC_AUT: PENDING //
+17:46:59.44 (71129770)|USER_DEBUG|[97]|DEBUG|---------------------------------------------------------
+17:46:59.44 (71139451)|USER_DEBUG|[98]|DEBUG|PY-01849469  (Contrato 00316851)
+17:46:59.44 (71147151)|USER_DEBUG|[99]|DEBUG|  ACTUAL -> Payment_Status=REJECTED &#124; Collection_Status=PENDING &#124; Return_Code=R10 &#124; Reason=R10
+17:46:59.44 (71152161)|USER_DEBUG|[103]|DEBUG|  NUEVO  -> Payment_Status=REJECTED &#124; Collection_Status=NOT_COLLECTED &#124; Return_Code=R10 &#124; Reason=R10 CUST ADV NOT
+17:46:59.44 (71157061)|USER_DEBUG|[105]|DEBUG|  Historico nuevo -> PRC_AUT_R10_BACKFILL_JUN2026: REJECTED/NOT_COLLECTED //PRC_AUT: PENDING //PRC_AUT: PENDING //ACCEPTED>NOT COLLECTED X DIAS (75 CAL,)_1849469_u.240826 
+17:46:59.44 (71202291)|USER_DEBUG|[97]|DEBUG|---------------------------------------------------------
+17:46:59.44 (71210371)|USER_DEBUG|[98]|DEBUG|PY-01859586  (Contrato 00314671)
+17:46:59.44 (71217772)|USER_DEBUG|[99]|DEBUG|  ACTUAL -> Payment_Status=REJECTED &#124; Collection_Status=Not_collected &#124; Return_Code=R01-R10 &#124; Reason=R10
+17:46:59.44 (71222832)|USER_DEBUG|[103]|DEBUG|  NUEVO  -> Payment_Status=REJECTED &#124; Collection_Status=NOT_COLLECTED &#124; Return_Code=R10 &#124; Reason=R10 CUST ADV NOT
+17:46:59.44 (71227652)|USER_DEBUG|[105]|DEBUG|  Historico nuevo -> PRC_AUT_R10_BACKFILL_JUN2026: REJECTED/NOT_COLLECTED //
+17:46:59.44 (71275262)|USER_DEBUG|[97]|DEBUG|---------------------------------------------------------
+17:46:59.44 (71283412)|USER_DEBUG|[98]|DEBUG|PY-01859726  (Contrato 00317434)
+17:46:59.44 (71291163)|USER_DEBUG|[99]|DEBUG|  ACTUAL -> Payment_Status=REJECTED &#124; Collection_Status=PENDING &#124; Return_Code=R10 &#124; Reason=R10
+17:46:59.44 (71295803)|USER_DEBUG|[103]|DEBUG|  NUEVO  -> Payment_Status=REJECTED &#124; Collection_Status=NOT_COLLECTED &#124; Return_Code=R10 &#124; Reason=R10 CUST ADV NOT
+17:46:59.44 (71300453)|USER_DEBUG|[105]|DEBUG|  Historico nuevo -> PRC_AUT_R10_BACKFILL_JUN2026: REJECTED/NOT_COLLECTED //PRC_AUT: PENDING //PRC_AUT_MANUAL_FIX: PENDING //PRC_AUT: RETURN //PENDING>NOT COLLECTED X DIAS
+17:46:59.44 (71346233)|USER_DEBUG|[97]|DEBUG|---------------------------------------------------------
+17:46:59.44 (71352633)|USER_DEBUG|[98]|DEBUG|PY-01865165  (Contrato 00316851)
+17:46:59.44 (71360023)|USER_DEBUG|[99]|DEBUG|  ACTUAL -> Payment_Status=REJECTED &#124; Collection_Status=PENDING &#124; Return_Code=R10 &#124; Reason=R10
+17:46:59.44 (71365124)|USER_DEBUG|[103]|DEBUG|  NUEVO  -> Payment_Status=REJECTED &#124; Collection_Status=NOT_COLLECTED &#124; Return_Code=R10 &#124; Reason=R10 CUST ADV NOT
+17:46:59.44 (71369874)|USER_DEBUG|[105]|DEBUG|  Historico nuevo -> PRC_AUT_R10_BACKFILL_JUN2026: REJECTED/NOT_COLLECTED //PRC_AUT: PENDING //PRC_AUT: PENDING //PENDING>NOT COLLECTED X DIAS (45 CAL,)_1865165_u.240826 /
+17:46:59.44 (71410454)|USER_DEBUG|[97]|DEBUG|---------------------------------------------------------
+17:46:59.44 (71417674)|USER_DEBUG|[98]|DEBUG|PY-01868816  (Contrato 00316444)
+17:46:59.44 (71424994)|USER_DEBUG|[99]|DEBUG|  ACTUAL -> Payment_Status=ACCEPTED &#124; Collection_Status=ACCEPTED &#124; Return_Code=null &#124; Reason=null
+17:46:59.44 (71429964)|USER_DEBUG|[103]|DEBUG|  NUEVO  -> Payment_Status=REJECTED &#124; Collection_Status=NOT_COLLECTED &#124; Return_Code=R10 &#124; Reason=R10 CUST ADV NOT
+17:46:59.44 (71434724)|USER_DEBUG|[105]|DEBUG|  Historico nuevo -> PRC_AUT_R10_BACKFILL_JUN2026: REJECTED/NOT_COLLECTED //
+17:46:59.44 (71478695)|USER_DEBUG|[97]|DEBUG|---------------------------------------------------------
+17:46:59.44 (71485935)|USER_DEBUG|[98]|DEBUG|PY-01869482  (Contrato 00317418)
+17:46:59.44 (71493695)|USER_DEBUG|[99]|DEBUG|  ACTUAL -> Payment_Status=REJECTED &#124; Collection_Status=RETURN &#124; Return_Code=R10 &#124; Reason=null
+17:46:59.44 (71505005)|USER_DEBUG|[103]|DEBUG|  NUEVO  -> Payment_Status=REJECTED &#124; Collection_Status=NOT_COLLECTED &#124; Return_Code=R10 &#124; Reason=CUSTOMER ADVISES NOT AUTHORIZED
+17:46:59.44 (71509995)|USER_DEBUG|[105]|DEBUG|  Historico nuevo -> PRC_AUT_R10_BACKFILL_JUN2026: REJECTED/NOT_COLLECTED //RETURN>RETURN>NOT COLLECTED X DIAS (32 CAL,)_1869482_u.240826 // ACH TRX>ACCEPTED_07ago26__U.11
+17:46:59.44 (71552086)|USER_DEBUG|[97]|DEBUG|---------------------------------------------------------
+17:46:59.44 (71558596)|USER_DEBUG|[98]|DEBUG|PY-01872218  (Contrato 00317434)
+17:46:59.44 (71566566)|USER_DEBUG|[99]|DEBUG|  ACTUAL -> Payment_Status=REJECTED &#124; Collection_Status=RETURN &#124; Return_Code=R10 &#124; Reason=null
+17:46:59.44 (71571426)|USER_DEBUG|[103]|DEBUG|  NUEVO  -> Payment_Status=REJECTED &#124; Collection_Status=NOT_COLLECTED &#124; Return_Code=R10 &#124; Reason=CUSTOMER ADVISES NOT AUTHORIZED
+17:46:59.44 (71576046)|USER_DEBUG|[105]|DEBUG|  Historico nuevo -> PRC_AUT_R10_BACKFILL_JUN2026: REJECTED/NOT_COLLECTED //RETURN>RETURN>NOT COLLECTED X DIAS (27 CAL,)_1872218_u.250826 // REV trx TO acc 25AGO
+17:46:59.44 (71619837)|USER_DEBUG|[97]|DEBUG|---------------------------------------------------------
+17:46:59.44 (71625847)|USER_DEBUG|[98]|DEBUG|PY-01872289  (Contrato 00317418)
+17:46:59.44 (71633507)|USER_DEBUG|[99]|DEBUG|  ACTUAL -> Payment_Status=REJECTED &#124; Collection_Status=PENDING &#124; Return_Code=R10 &#124; Reason=R10
+17:46:59.44 (71638317)|USER_DEBUG|[103]|DEBUG|  NUEVO  -> Payment_Status=REJECTED &#124; Collection_Status=NOT_COLLECTED &#124; Return_Code=R10 &#124; Reason=R10 CUST ADV NOT
+17:46:59.44 (71642957)|USER_DEBUG|[105]|DEBUG|  Historico nuevo -> PRC_AUT_R10_BACKFILL_JUN2026: REJECTED/NOT_COLLECTED //PRC_AUT: PENDING //PRC_AUT: PENDING //PRC_AUT: RETURN //PENDING>NOT COLLECTED X DIAS (27 CAL,)_
+17:46:59.44 (71683208)|USER_DEBUG|[97]|DEBUG|---------------------------------------------------------
+17:46:59.44 (71690148)|USER_DEBUG|[98]|DEBUG|PY-01880352  (Contrato 00274687)
+17:46:59.44 (71697628)|USER_DEBUG|[99]|DEBUG|  ACTUAL -> Payment_Status=REJECTED &#124; Collection_Status=RETURN &#124; Return_Code=R10 &#124; Reason=null
+17:46:59.44 (71702228)|USER_DEBUG|[103]|DEBUG|  NUEVO  -> Payment_Status=REJECTED &#124; Collection_Status=NOT_COLLECTED &#124; Return_Code=R10 &#124; Reason=CUSTOMER ADVISES NOT AUTHORIZED
+17:46:59.44 (71706948)|USER_DEBUG|[105]|DEBUG|  Historico nuevo -> PRC_AUT_R10_BACKFILL_JUN2026: REJECTED/NOT_COLLECTED //
+17:46:59.44 (71745639)|USER_DEBUG|[97]|DEBUG|---------------------------------------------------------
+17:46:59.44 (71752639)|USER_DEBUG|[98]|DEBUG|PY-01880378  (Contrato 00304787)
+17:46:59.44 (71761189)|USER_DEBUG|[99]|DEBUG|  ACTUAL -> Payment_Status=REJECTED &#124; Collection_Status=RETURN &#124; Return_Code=R10 &#124; Reason=null
+17:46:59.44 (71766089)|USER_DEBUG|[103]|DEBUG|  NUEVO  -> Payment_Status=REJECTED &#124; Collection_Status=NOT_COLLECTED &#124; Return_Code=R10 &#124; Reason=CUSTOMER ADVISES NOT AUTHORIZED
+17:46:59.44 (71771109)|USER_DEBUG|[105]|DEBUG|  Historico nuevo -> PRC_AUT_R10_BACKFILL_JUN2026: REJECTED/NOT_COLLECTED //
+17:46:59.44 (71808939)|USER_DEBUG|[97]|DEBUG|---------------------------------------------------------
+17:46:59.44 (71817869)|USER_DEBUG|[98]|DEBUG|PY-01880427  (Contrato 00317867)
+17:46:59.44 (71825470)|USER_DEBUG|[99]|DEBUG|  ACTUAL -> Payment_Status=REJECTED &#124; Collection_Status=RETURN &#124; Return_Code=R10 &#124; Reason=null
+17:46:59.44 (71830310)|USER_DEBUG|[103]|DEBUG|  NUEVO  -> Payment_Status=REJECTED &#124; Collection_Status=NOT_COLLECTED &#124; Return_Code=R10 &#124; Reason=CUSTOMER ADVISES NOT AUTHORIZED
+17:46:59.44 (71834980)|USER_DEBUG|[105]|DEBUG|  Historico nuevo -> PRC_AUT_R10_BACKFILL_JUN2026: REJECTED/NOT_COLLECTED //
+17:46:59.44 (71874800)|USER_DEBUG|[97]|DEBUG|---------------------------------------------------------
+17:46:59.44 (71882540)|USER_DEBUG|[98]|DEBUG|PY-01883331  (Contrato 00316864)
+17:46:59.44 (71890100)|USER_DEBUG|[99]|DEBUG|  ACTUAL -> Payment_Status=REJECTED &#124; Collection_Status=RETURN &#124; Return_Code=R10 &#124; Reason=null
+17:46:59.44 (71894930)|USER_DEBUG|[103]|DEBUG|  NUEVO  -> Payment_Status=REJECTED &#124; Collection_Status=NOT_COLLECTED &#124; Return_Code=R10 &#124; Reason=CUSTOMER ADVISES NOT AUTHORIZED
+17:46:59.44 (71899601)|USER_DEBUG|[105]|DEBUG|  Historico nuevo -> PRC_AUT_R10_BACKFILL_JUN2026: REJECTED/NOT_COLLECTED //PRC_AUT: RETURN //PRC_AUT_15D_SIN_REPORTE: ACCEPTED //
+17:46:59.44 (71939671)|USER_DEBUG|[97]|DEBUG|---------------------------------------------------------
+17:46:59.44 (71947211)|USER_DEBUG|[98]|DEBUG|PY-01884599  (Contrato 00316755)
+17:46:59.44 (71955281)|USER_DEBUG|[99]|DEBUG|  ACTUAL -> Payment_Status=REJECTED &#124; Collection_Status=RETURN &#124; Return_Code=R10 &#124; Reason=null
+17:46:59.44 (71959931)|USER_DEBUG|[103]|DEBUG|  NUEVO  -> Payment_Status=REJECTED &#124; Collection_Status=NOT_COLLECTED &#124; Return_Code=R10 &#124; Reason=CUSTOMER ADVISES NOT AUTHORIZED
+17:46:59.44 (71964631)|USER_DEBUG|[105]|DEBUG|  Historico nuevo -> PRC_AUT_R10_BACKFILL_JUN2026: REJECTED/NOT_COLLECTED //PRC_AUT: RETURN //
+17:46:59.44 (72004382)|USER_DEBUG|[97]|DEBUG|---------------------------------------------------------
+17:46:59.44 (72011642)|USER_DEBUG|[98]|DEBUG|PY-01884645  (Contrato 00310862)
+17:46:59.44 (72018862)|USER_DEBUG|[99]|DEBUG|  ACTUAL -> Payment_Status=REJECTED &#124; Collection_Status=RETURN &#124; Return_Code=R10 &#124; Reason=null
+17:46:59.44 (72023702)|USER_DEBUG|[103]|DEBUG|  NUEVO  -> Payment_Status=REJECTED &#124; Collection_Status=NOT_COLLECTED &#124; Return_Code=R10 &#124; Reason=CUSTOMER ADVISES NOT AUTHORIZED
+17:46:59.44 (72028262)|USER_DEBUG|[105]|DEBUG|  Historico nuevo -> PRC_AUT_R10_BACKFILL_JUN2026: REJECTED/NOT_COLLECTED //PRC_AUT: RETURN //
+17:46:59.44 (72066863)|USER_DEBUG|[97]|DEBUG|---------------------------------------------------------
+17:46:59.44 (72081043)|USER_DEBUG|[98]|DEBUG|PY-01884676  (Contrato 00317478)
+17:46:59.44 (72103833)|USER_DEBUG|[99]|DEBUG|  ACTUAL -> Payment_Status=REJECTED &#124; Collection_Status=RETURN &#124; Return_Code=R10 &#124; Reason=null
+17:46:59.44 (72109623)|USER_DEBUG|[103]|DEBUG|  NUEVO  -> Payment_Status=REJECTED &#124; Collection_Status=NOT_COLLECTED &#124; Return_Code=R10 &#124; Reason=CUSTOMER ADVISES NOT AUTHORIZED
+17:46:59.44 (72114733)|USER_DEBUG|[105]|DEBUG|  Historico nuevo -> PRC_AUT_R10_BACKFILL_JUN2026: REJECTED/NOT_COLLECTED //
+17:46:59.44 (72157114)|USER_DEBUG|[97]|DEBUG|---------------------------------------------------------
+17:46:59.44 (72163324)|USER_DEBUG|[98]|DEBUG|PY-01884692  (Contrato 00310862)
+17:46:59.44 (72170704)|USER_DEBUG|[99]|DEBUG|  ACTUAL -> Payment_Status=REJECTED &#124; Collection_Status=RETURN &#124; Return_Code=R10 &#124; Reason=null
+17:46:59.44 (72175384)|USER_DEBUG|[103]|DEBUG|  NUEVO  -> Payment_Status=REJECTED &#124; Collection_Status=NOT_COLLECTED &#124; Return_Code=R10 &#124; Reason=CUSTOMER ADVISES NOT AUTHORIZED
+17:46:59.44 (72180454)|USER_DEBUG|[105]|DEBUG|  Historico nuevo -> PRC_AUT_R10_BACKFILL_JUN2026: REJECTED/NOT_COLLECTED //PRC_AUT: RETURN //
+17:46:59.44 (72219975)|USER_DEBUG|[97]|DEBUG|---------------------------------------------------------
+17:46:59.44 (72226625)|USER_DEBUG|[98]|DEBUG|PY-01885207  (Contrato 00316444)
+17:46:59.44 (72234055)|USER_DEBUG|[99]|DEBUG|  ACTUAL -> Payment_Status=ACCEPTED &#124; Collection_Status=COLLECTED &#124; Return_Code=null &#124; Reason=null
+17:46:59.44 (72238875)|USER_DEBUG|[103]|DEBUG|  NUEVO  -> Payment_Status=REJECTED &#124; Collection_Status=NOT_COLLECTED &#124; Return_Code=R10 &#124; Reason=CUSTOMER ADVISES NOT AUTHORIZED
+17:46:59.44 (72243525)|USER_DEBUG|[105]|DEBUG|  Historico nuevo -> PRC_AUT_R10_BACKFILL_JUN2026: REJECTED/NOT_COLLECTED //PRC_AUT_15D_SIN_REPORTE: ACCEPTED //
+17:46:59.44 (72282236)|USER_DEBUG|[97]|DEBUG|---------------------------------------------------------
+17:46:59.44 (72288326)|USER_DEBUG|[98]|DEBUG|PY-01889059  (Contrato 00314671)
+17:46:59.44 (72296106)|USER_DEBUG|[99]|DEBUG|  ACTUAL -> Payment_Status=REJECTED &#124; Collection_Status=PENDING &#124; Return_Code=R10 &#124; Reason=R10
+17:46:59.44 (72300906)|USER_DEBUG|[103]|DEBUG|  NUEVO  -> Payment_Status=REJECTED &#124; Collection_Status=NOT_COLLECTED &#124; Return_Code=R10 &#124; Reason=R10 CUST ADV NOT
+17:46:59.44 (72305526)|USER_DEBUG|[105]|DEBUG|  Historico nuevo -> PRC_AUT_R10_BACKFILL_JUN2026: REJECTED/NOT_COLLECTED //PRC_AUT: PENDING //PRC_AUT: PENDING //
+17:46:59.44 (72343846)|USER_DEBUG|[97]|DEBUG|---------------------------------------------------------
+17:46:59.44 (72350956)|USER_DEBUG|[98]|DEBUG|PY-01889111  (Contrato 00315994)
+17:46:59.44 (72358827)|USER_DEBUG|[99]|DEBUG|  ACTUAL -> Payment_Status=REJECTED &#124; Collection_Status=PENDING &#124; Return_Code=R10 &#124; Reason=R10
+17:46:59.44 (72363707)|USER_DEBUG|[103]|DEBUG|  NUEVO  -> Payment_Status=REJECTED &#124; Collection_Status=NOT_COLLECTED &#124; Return_Code=R10 &#124; Reason=R10 CUST ADV NOT
+17:46:59.44 (72368967)|USER_DEBUG|[105]|DEBUG|  Historico nuevo -> PRC_AUT_R10_BACKFILL_JUN2026: REJECTED/NOT_COLLECTED //PRC_AUT: PENDING //PRC_AUT: PENDING //
+17:46:59.44 (72410587)|USER_DEBUG|[97]|DEBUG|---------------------------------------------------------
+17:46:59.44 (72418287)|USER_DEBUG|[98]|DEBUG|PY-01894616  (Contrato 00317509)
+17:46:59.44 (72425937)|USER_DEBUG|[99]|DEBUG|  ACTUAL -> Payment_Status=REJECTED &#124; Collection_Status=PENDING &#124; Return_Code=R10 &#124; Reason=R10
+17:46:59.44 (72430877)|USER_DEBUG|[103]|DEBUG|  NUEVO  -> Payment_Status=REJECTED &#124; Collection_Status=NOT_COLLECTED &#124; Return_Code=R10 &#124; Reason=R10 CUST ADV NOT
+17:46:59.44 (72435438)|USER_DEBUG|[105]|DEBUG|  Historico nuevo -> PRC_AUT_R10_BACKFILL_JUN2026: REJECTED/NOT_COLLECTED //PRC_AUT: PENDING //PRC_AUT: RETURN //
+17:46:59.44 (72469068)|USER_DEBUG|[118]|DEBUG|=======================================================
+17:46:59.44 (72488728)|USER_DEBUG|[119]|DEBUG| -> Total a actualizar: 23
+17:46:59.44 (72496688)|USER_DEBUG|[120]|DEBUG|=======================================================
+17:46:59.44 (115824821)|CODE_UNIT_STARTED|[EXTERNAL]|Flow:01I1U000002p7mA
+17:46:59.44 (115849301)|CODE_UNIT_FINISHED|Flow:01I1U000002p7mA
+17:46:59.44 (124211102)|CODE_UNIT_STARTED|[EXTERNAL]|01q1U000001iKpN|SM_PaymentTrigger on SM_Payment trigger event BeforeUpdate|__sfdc_trigger/SM_PaymentTrigger
+17:46:59.134 (134540588)|CUMULATIVE_LIMIT_USAGE
+17:46:59.134 (134540588)|LIMIT_USAGE_FOR_NS|(default)|
+  Number of SOQL queries: 1 out of 100
+  Number of query rows: 24 out of 50000
+  Number of SOSL queries: 0 out of 20
+  Number of DML statements: 1 out of 150
+  Number of Publish Immediate DML: 0 out of 150
+  Number of DML rows: 23 out of 10000
+  Maximum CPU time: 0 out of 10000
+  Maximum heap size: 0 out of 6000000
+  Number of callouts: 0 out of 100
+  Number of Email Invocations: 0 out of 10
+  Number of future calls: 0 out of 50
+  Number of queueable jobs added to the queue: 0 out of 50
+  Number of Mobile Apex push calls: 0 out of 10
+
+17:46:59.134 (134540588)|CUMULATIVE_LIMIT_USAGE_END
+
+17:46:59.44 (134829132)|CODE_UNIT_FINISHED|SM_PaymentTrigger on SM_Payment trigger event BeforeUpdate|__sfdc_trigger/SM_PaymentTrigger
+17:46:59.44 (136975950)|CODE_UNIT_STARTED|[EXTERNAL]|01q1U000001iMYY|SM_PaymentTGR on SM_Payment trigger event BeforeUpdate|__sfdc_trigger/SM_PaymentTGR
+17:46:59.141 (141754903)|CUMULATIVE_LIMIT_USAGE
+17:46:59.141 (141754903)|LIMIT_USAGE_FOR_NS|(default)|
+  Number of SOQL queries: 1 out of 100
+  Number of query rows: 25 out of 50000
+  Number of SOSL queries: 0 out of 20
+  Number of DML statements: 1 out of 150
+  Number of Publish Immediate DML: 0 out of 150
+  Number of DML rows: 23 out of 10000
+  Maximum CPU time: 0 out of 10000
+  Maximum heap size: 0 out of 6000000
+  Number of callouts: 0 out of 100
+  Number of Email Invocations: 0 out of 10
+  Number of future calls: 0 out of 50
+  Number of queueable jobs added to the queue: 0 out of 50
+  Number of Mobile Apex push calls: 0 out of 10
+
+17:46:59.141 (141754903)|CUMULATIVE_LIMIT_USAGE_END
+
+17:46:59.44 (142005156)|CODE_UNIT_FINISHED|SM_PaymentTGR on SM_Payment trigger event BeforeUpdate|__sfdc_trigger/SM_PaymentTGR
+17:46:59.44 (154620134)|CODE_UNIT_STARTED|[EXTERNAL]|Validation:SM_Payment:a24UU000004eHHy
+17:46:59.44 (154688065)|CODE_UNIT_FINISHED|Validation:SM_Payment:a24UU000004eHHy
+17:46:59.44 (154701635)|CODE_UNIT_STARTED|[EXTERNAL]|Validation:SM_Payment:a24UU000004eHI0
+17:46:59.44 (154711575)|CODE_UNIT_FINISHED|Validation:SM_Payment:a24UU000004eHI0
+17:46:59.44 (154717355)|CODE_UNIT_STARTED|[EXTERNAL]|Validation:SM_Payment:a24UU000004fxEx
+17:46:59.44 (154725985)|CODE_UNIT_FINISHED|Validation:SM_Payment:a24UU000004fxEx
+17:46:59.44 (154731255)|CODE_UNIT_STARTED|[EXTERNAL]|Validation:SM_Payment:a24UU000004gRzP
+17:46:59.44 (154740055)|CODE_UNIT_FINISHED|Validation:SM_Payment:a24UU000004gRzP
+17:46:59.44 (154745056)|CODE_UNIT_STARTED|[EXTERNAL]|Validation:SM_Payment:a24UU000004ogtE
+17:46:59.44 (154753846)|CODE_UNIT_FINISHED|Validation:SM_Payment:a24UU000004ogtE
+17:46:59.44 (154758656)|CODE_UNIT_STARTED|[EXTERNAL]|Validation:SM_Payment:a24UU000004ogvU
+17:46:59.44 (154767246)|CODE_UNIT_FINISHED|Validation:SM_Payment:a24UU000004ogvU
+17:46:59.44 (154773426)|CODE_UNIT_STARTED|[EXTERNAL]|Validation:SM_Payment:a24UU000004tMe8
+17:46:59.44 (154782286)|CODE_UNIT_FINISHED|Validation:SM_Payment:a24UU000004tMe8
+17:46:59.44 (154787406)|CODE_UNIT_STARTED|[EXTERNAL]|Validation:SM_Payment:a24UU000004yU5r
+17:46:59.44 (154822797)|CODE_UNIT_FINISHED|Validation:SM_Payment:a24UU000004yU5r
+17:46:59.44 (154829707)|CODE_UNIT_STARTED|[EXTERNAL]|Validation:SM_Payment:a24UU000004zam7
+17:46:59.44 (154838517)|CODE_UNIT_FINISHED|Validation:SM_Payment:a24UU000004zam7
+17:46:59.44 (154844897)|CODE_UNIT_STARTED|[EXTERNAL]|Validation:SM_Payment:a24UU0000052T7B
+17:46:59.44 (154853407)|CODE_UNIT_FINISHED|Validation:SM_Payment:a24UU0000052T7B
+17:46:59.44 (154859717)|CODE_UNIT_STARTED|[EXTERNAL]|Validation:SM_Payment:a24UU0000052T8K
+17:46:59.44 (154868287)|CODE_UNIT_FINISHED|Validation:SM_Payment:a24UU0000052T8K
+17:46:59.44 (154874617)|CODE_UNIT_STARTED|[EXTERNAL]|Validation:SM_Payment:a24UU0000059CEc
+17:46:59.44 (154883467)|CODE_UNIT_FINISHED|Validation:SM_Payment:a24UU0000059CEc
+17:46:59.44 (154889757)|CODE_UNIT_STARTED|[EXTERNAL]|Validation:SM_Payment:a24UU0000059CF2
+17:46:59.44 (154898718)|CODE_UNIT_FINISHED|Validation:SM_Payment:a24UU0000059CF2
+17:46:59.44 (154904858)|CODE_UNIT_STARTED|[EXTERNAL]|Validation:SM_Payment:a24UU0000059CFp
+17:46:59.44 (154913468)|CODE_UNIT_FINISHED|Validation:SM_Payment:a24UU0000059CFp
+17:46:59.44 (154920728)|CODE_UNIT_STARTED|[EXTERNAL]|Validation:SM_Payment:a24UU000005BPmn
+17:46:59.44 (154929398)|CODE_UNIT_FINISHED|Validation:SM_Payment:a24UU000005BPmn
+17:46:59.44 (154936708)|CODE_UNIT_STARTED|[EXTERNAL]|Validation:SM_Payment:a24UU000005CWUu
+17:46:59.44 (154945298)|CODE_UNIT_FINISHED|Validation:SM_Payment:a24UU000005CWUu
+17:46:59.44 (154951158)|CODE_UNIT_STARTED|[EXTERNAL]|Validation:SM_Payment:a24UU000005CWVe
+17:46:59.44 (154960838)|CODE_UNIT_FINISHED|Validation:SM_Payment:a24UU000005CWVe
+17:46:59.44 (154966918)|CODE_UNIT_STARTED|[EXTERNAL]|Validation:SM_Payment:a24UU000005CWW9
+17:46:59.44 (154976179)|CODE_UNIT_FINISHED|Validation:SM_Payment:a24UU000005CWW9
+17:46:59.44 (154982169)|CODE_UNIT_STARTED|[EXTERNAL]|Validation:SM_Payment:a24UU000005CWWP
+17:46:59.44 (154991169)|CODE_UNIT_FINISHED|Validation:SM_Payment:a24UU000005CWWP
+17:46:59.44 (154996499)|CODE_UNIT_STARTED|[EXTERNAL]|Validation:SM_Payment:a24UU000005D3dM
+17:46:59.44 (155009919)|CODE_UNIT_FINISHED|Validation:SM_Payment:a24UU000005D3dM
+17:46:59.44 (155015439)|CODE_UNIT_STARTED|[EXTERNAL]|Validation:SM_Payment:a24UU000005GDL1
+17:46:59.44 (155024509)|CODE_UNIT_FINISHED|Validation:SM_Payment:a24UU000005GDL1
+17:46:59.44 (155029319)|CODE_UNIT_STARTED|[EXTERNAL]|Validation:SM_Payment:a24UU000005GDLr
+17:46:59.44 (155038459)|CODE_UNIT_FINISHED|Validation:SM_Payment:a24UU000005GDLr
+17:46:59.44 (155044299)|CODE_UNIT_STARTED|[EXTERNAL]|Validation:SM_Payment:a24UU000005Jg4S
+17:46:59.44 (155053040)|CODE_UNIT_FINISHED|Validation:SM_Payment:a24UU000005Jg4S
+17:46:59.44 (171375465)|CODE_UNIT_STARTED|[EXTERNAL]|01q1U000001iKpN|SM_PaymentTrigger on SM_Payment trigger event AfterUpdate|__sfdc_trigger/SM_PaymentTrigger
+17:46:59.173 (173381811)|CUMULATIVE_LIMIT_USAGE
+17:46:59.173 (173381811)|LIMIT_USAGE_FOR_NS|(default)|
+  Number of SOQL queries: 1 out of 100
+  Number of query rows: 26 out of 50000
+  Number of SOSL queries: 0 out of 20
+  Number of DML statements: 1 out of 150
+  Number of Publish Immediate DML: 0 out of 150
+  Number of DML rows: 23 out of 10000
+  Maximum CPU time: 0 out of 10000
+  Maximum heap size: 0 out of 6000000
+  Number of callouts: 0 out of 100
+  Number of Email Invocations: 0 out of 10
+  Number of future calls: 0 out of 50
+  Number of queueable jobs added to the queue: 0 out of 50
+  Number of Mobile Apex push calls: 0 out of 10
+
+17:46:59.173 (173381811)|CUMULATIVE_LIMIT_USAGE_END
+
+17:46:59.44 (173559334)|CODE_UNIT_FINISHED|SM_PaymentTrigger on SM_Payment trigger event AfterUpdate|__sfdc_trigger/SM_PaymentTrigger
+17:46:59.44 (174329344)|CODE_UNIT_STARTED|[EXTERNAL]|01q1U000001iMYY|SM_PaymentTGR on SM_Payment trigger event AfterUpdate|__sfdc_trigger/SM_PaymentTGR
+17:46:59.175 (175559250)|CUMULATIVE_LIMIT_USAGE
+17:46:59.175 (175559250)|LIMIT_USAGE_FOR_NS|(default)|
+  Number of SOQL queries: 1 out of 100
+  Number of query rows: 27 out of 50000
+  Number of SOSL queries: 0 out of 20
+  Number of DML statements: 1 out of 150
+  Number of Publish Immediate DML: 0 out of 150
+  Number of DML rows: 23 out of 10000
+  Maximum CPU time: 0 out of 10000
+  Maximum heap size: 0 out of 6000000
+  Number of callouts: 0 out of 100
+  Number of Email Invocations: 0 out of 10
+  Number of future calls: 0 out of 50
+  Number of queueable jobs added to the queue: 0 out of 50
+  Number of Mobile Apex push calls: 0 out of 10
+
+17:46:59.175 (175559250)|CUMULATIVE_LIMIT_USAGE_END
+
+17:46:59.44 (175688572)|CODE_UNIT_FINISHED|SM_PaymentTGR on SM_Payment trigger event AfterUpdate|__sfdc_trigger/SM_PaymentTGR
+17:46:59.44 (177488786)|CODE_UNIT_STARTED|[EXTERNAL]|01qUU0000081AtZ|SM_ACPaymentActivationTrigger on SM_Payment trigger event AfterUpdate|__sfdc_trigger/SM_ACPaymentActivationTrigger
+17:46:59.185 (185125367)|CUMULATIVE_LIMIT_USAGE
+17:46:59.185 (185125367)|LIMIT_USAGE_FOR_NS|(default)|
+  Number of SOQL queries: 1 out of 100
+  Number of query rows: 28 out of 50000
+  Number of SOSL queries: 0 out of 20
+  Number of DML statements: 1 out of 150
+  Number of Publish Immediate DML: 0 out of 150
+  Number of DML rows: 23 out of 10000
+  Maximum CPU time: 0 out of 10000
+  Maximum heap size: 0 out of 6000000
+  Number of callouts: 0 out of 100
+  Number of Email Invocations: 0 out of 10
+  Number of future calls: 0 out of 50
+  Number of queueable jobs added to the queue: 0 out of 50
+  Number of Mobile Apex push calls: 0 out of 10
+
+17:46:59.185 (185125367)|CUMULATIVE_LIMIT_USAGE_END
+
+17:46:59.44 (185317740)|CODE_UNIT_FINISHED|SM_ACPaymentActivationTrigger on SM_Payment trigger event AfterUpdate|__sfdc_trigger/SM_ACPaymentActivationTrigger
+17:46:59.44 (187607170)|CODE_UNIT_STARTED|[EXTERNAL]|01qUU0000081Z5Z|SM_LateFeeReconciliationTrigger on SM_Payment trigger event AfterUpdate|__sfdc_trigger/SM_LateFeeReconciliationTrigger
+17:46:59.191 (191137867)|CUMULATIVE_LIMIT_USAGE
+17:46:59.191 (191137867)|LIMIT_USAGE_FOR_NS|(default)|
+  Number of SOQL queries: 1 out of 100
+  Number of query rows: 29 out of 50000
+  Number of SOSL queries: 0 out of 20
+  Number of DML statements: 1 out of 150
+  Number of Publish Immediate DML: 0 out of 150
+  Number of DML rows: 23 out of 10000
+  Maximum CPU time: 0 out of 10000
+  Maximum heap size: 0 out of 6000000
+  Number of callouts: 0 out of 100
+  Number of Email Invocations: 0 out of 10
+  Number of future calls: 0 out of 50
+  Number of queueable jobs added to the queue: 0 out of 50
+  Number of Mobile Apex push calls: 0 out of 10
+
+17:46:59.191 (191137867)|CUMULATIVE_LIMIT_USAGE_END
+
+17:46:59.44 (191297569)|CODE_UNIT_FINISHED|SM_LateFeeReconciliationTrigger on SM_Payment trigger event AfterUpdate|__sfdc_trigger/SM_LateFeeReconciliationTrigger
+17:46:59.44 (192428254)|CODE_UNIT_STARTED|[EXTERNAL]|Workflow:01I1U000002p7mA
+17:46:59.44 (253769595)|CODE_UNIT_FINISHED|Workflow:01I1U000002p7mA
+17:46:59.44 (255255054)|CODE_UNIT_STARTED|[EXTERNAL]|Flow:01I1U000002p7mA
+17:46:59.44 (257927100)|CODE_UNIT_FINISHED|Flow:01I1U000002p7mA
+17:46:59.44 (257995481)|CODE_UNIT_STARTED|[EXTERNAL]|Flow:01I1U000002p7mA
+17:46:59.44 (258001511)|CODE_UNIT_FINISHED|Flow:01I1U000002p7mA
+17:46:59.44 (287461010)|CODE_UNIT_STARTED|[EXTERNAL]|Flow:Contract
+17:46:59.44 (297351640)|CODE_UNIT_FINISHED|Flow:Contract
+17:46:59.44 (302599259)|CODE_UNIT_STARTED|[EXTERNAL]|01q1U000001e9g3|SM_ContractTrigger on Contract trigger event BeforeUpdate|__sfdc_trigger/SM_ContractTrigger
+17:46:59.306 (306631073)|CUMULATIVE_LIMIT_USAGE
+17:46:59.306 (306631073)|LIMIT_USAGE_FOR_NS|(default)|
+  Number of SOQL queries: 1 out of 100
+  Number of query rows: 30 out of 50000
+  Number of SOSL queries: 0 out of 20
+  Number of DML statements: 1 out of 150
+  Number of Publish Immediate DML: 0 out of 150
+  Number of DML rows: 23 out of 10000
+  Maximum CPU time: 69 out of 10000
+  Maximum heap size: 0 out of 6000000
+  Number of callouts: 0 out of 100
+  Number of Email Invocations: 0 out of 10
+  Number of future calls: 0 out of 50
+  Number of queueable jobs added to the queue: 0 out of 50
+  Number of Mobile Apex push calls: 0 out of 10
+
+17:46:59.306 (306631073)|CUMULATIVE_LIMIT_USAGE_END
+
+17:46:59.44 (306791625)|CODE_UNIT_FINISHED|SM_ContractTrigger on Contract trigger event BeforeUpdate|__sfdc_trigger/SM_ContractTrigger
+17:46:59.44 (308650780)|CODE_UNIT_STARTED|[EXTERNAL]|01qUU000006wHpq|dlrs_ContractTrigger on Contract trigger event BeforeUpdate|__sfdc_trigger/dlrs_ContractTrigger
+17:46:59.310 (310273341)|CUMULATIVE_LIMIT_USAGE
+17:46:59.310 (310273341)|LIMIT_USAGE_FOR_NS|(default)|
+  Number of SOQL queries: 1 out of 100
+  Number of query rows: 30 out of 50000
+  Number of SOSL queries: 0 out of 20
+  Number of DML statements: 1 out of 150
+  Number of Publish Immediate DML: 0 out of 150
+  Number of DML rows: 23 out of 10000
+  Maximum CPU time: 69 out of 10000
+  Maximum heap size: 0 out of 6000000
+  Number of callouts: 0 out of 100
+  Number of Email Invocations: 0 out of 10
+  Number of future calls: 0 out of 50
+  Number of queueable jobs added to the queue: 0 out of 50
+  Number of Mobile Apex push calls: 0 out of 10
+
+17:46:59.310 (310273341)|CUMULATIVE_LIMIT_USAGE_END
+
+17:46:59.44 (310373953)|CODE_UNIT_FINISHED|dlrs_ContractTrigger on Contract trigger event BeforeUpdate|__sfdc_trigger/dlrs_ContractTrigger
+17:46:59.44 (410259823)|CODE_UNIT_STARTED|[EXTERNAL]|Validation:Contract:8001U000000Wv9b
+17:46:59.44 (416423354)|CODE_UNIT_FINISHED|Validation:Contract:8001U000000Wv9b
+17:46:59.44 (416480105)|CODE_UNIT_STARTED|[EXTERNAL]|Validation:Contract:8001U000000X2zO
+17:46:59.44 (416758298)|CODE_UNIT_FINISHED|Validation:Contract:8001U000000X2zO
+17:46:59.44 (416774818)|CODE_UNIT_STARTED|[EXTERNAL]|Validation:Contract:8008W000004PCtS
+17:46:59.44 (416889020)|CODE_UNIT_FINISHED|Validation:Contract:8008W000004PCtS
+17:46:59.44 (416901170)|CODE_UNIT_STARTED|[EXTERNAL]|Validation:Contract:800UU00000cMLEQ
+17:46:59.44 (416997891)|CODE_UNIT_FINISHED|Validation:Contract:800UU00000cMLEQ
+17:46:59.44 (417007982)|CODE_UNIT_STARTED|[EXTERNAL]|Validation:Contract:800UU00000dkxLF
+17:46:59.44 (417098973)|CODE_UNIT_FINISHED|Validation:Contract:800UU00000dkxLF
+17:46:59.44 (417109283)|CODE_UNIT_STARTED|[EXTERNAL]|Validation:Contract:800UU00000eAdVh
+17:46:59.44 (417197654)|CODE_UNIT_FINISHED|Validation:Contract:800UU00000eAdVh
+17:46:59.44 (417207844)|CODE_UNIT_STARTED|[EXTERNAL]|Validation:Contract:800UU00000gU6EM
+17:46:59.44 (417317576)|CODE_UNIT_FINISHED|Validation:Contract:800UU00000gU6EM
+17:46:59.44 (417327846)|CODE_UNIT_STARTED|[EXTERNAL]|Validation:Contract:800UU00000gYusP
+17:46:59.44 (417419177)|CODE_UNIT_FINISHED|Validation:Contract:800UU00000gYusP
+17:46:59.44 (417429787)|CODE_UNIT_STARTED|[EXTERNAL]|Validation:Contract:800UU00000gjpau
+17:46:59.44 (417521898)|CODE_UNIT_FINISHED|Validation:Contract:800UU00000gjpau
+17:46:59.44 (417532228)|CODE_UNIT_STARTED|[EXTERNAL]|Validation:Contract:800UU00000ibitf
+17:46:59.44 (417621340)|CODE_UNIT_FINISHED|Validation:Contract:800UU00000ibitf
+17:46:59.44 (445518980)|CODE_UNIT_STARTED|[EXTERNAL]|01q1U000001e9g3|SM_ContractTrigger on Contract trigger event AfterUpdate|__sfdc_trigger/SM_ContractTrigger
+17:46:59.448 (448108584)|CUMULATIVE_LIMIT_USAGE
+17:46:59.448 (448108584)|LIMIT_USAGE_FOR_NS|(default)|
+  Number of SOQL queries: 1 out of 100
+  Number of query rows: 31 out of 50000
+  Number of SOSL queries: 0 out of 20
+  Number of DML statements: 1 out of 150
+  Number of Publish Immediate DML: 0 out of 150
+  Number of DML rows: 23 out of 10000
+  Maximum CPU time: 69 out of 10000
+  Maximum heap size: 0 out of 6000000
+  Number of callouts: 0 out of 100
+  Number of Email Invocations: 0 out of 10
+  Number of future calls: 0 out of 50
+  Number of queueable jobs added to the queue: 0 out of 50
+  Number of Mobile Apex push calls: 0 out of 10
+
+17:46:59.448 (448108584)|CUMULATIVE_LIMIT_USAGE_END
+
+17:46:59.44 (448346447)|CODE_UNIT_FINISHED|SM_ContractTrigger on Contract trigger event AfterUpdate|__sfdc_trigger/SM_ContractTrigger
+17:46:59.44 (449215879)|CODE_UNIT_STARTED|[EXTERNAL]|01qUU000006wHpq|dlrs_ContractTrigger on Contract trigger event AfterUpdate|__sfdc_trigger/dlrs_ContractTrigger
+17:46:59.502 (502458952)|CUMULATIVE_LIMIT_USAGE
+17:46:59.502 (502458952)|LIMIT_USAGE_FOR_NS|(default)|
+  Number of SOQL queries: 1 out of 100
+  Number of query rows: 31 out of 50000
+  Number of SOSL queries: 0 out of 20
+  Number of DML statements: 1 out of 150
+  Number of Publish Immediate DML: 0 out of 150
+  Number of DML rows: 23 out of 10000
+  Maximum CPU time: 69 out of 10000
+  Maximum heap size: 0 out of 6000000
+  Number of callouts: 0 out of 100
+  Number of Email Invocations: 0 out of 10
+  Number of future calls: 0 out of 50
+  Number of queueable jobs added to the queue: 0 out of 50
+  Number of Mobile Apex push calls: 0 out of 10
+
+17:46:59.502 (502458952)|LIMIT_USAGE_FOR_NS|dlrs|
+  Number of SOQL queries: 1 out of 100
+  Number of query rows: 0 out of 50000
+  Number of SOSL queries: 0 out of 20
+  Number of DML statements: 0 out of 150
+  Number of Publish Immediate DML: 0 out of 150
+  Number of DML rows: 0 out of 10000
+  Maximum CPU time: 0 out of 10000
+  Maximum heap size: 0 out of 6000000
+  Number of callouts: 0 out of 100
+  Number of Email Invocations: 0 out of 10
+  Number of future calls: 0 out of 50
+  Number of queueable jobs added to the queue: 0 out of 50
+  Number of Mobile Apex push calls: 0 out of 10
+
+17:46:59.502 (502458952)|CUMULATIVE_LIMIT_USAGE_END
+
+17:46:59.44 (502760916)|CODE_UNIT_FINISHED|dlrs_ContractTrigger on Contract trigger event AfterUpdate|__sfdc_trigger/dlrs_ContractTrigger
+17:46:59.44 (503621687)|CODE_UNIT_STARTED|[EXTERNAL]|Workflow:Contract
+17:46:59.44 (677672107)|CODE_UNIT_FINISHED|Workflow:Contract
+17:46:59.44 (677806159)|CODE_UNIT_STARTED|[EXTERNAL]|Flow:Contract
+17:46:59.44 (681683931)|CODE_UNIT_FINISHED|Flow:Contract
+17:46:59.44 (681764002)|CODE_UNIT_STARTED|[EXTERNAL]|Flow:Contract
+17:46:59.44 (682859196)|CODE_UNIT_FINISHED|Flow:Contract
+17:46:59.44 (689296812)|USER_DEBUG|[135]|DEBUG| -> Actualizados OK: 23  &#124;  Fallidos: 0
+17:46:59.737 (737305276)|CUMULATIVE_LIMIT_USAGE
+17:46:59.737 (737305276)|LIMIT_USAGE_FOR_NS|(default)|
+  Number of SOQL queries: 1 out of 100
+  Number of query rows: 31 out of 50000
+  Number of SOSL queries: 0 out of 20
+  Number of DML statements: 1 out of 150
+  Number of Publish Immediate DML: 0 out of 150
+  Number of DML rows: 23 out of 10000
+  Maximum CPU time: 266 out of 10000
+  Maximum heap size: 0 out of 6000000
+  Number of callouts: 0 out of 100
+  Number of Email Invocations: 0 out of 10
+  Number of future calls: 0 out of 50
+  Number of queueable jobs added to the queue: 0 out of 50
+  Number of Mobile Apex push calls: 0 out of 10
+
+17:46:59.737 (737305276)|LIMIT_USAGE_FOR_NS|dlrs|
+  Number of SOQL queries: 1 out of 100
+  Number of query rows: 0 out of 50000
+  Number of SOSL queries: 0 out of 20
+  Number of DML statements: 0 out of 150
+  Number of Publish Immediate DML: 0 out of 150
+  Number of DML rows: 0 out of 10000
+  Maximum CPU time: 0 out of 10000
+  Maximum heap size: 0 out of 6000000
+  Number of callouts: 0 out of 100
+  Number of Email Invocations: 0 out of 10
+  Number of future calls: 0 out of 50
+  Number of queueable jobs added to the queue: 0 out of 50
+  Number of Mobile Apex push calls: 0 out of 10
+
+17:46:59.737 (737305276)|CUMULATIVE_LIMIT_USAGE_END
+
+17:46:59.44 (737440877)|CODE_UNIT_FINISHED|execute_anonymous_apex
+17:46:59.44 (737462258)|EXECUTION_FINISHED
+
