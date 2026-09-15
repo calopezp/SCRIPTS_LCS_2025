@@ -21,6 +21,9 @@
     <columns>
         <field>Contract.Payment_Data__r$CreatedDate</field>
     </columns>
+    <columns>
+        <field>Contract.Payment_Data__r$SM_Check_Collection_Return_Reason__c</field>
+    </columns>
     <filter>
         <criteriaItems>
             <column>Contract$Status</column>
@@ -34,7 +37,7 @@
             <columnToColumn>false</columnToColumn>
             <isUnlocked>true</isUnlocked>
             <operator>equals</operator>
-            <value>R02,R04,R05,R07</value>
+            <value>R02,R04,R05,R07,R10</value>
         </criteriaItems>
         <language>en_US</language>
     </filter>
@@ -64,8 +67,4 @@
     <showDetails>true</showDetails>
     <showGrandTotal>true</showGrandTotal>
     <showSubTotals>true</showSubTotals>
-    <timeFrameFilter>
-        <dateColumn>Contract$CreatedDate</dateColumn>
-        <interval>INTERVAL_CUSTOM</interval>
-    </timeFrameFilter>
 </Report>
