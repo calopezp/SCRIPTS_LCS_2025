@@ -1,9 +1,6 @@
 <?xml version="1.0" encoding="UTF-8"?>
 <Report xmlns="http://soap.sforce.com/2006/04/metadata">
     <columns>
-        <field>Contract$Status</field>
-    </columns>
-    <columns>
         <field>Contract$Account</field>
     </columns>
     <columns>
@@ -26,17 +23,35 @@
     </columns>
     <filter>
         <criteriaItems>
-            <column>Contract$ContractNumber</column>
+            <column>Contract$Status</column>
             <columnToColumn>false</columnToColumn>
             <isUnlocked>true</isUnlocked>
             <operator>equals</operator>
-            <value>00270432,00275989,00316097,00315643,00316708</value>
+            <value>Complete information,Payment Process,Activated</value>
+        </criteriaItems>
+        <criteriaItems>
+            <column>Contract.Payment_Data__r$SM_Return_code__c</column>
+            <columnToColumn>false</columnToColumn>
+            <isUnlocked>true</isUnlocked>
+            <operator>equals</operator>
+            <value>R02,R04,R05,R07</value>
         </criteriaItems>
         <language>en_US</language>
     </filter>
     <format>Summary</format>
     <groupingsDown>
+        <dateGranularity>Day</dateGranularity>
+        <field>Contract.Payment_Data__r$SM_Return_code__c</field>
+        <sortOrder>Asc</sortOrder>
+    </groupingsDown>
+    <groupingsDown>
+        <dateGranularity>Day</dateGranularity>
         <field>Contract$ContractNumber</field>
+        <sortOrder>Asc</sortOrder>
+    </groupingsDown>
+    <groupingsDown>
+        <dateGranularity>Month</dateGranularity>
+        <field>Contract.Payment_Data__r$SM_Date_ACH_Transmitted__c</field>
         <sortOrder>Asc</sortOrder>
     </groupingsDown>
     <name>Contratos Flagueados - Cobranza</name>
@@ -49,4 +64,8 @@
     <showDetails>true</showDetails>
     <showGrandTotal>true</showGrandTotal>
     <showSubTotals>true</showSubTotals>
+    <timeFrameFilter>
+        <dateColumn>Contract$CreatedDate</dateColumn>
+        <interval>INTERVAL_CUSTOM</interval>
+    </timeFrameFilter>
 </Report>
