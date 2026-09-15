@@ -42,6 +42,9 @@ cualquier sesión, **leer este archivo primero** en vez de reconstruir la respue
 
 | Fecha de cierre | Tema | Resultado |
 |---|---|---|
+| 2026-09-15 | `00318211` — doble cobro de AC | Carlos lo normalizó: reclasificó `ACH-29121` de AC a Late Payment Fee — ya no es un cobro duplicado |
+| 2026-09-15 | `00317786` — AC pagado doble ($198), pendiente activar | Activado por instrucción de Carlos (el AC de $99 ya estaba cubierto de sobra) — `SM_AC_collected__c=true`, `Status=Activated`, Subscription Order `ACH-29546` creada sola, sin duplicar la orden AC |
+| 2026-09-15 | Contrato `00316708` — agregado a la lista de contratos flagueados de cobranza (junto a `00270432, 00275989, 00316097, 00315643`) | Por instrucción de Carlos — seguimiento de cobranza es responsabilidad de Comercial, no se trackea más aquí (ver [[feedback_comercial_vs_tecnico_scope]]) |
 | 2026-09-14 | Backfill de `SM_Return_code__c` vacíos (bug de `update_check_collection.apex`, ya corregido) | 230/230 pagos "vivos" corregidos — **solo** se tocó `SM_Return_code__c`, verificado que `Payment_Status__c`/`SM_Check_Collection_Status__c` quedaron intactos. 1 caso excluido a propósito (`PY-01870821`, código malformado "ROl" en el reporte original, no se adivinó). Incluye los 2 casos que afectaban los correos de hoy (`PY-01828923` R02, `PY-01828958` R04) |
 | 2026-09-14 | Contrato `00317534` — `ACH-27859` (mitad de AC + penalidad, $84.5) sin fecha de próxima transacción | Carlos lo activó directamente (paso de TC a ACH) — verificado en vivo, `SM_Next_Transaction_Date__c = 2026-07-06` ya está asignada |
 | 2026-09-14 | 5 contratos ACH con AC completo sin activar (`00317934, 00317935, 00317965, 00318211, 00318375`) | Verificados contra Payments reales, los 5 activados (`SM_AC_collected__c=true`, `Status=Activated`) y su Subscription Order creada automáticamente (`ACH-29537` a `ACH-29541`) — sin duplicados de orden AC. `00318211` reveló un doble cobro de AC real, ver fila de pendientes |
