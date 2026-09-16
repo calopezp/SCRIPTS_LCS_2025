@@ -1,0 +1,33 @@
+<?xml version="1.0" encoding="UTF-8"?>
+<CustomField xmlns="http://soap.sforce.com/2006/04/metadata">
+    <fullName>SM_Payment_Stop__c</fullName>
+    <description>This will hold the method to stop the payments</description>
+    <inlineHelpText>This will hold the method to stop the payments</inlineHelpText>
+    <label>Payment Stop</label>
+    <required>false</required>
+    <trackFeedHistory>false</trackFeedHistory>
+    <trackHistory>true</trackHistory>
+    <trackTrending>false</trackTrending>
+    <type>Picklist</type>
+    <valueSet>
+        <restricted>true</restricted>
+        <valueSetDefinition>
+            <sorted>false</sorted>
+            <value>
+                <fullName>Date</fullName>
+                <default>false</default>
+                <label>Date</label>
+            </value>
+            <value>
+                <fullName>Count</fullName>
+                <default>false</default>
+                <label>Count</label>
+            </value>
+            <value>
+                <fullName>Unending</fullName>
+                <default>false</default>
+                <label>Unending</label>
+            </value>
+        </valueSetDefinition>
+    </valueSet>
+</CustomField>

@@ -1,0 +1,31 @@
+<?xml version="1.0" encoding="UTF-8"?>
+<CustomField xmlns="http://soap.sforce.com/2006/04/metadata">
+    <fullName>SM_DaystocollectPrincipalpayment__c</fullName>
+    <externalId>false</externalId>
+    <formula>IF( 
+	AND(
+             TEXT(SM_Payment_Type__c)=&apos;Late payment fee&apos;,
+             TEXT(SM_Payment_Status__c) = &apos;Stopped&apos;,
+             SM_Bank__c = &quot;BANCO POPULAR&quot;
+         ),        			 
+	30 - CEILING((TODAY() -  SM_Date_ACH_Transmitted__c)), 
+	IF(
+		AND(
+			 TEXT(SM_Payment_Type__c)=&apos;Late payment fee&apos;,
+			 TEXT(SM_Payment_Status__c) = &apos;Stopped&apos;,
+			 SM_Bank__c &lt;&gt; &quot;BANCO POPULAR&quot;
+			),            
+			  10 - CEILING((TODAY() -  SM_Date_ACH_Transmitted__c)),
+			null
+			) 
+)</formula>
+    <formulaTreatBlanksAs>BlankAsZero</formulaTreatBlanksAs>
+    <label>Days to collect principal payment</label>
+    <precision>18</precision>
+    <required>false</required>
+    <scale>0</scale>
+    <trackHistory>false</trackHistory>
+    <trackTrending>false</trackTrending>
+    <type>Number</type>
+    <unique>false</unique>
+</CustomField>

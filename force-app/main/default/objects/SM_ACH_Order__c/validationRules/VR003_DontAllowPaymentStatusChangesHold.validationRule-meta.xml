@@ -1,0 +1,19 @@
+<?xml version="1.0" encoding="UTF-8"?>
+<ValidationRule xmlns="http://soap.sforce.com/2006/04/metadata">
+    <fullName>VR003_DontAllowPaymentStatusChangesHold</fullName>
+    <active>true</active>
+    <errorConditionFormula>AND(
+ISCHANGED(SM_Payment_Status__c),
+OR(
+ISPICKVAL(SM_Payment_Status__c,&apos;Initiated&apos;),
+ISPICKVAL(SM_Payment_Status__c,&apos;Pending&apos;),
+ISPICKVAL(SM_Payment_Status__c,&apos;Created&apos;)
+),
+ISPICKVAL(SM_Contract__r.Status,&apos;On Hold&apos;),
+OR(
+ISPICKVAL(SM_Payment_Type__c,&apos;Subscription&apos;),
+ISPICKVAL(SM_Payment_Type__c,&apos;Fee&apos;)
+)
+)</errorConditionFormula>
+    <errorMessage>You can&apos;t change payment status because the Contract is On Hold status</errorMessage>
+</ValidationRule>

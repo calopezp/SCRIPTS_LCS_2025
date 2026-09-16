@@ -1,0 +1,9 @@
+<?xml version="1.0" encoding="UTF-8"?>
+<ValidationRule xmlns="http://soap.sforce.com/2006/04/metadata">
+    <fullName>VR001_ACH_Order_Canceled</fullName>
+    <active>true</active>
+    <errorConditionFormula>AND(
+ISCHANGED(SM_Payment_Status__c),
+TEXT(PRIORVALUE(SM_Payment_Status__c))= &quot;Canceled&quot;, $Profile.Name &lt;&gt; &apos;System Administrator&apos;)</errorConditionFormula>
+    <errorMessage>You cannot change the status of a canceled ACH order</errorMessage>
+</ValidationRule>

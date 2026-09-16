@@ -1,0 +1,19 @@
+<?xml version="1.0" encoding="UTF-8"?>
+<ValidationRule xmlns="http://soap.sforce.com/2006/04/metadata">
+    <fullName>VL_Fields_Approve_Discount</fullName>
+    <active>true</active>
+    <description>Minimum Fields to ruquesta approve Discount</description>
+    <errorConditionFormula>AND(
+    SM_Apply_Discount__c = TRUE,
+    OR(
+        ISBLANK(SM_Discount_Reason__c),
+        ISBLANK(SM_User_Who_Request_Discount__c),
+        ISBLANK(User_Who_Approve_Discount__c),
+        ISBLANK(TEXT(SM_Discount_Type__c)),
+        /* exige solo el campo que corresponda al tipo */
+        (TEXT(SM_Discount_Type__c) = &apos;Value&apos;     &amp;&amp; ISBLANK(SM_Discount_Value__c)),
+        (TEXT(SM_Discount_Type__c) = &apos;Percentage&apos; &amp;&amp; ISBLANK(SM_Discount_Percentage__c))
+    )
+)</errorConditionFormula>
+    <errorMessage>The &quot;Discount original Value, Discount Reason, Discount Type, Discount Value, User Who Request Discount&quot; fields must be completed</errorMessage>
+</ValidationRule>

@@ -1,0 +1,14 @@
+<?xml version="1.0" encoding="UTF-8"?>
+<ValidationRule xmlns="http://soap.sforce.com/2006/04/metadata">
+    <fullName>VR002_DontChangeStatusIfContractIsCancel</fullName>
+    <active>true</active>
+    <errorConditionFormula>AND(
+  ISCHANGED(SM_Payment_Status__c),
+  ISPICKVAL(SM_Payment_Status__c,&apos;Initiated&apos;),
+  OR(
+    ISPICKVAL(SM_Contract__r.Status,&apos;Cancelled&apos;),
+    ISPICKVAL(SM_Contract__r.Status,&apos;Finalized&apos;)
+  )
+)</errorConditionFormula>
+    <errorMessage>You can&apos;t change Payment Status to &apos;Initiated&apos; because the Contract Status is Cancelled/Finalized.</errorMessage>
+</ValidationRule>

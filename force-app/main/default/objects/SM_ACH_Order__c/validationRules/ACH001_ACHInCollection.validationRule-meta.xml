@@ -1,0 +1,17 @@
+<?xml version="1.0" encoding="UTF-8"?>
+<ValidationRule xmlns="http://soap.sforce.com/2006/04/metadata">
+    <fullName>ACH001_ACHInCollection</fullName>
+    <active>false</active>
+    <errorConditionFormula>OR(
+     AND(
+     PRIORVALUE(SM_Payment_Status__c )= &quot;Stopped&quot;,
+     ISPICKVAL(SM_Payment_Status__c , &quot;Pending&quot;)   
+ ) ,
+      AND(
+     PRIORVALUE(SM_Payment_Status__c )= &quot;Completed&quot;,
+     ISPICKVAL(SM_Payment_Status__c , &quot;Pending&quot;)   
+ )
+)</errorConditionFormula>
+    <errorDisplayField>SM_Apply_penalty__c</errorDisplayField>
+    <errorMessage>ACH001 - ACH in collection process cannot be updated</errorMessage>
+</ValidationRule>

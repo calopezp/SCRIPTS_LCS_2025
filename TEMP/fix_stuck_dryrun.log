@@ -1,0 +1,276 @@
+Compiled successfully.
+Executed successfully.
+
+67.0 APEX_CODE,DEBUG;APEX_PROFILING,INFO
+Execute Anonymous: /*
+Execute Anonymous:  * fix_stuck_cancelled_contracts.apex
+Execute Anonymous:  * ------------------------------------
+Execute Anonymous:  * Hallazgo 2026-09-16: al correr mark_transmitted_accepted.apex, 200/227
+Execute Anonymous:  * pagos fallaron en una sola oleada -- pero la causa real es UNA orden ACH
+Execute Anonymous:  * (ACH-28209) cuyo contrato ya esta Cancelled. Cuando un pago de esa orden
+Execute Anonymous:  * pasa a ACCEPTED, SM_PaymentHandler.updateRelatedRecordsByPaymentStatusUpdates()
+Execute Anonymous:  * (linea 269) intenta forzar la orden a 'Canceled', pero
+Execute Anonymous:  * SM_ACHOrderHandler.validateCanceledStatus() (linea 530) bloquea con
+Execute Anonymous:  * addError() porque la orden todavia tiene un pago hermano en
+Execute Anonymous:  * ACH_PENDING/ACH_TRANSMITTED -- y como SM_PaymentHandler usa
+Execute Anonymous:  * Database.update(achOrdersToUpdate) SIN allOrNone=false (linea 294), UNA
+Execute Anonymous:  * orden bloqueada tumba TODO el batch de ordenes de esa transaccion, lo que
+Execute Anonymous:  * arrastra como fallidos a los demas 199 pagos de la misma oleada (aunque
+Execute Anonymous:  * no tengan nada que ver).
+Execute Anonymous:  *
+Execute Anonymous:  * Barrido completo del org (2026-09-16): exactamente 11 pagos en 10 ordenes
+Execute Anonymous:  * ACH distintas, todos en contratos ya Cancelled, siguen en ACH TRANSMITTED
+Execute Anonymous:  * sin ningun reporte -- son el 100% de los pagos "atascados" de este tipo
+Execute Anonymous:  * en todo el org (no solo del batch que fallo hoy).
+Execute Anonymous:  *
+Execute Anonymous:  * SOLUCION EN 2 PASOS (instruccion explicita del usuario 2026-09-16):
+Execute Anonymous:  *   Paso A: marcar los 11 pagos como ACCEPTED/COLLECTED (misma regla de 15
+Execute Anonymous:  *           dias que el resto), con SM_TriggerHandler.avoidAllHandlerExcecution
+Execute Anonymous:  *           = true para que NO dispare el intento de cancelar la orden
+Execute Anonymous:  *           dentro de esta misma transaccion (evita el choque).
+Execute Anonymous:  *   Paso B: con los handlers YA reactivados (bypass = false), actualizar
+Execute Anonymous:  *           las 10 ordenes ACH a SM_Payment_Status__c = 'Completed' -- una
+Execute Anonymous:  *           vez que ningun pago hermano sigue ACH_PENDING/ACH_TRANSMITTED
+Execute Anonymous:  *           (verificado antes de escribir), la validacion de
+Execute Anonymous:  *           validateCanceledStatus() ni siquiera aplica (esa solo bloquea el
+Execute Anonymous:  *           cambio a 'Canceled', no a 'Completed'), asi que el resto de la
+Execute Anonymous:  *           automatizacion normal de la orden corre igual que cualquier
+Execute Anonymous:  *           actualizacion real.
+Execute Anonymous:  *
+Execute Anonymous:  *           NOTA -- correccion del usuario 2026-09-16: el codigo actual de
+Execute Anonymous:  *           SM_PaymentHandler.cls (lineas 264-289) manda la orden a
+Execute Anonymous:  *           'Canceled' tanto si el ultimo pago fue ACCEPTED como REJECTED,
+Execute Anonymous:  *           con tal de que el contrato este Cancelled -- no distingue. Eso
+Execute Anonymous:  *           es inconsistente: si el pago SI se cobro (ACCEPTED), la orden
+Execute Anonymous:  *           cumplio su proposito y deberia quedar 'Completed' (igual que
+Execute Anonymous:  *           pasa con un contrato Finalized), no 'Canceled'. 'Canceled' tiene
+Execute Anonymous:  *           sentido solo si el pago fallo (REJECTED) con el contrato ya
+Execute Anonymous:  *           cancelado. Este script sigue la logica corregida; el bug en
+Execute Anonymous:  *           SM_PaymentHandler.cls en si no se toca aqui.
+Execute Anonymous:  *
+Execute Anonymous:  * Corre primero con DRY_RUN = true -> solo preview, NO actualiza nada.
+Execute Anonymous:  */
+Execute Anonymous: 
+Execute Anonymous: Boolean DRY_RUN = true; // <-- cambiar a false SOLO con autorizacion explicita del usuario
+Execute Anonymous: 
+Execute Anonymous: Set<String> paymentNames = new Set<String>{
+Execute Anonymous:     'PY-01889016', 'PY-01888782', 'PY-01889163', 'PY-01895389',
+Execute Anonymous:     'PY-01888832', 'PY-01888809', 'PY-01888816', 'PY-01895410',
+Execute Anonymous:     'PY-01895456', 'PY-01895464', 'PY-01895482'
+Execute Anonymous: };
+Execute Anonymous: 
+Execute Anonymous: List<SM_Payment__c> payments = [
+Execute Anonymous:     SELECT Id, Name, Payment_Status__c, SM_Check_Collection_Status__c,
+Execute Anonymous:            SM_Historical_Collection_Status__c, SM_ACH_Order__c,
+Execute Anonymous:            SM_ACH_Order__r.Name, SM_ACH_Order__r.SM_Payment_Status__c,
+Execute Anonymous:            SM_Contract__r.ContractNumber, SM_Contract__r.Status
+Execute Anonymous:     FROM SM_Payment__c
+Execute Anonymous:     WHERE Name IN :paymentNames
+Execute Anonymous: ];
+Execute Anonymous: 
+Execute Anonymous: System.debug('=======================================================');
+Execute Anonymous: System.debug(' -> MODO: ' + (DRY_RUN ? 'DRY RUN (solo preview, sin cambios)' : 'EJECUCION REAL'));
+Execute Anonymous: System.debug(' -> Pagos encontrados: ' + payments.size() + ' / ' + paymentNames.size());
+Execute Anonymous: System.debug('=======================================================');
+Execute Anonymous: 
+Execute Anonymous: Set<Id> achOrderIds = new Set<Id>();
+Execute Anonymous: Date today = Date.today();
+Execute Anonymous: List<SM_Payment__c> paymentUpdates = new List<SM_Payment__c>();
+Execute Anonymous: 
+Execute Anonymous: for (SM_Payment__c p : payments) {
+Execute Anonymous:     achOrderIds.add(p.SM_ACH_Order__c);
+Execute Anonymous: 
+Execute Anonymous:     String tag = 'PRC_AUT_FIX_CANCELLED_CONTRACT_ORDER: ACCEPTED //';
+Execute Anonymous:     String previous = p.SM_Historical_Collection_Status__c == null ? '' : p.SM_Historical_Collection_Status__c;
+Execute Anonymous:     String newHistorical = tag + previous;
+Execute Anonymous:     if (newHistorical.length() > 150) {
+Execute Anonymous:         newHistorical = newHistorical.substring(0, 150);
+Execute Anonymous:     }
+Execute Anonymous: 
+Execute Anonymous:     System.debug('---------------------------------------------------------');
+Execute Anonymous:     System.debug(p.Name + '  (Orden ' + p.SM_ACH_Order__r.Name + ', Contrato ' +
+Execute Anonymous:             p.SM_Contract__r.ContractNumber + ' / ' + p.SM_Contract__r.Status + ')');
+Execute Anonymous:     System.debug('  PAGO ACTUAL -> Payment_Status=' + p.Payment_Status__c +
+Execute Anonymous:             ' | Collection_Status=' + p.SM_Check_Collection_Status__c);
+Execute Anonymous:     System.debug('  PAGO NUEVO  -> Payment_Status=ACCEPTED | Collection_Status=COLLECTED');
+Execute Anonymous:     System.debug('  Historico nuevo -> ' + newHistorical);
+Execute Anonymous: 
+Execute Anonymous:     paymentUpdates.add(new SM_Payment__c(
+Execute Anonymous:             Id = p.Id,
+Execute Anonymous:             Payment_Status__c = 'ACCEPTED',
+Execute Anonymous:             SM_Check_Collection_Date__c = today,
+Execute Anonymous:             SM_Check_Collection__c = true,
+Execute Anonymous:             SM_Check_Collection_Status__c = 'COLLECTED',
+Execute Anonymous:             SM_Historical_Collection_Status__c = newHistorical
+Execute Anonymous:     ));
+Execute Anonymous: }
+Execute Anonymous: 
+Execute Anonymous: List<SM_ACH_Order__c> orders = [
+Execute Anonymous:     SELECT Id, Name, SM_Payment_Status__c
+Execute Anonymous:     FROM SM_ACH_Order__c
+Execute Anonymous:     WHERE Id IN :achOrderIds
+Execute Anonymous: ];
+Execute Anonymous: 
+Execute Anonymous: System.debug('=======================================================');
+Execute Anonymous: System.debug(' -> Ordenes ACH involucradas: ' + orders.size());
+Execute Anonymous: for (SM_ACH_Order__c o : orders) {
+Execute Anonymous:     System.debug('  ' + o.Name + ' -> ACTUAL: ' + o.SM_Payment_Status__c + ' | NUEVO: Completed');
+Execute Anonymous: }
+Execute Anonymous: System.debug('=======================================================');
+Execute Anonymous: 
+Execute Anonymous: if (!DRY_RUN) {
+Execute Anonymous:     // Paso A: pagos, CON bypass de handlers (evita el choque en la misma transaccion)
+Execute Anonymous:     SM_TriggerHandler.avoidAllHandlerExcecution = true;
+Execute Anonymous:     Database.SaveResult[] paymentResults = Database.update(paymentUpdates, false);
+Execute Anonymous:     Integer okP = 0, errP = 0;
+Execute Anonymous:     for (Database.SaveResult sr : paymentResults) {
+Execute Anonymous:         if (sr.isSuccess()) {
+Execute Anonymous:             okP++;
+Execute Anonymous:         } else {
+Execute Anonymous:             errP++;
+Execute Anonymous:             System.debug(' -> ERROR actualizando pago ' + sr.getId() + ': ' + sr.getErrors());
+Execute Anonymous:         }
+Execute Anonymous:     }
+Execute Anonymous:     System.debug(' -> Paso A (pagos) -> Exitos: ' + okP + ' | Errores: ' + errP);
+Execute Anonymous:     SM_TriggerHandler.avoidAllHandlerExcecution = false;
+Execute Anonymous: 
+Execute Anonymous:     // Paso B: verificar que ya no queda ningun pago hermano pendiente, y
+Execute Anonymous:     // SOLO entonces cancelar la orden -- SIN bypass, para que corra la
+Execute Anonymous:     // automatizacion normal de una cancelacion real.
+Execute Anonymous:     Map<Id, Integer> pendingSiblingsByOrder = new Map<Id, Integer>();
+Execute Anonymous:     for (SM_Payment__c sib : [
+Execute Anonymous:             SELECT SM_ACH_Order__c
+Execute Anonymous:             FROM SM_Payment__c
+Execute Anonymous:             WHERE SM_ACH_Order__c IN :achOrderIds
+Execute Anonymous:               AND Payment_Status__c IN ('ACH PENDING', 'ACH TRANSMITTED')
+Execute Anonymous:     ]) {
+Execute Anonymous:         Integer c = pendingSiblingsByOrder.containsKey(sib.SM_ACH_Order__c) ? pendingSiblingsByOrder.get(sib.SM_ACH_Order__c) : 0;
+Execute Anonymous:         pendingSiblingsByOrder.put(sib.SM_ACH_Order__c, c + 1);
+Execute Anonymous:     }
+Execute Anonymous: 
+Execute Anonymous:     List<SM_ACH_Order__c> orderUpdates = new List<SM_ACH_Order__c>();
+Execute Anonymous:     for (SM_ACH_Order__c o : orders) {
+Execute Anonymous:         if (pendingSiblingsByOrder.containsKey(o.Id)) {
+Execute Anonymous:             System.debug(' -> SALTANDO ' + o.Name + ': todavia tiene ' + pendingSiblingsByOrder.get(o.Id) + ' pago(s) pendiente(s) -- no se actualiza.');
+Execute Anonymous:             continue;
+Execute Anonymous:         }
+Execute Anonymous:         if (o.SM_Payment_Status__c == 'Completed') {
+Execute Anonymous:             System.debug(' -> SALTANDO ' + o.Name + ': ya esta Completed, no hace falta tocarla.');
+Execute Anonymous:             continue;
+Execute Anonymous:         }
+Execute Anonymous:         orderUpdates.add(new SM_ACH_Order__c(Id = o.Id, SM_Payment_Status__c = 'Completed'));
+Execute Anonymous:     }
+Execute Anonymous: 
+Execute Anonymous:     Integer okO = 0, errO = 0;
+Execute Anonymous:     if (!orderUpdates.isEmpty()) {
+Execute Anonymous:         Database.SaveResult[] orderResults = Database.update(orderUpdates, false);
+Execute Anonymous:         for (Database.SaveResult sr : orderResults) {
+Execute Anonymous:             if (sr.isSuccess()) {
+Execute Anonymous:                 okO++;
+Execute Anonymous:             } else {
+Execute Anonymous:                 errO++;
+Execute Anonymous:                 System.debug(' -> ERROR actualizando orden ' + sr.getId() + ': ' + sr.getErrors());
+Execute Anonymous:             }
+Execute Anonymous:         }
+Execute Anonymous:     }
+Execute Anonymous:     System.debug(' -> Paso B (ordenes) -> Exitos: ' + okO + ' | Errores: ' + errO + ' | Saltadas: ' + (orders.size() - orderUpdates.size()));
+Execute Anonymous: } else {
+Execute Anonymous:     System.debug(' -> DRY RUN: no se realizo ningun cambio. Cambiar DRY_RUN a false para ejecutar.');
+Execute Anonymous: }
+17:51:33.38 (38038735)|USER_INFO|[EXTERNAL]|0051U000007bbx5|clopez@legal-credit.com|(GMT+02:00) Central European Summer Time (Europe/Madrid)|GMT+02:00
+17:51:33.38 (38053375)|EXECUTION_STARTED
+17:51:33.38 (38059045)|CODE_UNIT_STARTED|[EXTERNAL]|execute_anonymous_apex
+17:51:33.38 (61527106)|USER_DEBUG|[67]|DEBUG|=======================================================
+17:51:33.38 (61566216)|USER_DEBUG|[68]|DEBUG| -> MODO: DRY RUN (solo preview, sin cambios)
+17:51:33.38 (61655876)|USER_DEBUG|[69]|DEBUG| -> Pagos encontrados: 11 / 11
+17:51:33.38 (61660286)|USER_DEBUG|[70]|DEBUG|=======================================================
+17:51:33.38 (62162387)|USER_DEBUG|[86]|DEBUG|---------------------------------------------------------
+17:51:33.38 (62406157)|USER_DEBUG|[87]|DEBUG|PY-01888782  (Orden ACH-26169, Contrato 00316687 / Cancelled)
+17:51:33.38 (62419367)|USER_DEBUG|[89]|DEBUG|  PAGO ACTUAL -> Payment_Status=ACH TRANSMITTED &#124; Collection_Status=null
+17:51:33.38 (62423537)|USER_DEBUG|[91]|DEBUG|  PAGO NUEVO  -> Payment_Status=ACCEPTED &#124; Collection_Status=COLLECTED
+17:51:33.38 (62428597)|USER_DEBUG|[92]|DEBUG|  Historico nuevo -> PRC_AUT_FIX_CANCELLED_CONTRACT_ORDER: ACCEPTED //
+17:51:33.38 (62648728)|USER_DEBUG|[86]|DEBUG|---------------------------------------------------------
+17:51:33.38 (62668278)|USER_DEBUG|[87]|DEBUG|PY-01888809  (Orden ACH-28209, Contrato 00316932 / Cancelled)
+17:51:33.38 (62674448)|USER_DEBUG|[89]|DEBUG|  PAGO ACTUAL -> Payment_Status=ACH TRANSMITTED &#124; Collection_Status=null
+17:51:33.38 (62677338)|USER_DEBUG|[91]|DEBUG|  PAGO NUEVO  -> Payment_Status=ACCEPTED &#124; Collection_Status=COLLECTED
+17:51:33.38 (62680928)|USER_DEBUG|[92]|DEBUG|  Historico nuevo -> PRC_AUT_FIX_CANCELLED_CONTRACT_ORDER: ACCEPTED //
+17:51:33.38 (62722258)|USER_DEBUG|[86]|DEBUG|---------------------------------------------------------
+17:51:33.38 (62732168)|USER_DEBUG|[87]|DEBUG|PY-01888816  (Orden ACH-28544, Contrato 00317953 / Cancelled)
+17:51:33.38 (62735328)|USER_DEBUG|[89]|DEBUG|  PAGO ACTUAL -> Payment_Status=ACH TRANSMITTED &#124; Collection_Status=null
+17:51:33.38 (62745788)|USER_DEBUG|[91]|DEBUG|  PAGO NUEVO  -> Payment_Status=ACCEPTED &#124; Collection_Status=COLLECTED
+17:51:33.38 (62748768)|USER_DEBUG|[92]|DEBUG|  Historico nuevo -> PRC_AUT_FIX_CANCELLED_CONTRACT_ORDER: ACCEPTED //
+17:51:33.38 (62779888)|USER_DEBUG|[86]|DEBUG|---------------------------------------------------------
+17:51:33.38 (62785868)|USER_DEBUG|[87]|DEBUG|PY-01888832  (Orden ACH-28209, Contrato 00316932 / Cancelled)
+17:51:33.38 (62789288)|USER_DEBUG|[89]|DEBUG|  PAGO ACTUAL -> Payment_Status=ACH TRANSMITTED &#124; Collection_Status=null
+17:51:33.38 (62791498)|USER_DEBUG|[91]|DEBUG|  PAGO NUEVO  -> Payment_Status=ACCEPTED &#124; Collection_Status=COLLECTED
+17:51:33.38 (62793988)|USER_DEBUG|[92]|DEBUG|  Historico nuevo -> PRC_AUT_FIX_CANCELLED_CONTRACT_ORDER: ACCEPTED //
+17:51:33.38 (62821078)|USER_DEBUG|[86]|DEBUG|---------------------------------------------------------
+17:51:33.38 (62829688)|USER_DEBUG|[87]|DEBUG|PY-01889016  (Orden ACH-18260, Contrato 00312948 / Cancelled)
+17:51:33.38 (62833118)|USER_DEBUG|[89]|DEBUG|  PAGO ACTUAL -> Payment_Status=ACH TRANSMITTED &#124; Collection_Status=null
+17:51:33.38 (62835268)|USER_DEBUG|[91]|DEBUG|  PAGO NUEVO  -> Payment_Status=ACCEPTED &#124; Collection_Status=COLLECTED
+17:51:33.38 (62837818)|USER_DEBUG|[92]|DEBUG|  Historico nuevo -> PRC_AUT_FIX_CANCELLED_CONTRACT_ORDER: ACCEPTED //
+17:51:33.38 (62883068)|USER_DEBUG|[86]|DEBUG|---------------------------------------------------------
+17:51:33.38 (62892358)|USER_DEBUG|[87]|DEBUG|PY-01889163  (Orden ACH-26647, Contrato 00317129 / Cancelled)
+17:51:33.38 (62895888)|USER_DEBUG|[89]|DEBUG|  PAGO ACTUAL -> Payment_Status=ACH TRANSMITTED &#124; Collection_Status=null
+17:51:33.38 (62898078)|USER_DEBUG|[91]|DEBUG|  PAGO NUEVO  -> Payment_Status=ACCEPTED &#124; Collection_Status=COLLECTED
+17:51:33.38 (62900488)|USER_DEBUG|[92]|DEBUG|  Historico nuevo -> PRC_AUT_FIX_CANCELLED_CONTRACT_ORDER: ACCEPTED //
+17:51:33.38 (62942298)|USER_DEBUG|[86]|DEBUG|---------------------------------------------------------
+17:51:33.38 (62951218)|USER_DEBUG|[87]|DEBUG|PY-01895389  (Orden ACH-27012, Contrato 00317228 / Cancelled)
+17:51:33.38 (62954508)|USER_DEBUG|[89]|DEBUG|  PAGO ACTUAL -> Payment_Status=ACH TRANSMITTED &#124; Collection_Status=null
+17:51:33.38 (62956788)|USER_DEBUG|[91]|DEBUG|  PAGO NUEVO  -> Payment_Status=ACCEPTED &#124; Collection_Status=COLLECTED
+17:51:33.38 (62959518)|USER_DEBUG|[92]|DEBUG|  Historico nuevo -> PRC_AUT_FIX_CANCELLED_CONTRACT_ORDER: ACCEPTED //
+17:51:33.38 (62990238)|USER_DEBUG|[86]|DEBUG|---------------------------------------------------------
+17:51:33.38 (63020248)|USER_DEBUG|[87]|DEBUG|PY-01895410  (Orden ACH-29037, Contrato 00318380 / Cancelled)
+17:51:33.38 (63024528)|USER_DEBUG|[89]|DEBUG|  PAGO ACTUAL -> Payment_Status=ACH TRANSMITTED &#124; Collection_Status=null
+17:51:33.38 (63026758)|USER_DEBUG|[91]|DEBUG|  PAGO NUEVO  -> Payment_Status=ACCEPTED &#124; Collection_Status=COLLECTED
+17:51:33.38 (63029268)|USER_DEBUG|[92]|DEBUG|  Historico nuevo -> PRC_AUT_FIX_CANCELLED_CONTRACT_ORDER: ACCEPTED //
+17:51:33.38 (63071098)|USER_DEBUG|[86]|DEBUG|---------------------------------------------------------
+17:51:33.38 (63080208)|USER_DEBUG|[87]|DEBUG|PY-01895456  (Orden ACH-29190, Contrato 00317963 / Cancelled)
+17:51:33.38 (63083898)|USER_DEBUG|[89]|DEBUG|  PAGO ACTUAL -> Payment_Status=ACH TRANSMITTED &#124; Collection_Status=null
+17:51:33.38 (63090518)|USER_DEBUG|[91]|DEBUG|  PAGO NUEVO  -> Payment_Status=ACCEPTED &#124; Collection_Status=COLLECTED
+17:51:33.38 (63093108)|USER_DEBUG|[92]|DEBUG|  Historico nuevo -> PRC_AUT_FIX_CANCELLED_CONTRACT_ORDER: ACCEPTED //
+17:51:33.38 (63124339)|USER_DEBUG|[86]|DEBUG|---------------------------------------------------------
+17:51:33.38 (63133119)|USER_DEBUG|[87]|DEBUG|PY-01895464  (Orden ACH-29199, Contrato 00317997 / Cancelled)
+17:51:33.38 (63136429)|USER_DEBUG|[89]|DEBUG|  PAGO ACTUAL -> Payment_Status=ACH TRANSMITTED &#124; Collection_Status=null
+17:51:33.38 (63138589)|USER_DEBUG|[91]|DEBUG|  PAGO NUEVO  -> Payment_Status=ACCEPTED &#124; Collection_Status=COLLECTED
+17:51:33.38 (63141159)|USER_DEBUG|[92]|DEBUG|  Historico nuevo -> PRC_AUT_FIX_CANCELLED_CONTRACT_ORDER: ACCEPTED //
+17:51:33.38 (63174779)|USER_DEBUG|[86]|DEBUG|---------------------------------------------------------
+17:51:33.38 (63183659)|USER_DEBUG|[87]|DEBUG|PY-01895482  (Orden ACH-29217, Contrato 00317180 / Cancelled)
+17:51:33.38 (63187009)|USER_DEBUG|[89]|DEBUG|  PAGO ACTUAL -> Payment_Status=ACH TRANSMITTED &#124; Collection_Status=null
+17:51:33.38 (63189249)|USER_DEBUG|[91]|DEBUG|  PAGO NUEVO  -> Payment_Status=ACCEPTED &#124; Collection_Status=COLLECTED
+17:51:33.38 (63191699)|USER_DEBUG|[92]|DEBUG|  Historico nuevo -> PRC_AUT_FIX_CANCELLED_CONTRACT_ORDER: ACCEPTED //
+17:51:33.38 (68683099)|USER_DEBUG|[110]|DEBUG|=======================================================
+17:51:33.38 (68763749)|USER_DEBUG|[111]|DEBUG| -> Ordenes ACH involucradas: 10
+17:51:33.38 (68915119)|USER_DEBUG|[113]|DEBUG|  ACH-18260 -> ACTUAL: Completed &#124; NUEVO: Completed
+17:51:33.38 (68925399)|USER_DEBUG|[113]|DEBUG|  ACH-26169 -> ACTUAL: Completed &#124; NUEVO: Completed
+17:51:33.38 (68931189)|USER_DEBUG|[113]|DEBUG|  ACH-26647 -> ACTUAL: Stopped &#124; NUEVO: Completed
+17:51:33.38 (68936089)|USER_DEBUG|[113]|DEBUG|  ACH-27012 -> ACTUAL: Completed &#124; NUEVO: Completed
+17:51:33.38 (68940819)|USER_DEBUG|[113]|DEBUG|  ACH-28209 -> ACTUAL: Completed &#124; NUEVO: Completed
+17:51:33.38 (68945709)|USER_DEBUG|[113]|DEBUG|  ACH-28544 -> ACTUAL: Completed &#124; NUEVO: Completed
+17:51:33.38 (68950159)|USER_DEBUG|[113]|DEBUG|  ACH-29037 -> ACTUAL: Completed &#124; NUEVO: Completed
+17:51:33.38 (68954629)|USER_DEBUG|[113]|DEBUG|  ACH-29190 -> ACTUAL: Completed &#124; NUEVO: Completed
+17:51:33.38 (68959249)|USER_DEBUG|[113]|DEBUG|  ACH-29199 -> ACTUAL: Completed &#124; NUEVO: Completed
+17:51:33.38 (68963979)|USER_DEBUG|[113]|DEBUG|  ACH-29217 -> ACTUAL: Completed &#124; NUEVO: Completed
+17:51:33.38 (68970719)|USER_DEBUG|[115]|DEBUG|=======================================================
+17:51:33.38 (68976699)|USER_DEBUG|[174]|DEBUG| -> DRY RUN: no se realizo ningun cambio. Cambiar DRY_RUN a false para ejecutar.
+17:51:33.69 (69093779)|CUMULATIVE_LIMIT_USAGE
+17:51:33.69 (69093779)|LIMIT_USAGE_FOR_NS|(default)|
+  Number of SOQL queries: 2 out of 100
+  Number of query rows: 21 out of 50000
+  Number of SOSL queries: 0 out of 20
+  Number of DML statements: 0 out of 150
+  Number of Publish Immediate DML: 0 out of 150
+  Number of DML rows: 0 out of 10000
+  Maximum CPU time: 0 out of 10000
+  Maximum heap size: 0 out of 6000000
+  Number of callouts: 0 out of 100
+  Number of Email Invocations: 0 out of 10
+  Number of future calls: 0 out of 50
+  Number of queueable jobs added to the queue: 0 out of 50
+  Number of Mobile Apex push calls: 0 out of 10
+
+17:51:33.69 (69093779)|CUMULATIVE_LIMIT_USAGE_END
+
+17:51:33.38 (69142619)|CODE_UNIT_FINISHED|execute_anonymous_apex
+17:51:33.38 (69161139)|EXECUTION_FINISHED
+

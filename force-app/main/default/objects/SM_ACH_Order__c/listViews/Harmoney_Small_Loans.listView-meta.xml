@@ -1,0 +1,27 @@
+<?xml version="1.0" encoding="UTF-8"?>
+<ListView xmlns="http://soap.sforce.com/2006/04/metadata">
+    <fullName>Harmoney_Small_Loans</fullName>
+    <columns>SM_Contract__c</columns>
+    <columns>NAME</columns>
+    <columns>SM_Payment_Status__c</columns>
+    <columns>SM_Payment_Type__c</columns>
+    <columns>SM_Next_Transaction_Date__c</columns>
+    <columns>SM_Total__c</columns>
+    <columns>SM_IVU_Municipal_Amount__c</columns>
+    <columns>IVU_State_Amount__c</columns>
+    <columns>SM_Payment_End_Date__c</columns>
+    <columns>SM_Payment_Method__c</columns>
+    <columns>SM_Date_ACH_Transmitted__c</columns>
+    <filterScope>Everything</filterScope>
+    <filters>
+        <field>SM_Contract__c</field>
+        <operation>contains</operation>
+        <value>00309051,00309576,00309577,00309579,00309052,00309053</value>
+    </filters>
+    <filters>
+        <field>SM_Payment_Status__c</field>
+        <operation>notEqual</operation>
+        <value>Completed,Canceled</value>
+    </filters>
+    <label>Harmoney Small Loans - In Process</label>
+</ListView>

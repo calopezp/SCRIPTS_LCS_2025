@@ -1,0 +1,941 @@
+Compiled successfully.
+Executed successfully.
+
+67.0 APEX_CODE,DEBUG;APEX_PROFILING,INFO
+Execute Anonymous: /*
+Execute Anonymous:  * fix_stuck_cancelled_contracts.apex
+Execute Anonymous:  * ------------------------------------
+Execute Anonymous:  * Hallazgo 2026-09-16: al correr mark_transmitted_accepted.apex, 200/227
+Execute Anonymous:  * pagos fallaron en una sola oleada -- pero la causa real es UNA orden ACH
+Execute Anonymous:  * (ACH-28209) cuyo contrato ya esta Cancelled. Cuando un pago de esa orden
+Execute Anonymous:  * pasa a ACCEPTED, SM_PaymentHandler.updateRelatedRecordsByPaymentStatusUpdates()
+Execute Anonymous:  * (linea 269) intenta forzar la orden a 'Canceled', pero
+Execute Anonymous:  * SM_ACHOrderHandler.validateCanceledStatus() (linea 530) bloquea con
+Execute Anonymous:  * addError() porque la orden todavia tiene un pago hermano en
+Execute Anonymous:  * ACH_PENDING/ACH_TRANSMITTED -- y como SM_PaymentHandler usa
+Execute Anonymous:  * Database.update(achOrdersToUpdate) SIN allOrNone=false (linea 294), UNA
+Execute Anonymous:  * orden bloqueada tumba TODO el batch de ordenes de esa transaccion, lo que
+Execute Anonymous:  * arrastra como fallidos a los demas 199 pagos de la misma oleada (aunque
+Execute Anonymous:  * no tengan nada que ver).
+Execute Anonymous:  *
+Execute Anonymous:  * Barrido completo del org (2026-09-16): exactamente 11 pagos en 10 ordenes
+Execute Anonymous:  * ACH distintas, todos en contratos ya Cancelled, siguen en ACH TRANSMITTED
+Execute Anonymous:  * sin ningun reporte -- son el 100% de los pagos "atascados" de este tipo
+Execute Anonymous:  * en todo el org (no solo del batch que fallo hoy).
+Execute Anonymous:  *
+Execute Anonymous:  * SOLUCION EN 2 PASOS (instruccion explicita del usuario 2026-09-16):
+Execute Anonymous:  *   Paso A: marcar los 11 pagos como ACCEPTED/COLLECTED (misma regla de 15
+Execute Anonymous:  *           dias que el resto), con SM_TriggerHandler.avoidAllHandlerExcecution
+Execute Anonymous:  *           = true para que NO dispare el intento de cancelar la orden
+Execute Anonymous:  *           dentro de esta misma transaccion (evita el choque).
+Execute Anonymous:  *   Paso B: con los handlers YA reactivados (bypass = false), actualizar
+Execute Anonymous:  *           las 10 ordenes ACH a SM_Payment_Status__c = 'Completed' -- una
+Execute Anonymous:  *           vez que ningun pago hermano sigue ACH_PENDING/ACH_TRANSMITTED
+Execute Anonymous:  *           (verificado antes de escribir), la validacion de
+Execute Anonymous:  *           validateCanceledStatus() ni siquiera aplica (esa solo bloquea el
+Execute Anonymous:  *           cambio a 'Canceled', no a 'Completed'), asi que el resto de la
+Execute Anonymous:  *           automatizacion normal de la orden corre igual que cualquier
+Execute Anonymous:  *           actualizacion real.
+Execute Anonymous:  *
+Execute Anonymous:  *           NOTA -- correccion del usuario 2026-09-16: el codigo actual de
+Execute Anonymous:  *           SM_PaymentHandler.cls (lineas 264-289) manda la orden a
+Execute Anonymous:  *           'Canceled' tanto si el ultimo pago fue ACCEPTED como REJECTED,
+Execute Anonymous:  *           con tal de que el contrato este Cancelled -- no distingue. Eso
+Execute Anonymous:  *           es inconsistente: si el pago SI se cobro (ACCEPTED), la orden
+Execute Anonymous:  *           cumplio su proposito y deberia quedar 'Completed' (igual que
+Execute Anonymous:  *           pasa con un contrato Finalized), no 'Canceled'. 'Canceled' tiene
+Execute Anonymous:  *           sentido solo si el pago fallo (REJECTED) con el contrato ya
+Execute Anonymous:  *           cancelado. Este script sigue la logica corregida; el bug en
+Execute Anonymous:  *           SM_PaymentHandler.cls en si no se toca aqui.
+Execute Anonymous:  *
+Execute Anonymous:  * Corre primero con DRY_RUN = true -> solo preview, NO actualiza nada.
+Execute Anonymous:  */
+Execute Anonymous: 
+Execute Anonymous: Boolean DRY_RUN = false; // Autorizado por el usuario 2026-09-16 tras revisar el preview
+Execute Anonymous: 
+Execute Anonymous: Set<String> paymentNames = new Set<String>{
+Execute Anonymous:     'PY-01889016', 'PY-01888782', 'PY-01889163', 'PY-01895389',
+Execute Anonymous:     'PY-01888832', 'PY-01888809', 'PY-01888816', 'PY-01895410',
+Execute Anonymous:     'PY-01895456', 'PY-01895464', 'PY-01895482'
+Execute Anonymous: };
+Execute Anonymous: 
+Execute Anonymous: List<SM_Payment__c> payments = [
+Execute Anonymous:     SELECT Id, Name, Payment_Status__c, SM_Check_Collection_Status__c,
+Execute Anonymous:            SM_Historical_Collection_Status__c, SM_ACH_Order__c,
+Execute Anonymous:            SM_ACH_Order__r.Name, SM_ACH_Order__r.SM_Payment_Status__c,
+Execute Anonymous:            SM_Contract__r.ContractNumber, SM_Contract__r.Status
+Execute Anonymous:     FROM SM_Payment__c
+Execute Anonymous:     WHERE Name IN :paymentNames
+Execute Anonymous: ];
+Execute Anonymous: 
+Execute Anonymous: System.debug('=======================================================');
+Execute Anonymous: System.debug(' -> MODO: ' + (DRY_RUN ? 'DRY RUN (solo preview, sin cambios)' : 'EJECUCION REAL'));
+Execute Anonymous: System.debug(' -> Pagos encontrados: ' + payments.size() + ' / ' + paymentNames.size());
+Execute Anonymous: System.debug('=======================================================');
+Execute Anonymous: 
+Execute Anonymous: Set<Id> achOrderIds = new Set<Id>();
+Execute Anonymous: Date today = Date.today();
+Execute Anonymous: List<SM_Payment__c> paymentUpdates = new List<SM_Payment__c>();
+Execute Anonymous: 
+Execute Anonymous: for (SM_Payment__c p : payments) {
+Execute Anonymous:     achOrderIds.add(p.SM_ACH_Order__c);
+Execute Anonymous: 
+Execute Anonymous:     String tag = 'PRC_AUT_FIX_CANCELLED_CONTRACT_ORDER: ACCEPTED //';
+Execute Anonymous:     String previous = p.SM_Historical_Collection_Status__c == null ? '' : p.SM_Historical_Collection_Status__c;
+Execute Anonymous:     String newHistorical = tag + previous;
+Execute Anonymous:     if (newHistorical.length() > 150) {
+Execute Anonymous:         newHistorical = newHistorical.substring(0, 150);
+Execute Anonymous:     }
+Execute Anonymous: 
+Execute Anonymous:     System.debug('---------------------------------------------------------');
+Execute Anonymous:     System.debug(p.Name + '  (Orden ' + p.SM_ACH_Order__r.Name + ', Contrato ' +
+Execute Anonymous:             p.SM_Contract__r.ContractNumber + ' / ' + p.SM_Contract__r.Status + ')');
+Execute Anonymous:     System.debug('  PAGO ACTUAL -> Payment_Status=' + p.Payment_Status__c +
+Execute Anonymous:             ' | Collection_Status=' + p.SM_Check_Collection_Status__c);
+Execute Anonymous:     System.debug('  PAGO NUEVO  -> Payment_Status=ACCEPTED | Collection_Status=COLLECTED');
+Execute Anonymous:     System.debug('  Historico nuevo -> ' + newHistorical);
+Execute Anonymous: 
+Execute Anonymous:     paymentUpdates.add(new SM_Payment__c(
+Execute Anonymous:             Id = p.Id,
+Execute Anonymous:             Payment_Status__c = 'ACCEPTED',
+Execute Anonymous:             SM_Check_Collection_Date__c = today,
+Execute Anonymous:             SM_Check_Collection__c = true,
+Execute Anonymous:             SM_Check_Collection_Status__c = 'COLLECTED',
+Execute Anonymous:             SM_Historical_Collection_Status__c = newHistorical
+Execute Anonymous:     ));
+Execute Anonymous: }
+Execute Anonymous: 
+Execute Anonymous: List<SM_ACH_Order__c> orders = [
+Execute Anonymous:     SELECT Id, Name, SM_Payment_Status__c
+Execute Anonymous:     FROM SM_ACH_Order__c
+Execute Anonymous:     WHERE Id IN :achOrderIds
+Execute Anonymous: ];
+Execute Anonymous: 
+Execute Anonymous: System.debug('=======================================================');
+Execute Anonymous: System.debug(' -> Ordenes ACH involucradas: ' + orders.size());
+Execute Anonymous: for (SM_ACH_Order__c o : orders) {
+Execute Anonymous:     System.debug('  ' + o.Name + ' -> ACTUAL: ' + o.SM_Payment_Status__c + ' | NUEVO: Completed');
+Execute Anonymous: }
+Execute Anonymous: System.debug('=======================================================');
+Execute Anonymous: 
+Execute Anonymous: if (!DRY_RUN) {
+Execute Anonymous:     // Paso A: pagos, CON bypass de handlers (evita el choque en la misma transaccion)
+Execute Anonymous:     SM_TriggerHandler.avoidAllHandlerExcecution = true;
+Execute Anonymous:     Database.SaveResult[] paymentResults = Database.update(paymentUpdates, false);
+Execute Anonymous:     Integer okP = 0, errP = 0;
+Execute Anonymous:     for (Database.SaveResult sr : paymentResults) {
+Execute Anonymous:         if (sr.isSuccess()) {
+Execute Anonymous:             okP++;
+Execute Anonymous:         } else {
+Execute Anonymous:             errP++;
+Execute Anonymous:             System.debug(' -> ERROR actualizando pago ' + sr.getId() + ': ' + sr.getErrors());
+Execute Anonymous:         }
+Execute Anonymous:     }
+Execute Anonymous:     System.debug(' -> Paso A (pagos) -> Exitos: ' + okP + ' | Errores: ' + errP);
+Execute Anonymous:     SM_TriggerHandler.avoidAllHandlerExcecution = false;
+Execute Anonymous: 
+Execute Anonymous:     // Paso B: verificar que ya no queda ningun pago hermano pendiente, y
+Execute Anonymous:     // SOLO entonces cancelar la orden -- SIN bypass, para que corra la
+Execute Anonymous:     // automatizacion normal de una cancelacion real.
+Execute Anonymous:     Map<Id, Integer> pendingSiblingsByOrder = new Map<Id, Integer>();
+Execute Anonymous:     for (SM_Payment__c sib : [
+Execute Anonymous:             SELECT SM_ACH_Order__c
+Execute Anonymous:             FROM SM_Payment__c
+Execute Anonymous:             WHERE SM_ACH_Order__c IN :achOrderIds
+Execute Anonymous:               AND Payment_Status__c IN ('ACH PENDING', 'ACH TRANSMITTED')
+Execute Anonymous:     ]) {
+Execute Anonymous:         Integer c = pendingSiblingsByOrder.containsKey(sib.SM_ACH_Order__c) ? pendingSiblingsByOrder.get(sib.SM_ACH_Order__c) : 0;
+Execute Anonymous:         pendingSiblingsByOrder.put(sib.SM_ACH_Order__c, c + 1);
+Execute Anonymous:     }
+Execute Anonymous: 
+Execute Anonymous:     List<SM_ACH_Order__c> orderUpdates = new List<SM_ACH_Order__c>();
+Execute Anonymous:     for (SM_ACH_Order__c o : orders) {
+Execute Anonymous:         if (pendingSiblingsByOrder.containsKey(o.Id)) {
+Execute Anonymous:             System.debug(' -> SALTANDO ' + o.Name + ': todavia tiene ' + pendingSiblingsByOrder.get(o.Id) + ' pago(s) pendiente(s) -- no se actualiza.');
+Execute Anonymous:             continue;
+Execute Anonymous:         }
+Execute Anonymous:         if (o.SM_Payment_Status__c == 'Completed') {
+Execute Anonymous:             System.debug(' -> SALTANDO ' + o.Name + ': ya esta Completed, no hace falta tocarla.');
+Execute Anonymous:             continue;
+Execute Anonymous:         }
+Execute Anonymous:         orderUpdates.add(new SM_ACH_Order__c(Id = o.Id, SM_Payment_Status__c = 'Completed'));
+Execute Anonymous:     }
+Execute Anonymous: 
+Execute Anonymous:     Integer okO = 0, errO = 0;
+Execute Anonymous:     if (!orderUpdates.isEmpty()) {
+Execute Anonymous:         Database.SaveResult[] orderResults = Database.update(orderUpdates, false);
+Execute Anonymous:         for (Database.SaveResult sr : orderResults) {
+Execute Anonymous:             if (sr.isSuccess()) {
+Execute Anonymous:                 okO++;
+Execute Anonymous:             } else {
+Execute Anonymous:                 errO++;
+Execute Anonymous:                 System.debug(' -> ERROR actualizando orden ' + sr.getId() + ': ' + sr.getErrors());
+Execute Anonymous:             }
+Execute Anonymous:         }
+Execute Anonymous:     }
+Execute Anonymous:     System.debug(' -> Paso B (ordenes) -> Exitos: ' + okO + ' | Errores: ' + errO + ' | Saltadas: ' + (orders.size() - orderUpdates.size()));
+Execute Anonymous: } else {
+Execute Anonymous:     System.debug(' -> DRY RUN: no se realizo ningun cambio. Cambiar DRY_RUN a false para ejecutar.');
+Execute Anonymous: }
+17:52:23.41 (41206778)|USER_INFO|[EXTERNAL]|0051U000007bbx5|clopez@legal-credit.com|(GMT+02:00) Central European Summer Time (Europe/Madrid)|GMT+02:00
+17:52:23.41 (41230678)|EXECUTION_STARTED
+17:52:23.41 (41259078)|CODE_UNIT_STARTED|[EXTERNAL]|execute_anonymous_apex
+17:52:23.41 (67732826)|USER_DEBUG|[67]|DEBUG|=======================================================
+17:52:23.41 (67798187)|USER_DEBUG|[68]|DEBUG| -> MODO: EJECUCION REAL
+17:52:23.41 (67891968)|USER_DEBUG|[69]|DEBUG| -> Pagos encontrados: 11 / 11
+17:52:23.41 (67896888)|USER_DEBUG|[70]|DEBUG|=======================================================
+17:52:23.41 (68427084)|USER_DEBUG|[86]|DEBUG|---------------------------------------------------------
+17:52:23.41 (68708527)|USER_DEBUG|[87]|DEBUG|PY-01888782  (Orden ACH-26169, Contrato 00316687 / Cancelled)
+17:52:23.41 (68721837)|USER_DEBUG|[89]|DEBUG|  PAGO ACTUAL -> Payment_Status=ACH TRANSMITTED &#124; Collection_Status=null
+17:52:23.41 (68726897)|USER_DEBUG|[91]|DEBUG|  PAGO NUEVO  -> Payment_Status=ACCEPTED &#124; Collection_Status=COLLECTED
+17:52:23.41 (68731498)|USER_DEBUG|[92]|DEBUG|  Historico nuevo -> PRC_AUT_FIX_CANCELLED_CONTRACT_ORDER: ACCEPTED //
+17:52:23.41 (68928260)|USER_DEBUG|[86]|DEBUG|---------------------------------------------------------
+17:52:23.41 (68943170)|USER_DEBUG|[87]|DEBUG|PY-01888809  (Orden ACH-28209, Contrato 00316932 / Cancelled)
+17:52:23.41 (68947140)|USER_DEBUG|[89]|DEBUG|  PAGO ACTUAL -> Payment_Status=ACH TRANSMITTED &#124; Collection_Status=null
+17:52:23.41 (68949840)|USER_DEBUG|[91]|DEBUG|  PAGO NUEVO  -> Payment_Status=ACCEPTED &#124; Collection_Status=COLLECTED
+17:52:23.41 (68952480)|USER_DEBUG|[92]|DEBUG|  Historico nuevo -> PRC_AUT_FIX_CANCELLED_CONTRACT_ORDER: ACCEPTED //
+17:52:23.41 (68985780)|USER_DEBUG|[86]|DEBUG|---------------------------------------------------------
+17:52:23.41 (68994741)|USER_DEBUG|[87]|DEBUG|PY-01888816  (Orden ACH-28544, Contrato 00317953 / Cancelled)
+17:52:23.41 (68997931)|USER_DEBUG|[89]|DEBUG|  PAGO ACTUAL -> Payment_Status=ACH TRANSMITTED &#124; Collection_Status=null
+17:52:23.41 (69000061)|USER_DEBUG|[91]|DEBUG|  PAGO NUEVO  -> Payment_Status=ACCEPTED &#124; Collection_Status=COLLECTED
+17:52:23.41 (69002661)|USER_DEBUG|[92]|DEBUG|  Historico nuevo -> PRC_AUT_FIX_CANCELLED_CONTRACT_ORDER: ACCEPTED //
+17:52:23.41 (69028891)|USER_DEBUG|[86]|DEBUG|---------------------------------------------------------
+17:52:23.41 (69034871)|USER_DEBUG|[87]|DEBUG|PY-01888832  (Orden ACH-28209, Contrato 00316932 / Cancelled)
+17:52:23.41 (69038341)|USER_DEBUG|[89]|DEBUG|  PAGO ACTUAL -> Payment_Status=ACH TRANSMITTED &#124; Collection_Status=null
+17:52:23.41 (69040451)|USER_DEBUG|[91]|DEBUG|  PAGO NUEVO  -> Payment_Status=ACCEPTED &#124; Collection_Status=COLLECTED
+17:52:23.41 (69042891)|USER_DEBUG|[92]|DEBUG|  Historico nuevo -> PRC_AUT_FIX_CANCELLED_CONTRACT_ORDER: ACCEPTED //
+17:52:23.41 (69066771)|USER_DEBUG|[86]|DEBUG|---------------------------------------------------------
+17:52:23.41 (69075412)|USER_DEBUG|[87]|DEBUG|PY-01889016  (Orden ACH-18260, Contrato 00312948 / Cancelled)
+17:52:23.41 (69078552)|USER_DEBUG|[89]|DEBUG|  PAGO ACTUAL -> Payment_Status=ACH TRANSMITTED &#124; Collection_Status=null
+17:52:23.41 (69080652)|USER_DEBUG|[91]|DEBUG|  PAGO NUEVO  -> Payment_Status=ACCEPTED &#124; Collection_Status=COLLECTED
+17:52:23.41 (69083142)|USER_DEBUG|[92]|DEBUG|  Historico nuevo -> PRC_AUT_FIX_CANCELLED_CONTRACT_ORDER: ACCEPTED //
+17:52:23.41 (69111982)|USER_DEBUG|[86]|DEBUG|---------------------------------------------------------
+17:52:23.41 (69120132)|USER_DEBUG|[87]|DEBUG|PY-01889163  (Orden ACH-26647, Contrato 00317129 / Cancelled)
+17:52:23.41 (69123082)|USER_DEBUG|[89]|DEBUG|  PAGO ACTUAL -> Payment_Status=ACH TRANSMITTED &#124; Collection_Status=null
+17:52:23.41 (69125242)|USER_DEBUG|[91]|DEBUG|  PAGO NUEVO  -> Payment_Status=ACCEPTED &#124; Collection_Status=COLLECTED
+17:52:23.41 (69127642)|USER_DEBUG|[92]|DEBUG|  Historico nuevo -> PRC_AUT_FIX_CANCELLED_CONTRACT_ORDER: ACCEPTED //
+17:52:23.41 (69150452)|USER_DEBUG|[86]|DEBUG|---------------------------------------------------------
+17:52:23.41 (69158662)|USER_DEBUG|[87]|DEBUG|PY-01895389  (Orden ACH-27012, Contrato 00317228 / Cancelled)
+17:52:23.41 (69161763)|USER_DEBUG|[89]|DEBUG|  PAGO ACTUAL -> Payment_Status=ACH TRANSMITTED &#124; Collection_Status=null
+17:52:23.41 (69163863)|USER_DEBUG|[91]|DEBUG|  PAGO NUEVO  -> Payment_Status=ACCEPTED &#124; Collection_Status=COLLECTED
+17:52:23.41 (69166313)|USER_DEBUG|[92]|DEBUG|  Historico nuevo -> PRC_AUT_FIX_CANCELLED_CONTRACT_ORDER: ACCEPTED //
+17:52:23.41 (69190083)|USER_DEBUG|[86]|DEBUG|---------------------------------------------------------
+17:52:23.41 (69198223)|USER_DEBUG|[87]|DEBUG|PY-01895410  (Orden ACH-29037, Contrato 00318380 / Cancelled)
+17:52:23.41 (69201513)|USER_DEBUG|[89]|DEBUG|  PAGO ACTUAL -> Payment_Status=ACH TRANSMITTED &#124; Collection_Status=null
+17:52:23.41 (69203653)|USER_DEBUG|[91]|DEBUG|  PAGO NUEVO  -> Payment_Status=ACCEPTED &#124; Collection_Status=COLLECTED
+17:52:23.41 (69206083)|USER_DEBUG|[92]|DEBUG|  Historico nuevo -> PRC_AUT_FIX_CANCELLED_CONTRACT_ORDER: ACCEPTED //
+17:52:23.41 (69233103)|USER_DEBUG|[86]|DEBUG|---------------------------------------------------------
+17:52:23.41 (69241443)|USER_DEBUG|[87]|DEBUG|PY-01895456  (Orden ACH-29190, Contrato 00317963 / Cancelled)
+17:52:23.41 (69244613)|USER_DEBUG|[89]|DEBUG|  PAGO ACTUAL -> Payment_Status=ACH TRANSMITTED &#124; Collection_Status=null
+17:52:23.41 (69246703)|USER_DEBUG|[91]|DEBUG|  PAGO NUEVO  -> Payment_Status=ACCEPTED &#124; Collection_Status=COLLECTED
+17:52:23.41 (69249294)|USER_DEBUG|[92]|DEBUG|  Historico nuevo -> PRC_AUT_FIX_CANCELLED_CONTRACT_ORDER: ACCEPTED //
+17:52:23.41 (69272144)|USER_DEBUG|[86]|DEBUG|---------------------------------------------------------
+17:52:23.41 (69280414)|USER_DEBUG|[87]|DEBUG|PY-01895464  (Orden ACH-29199, Contrato 00317997 / Cancelled)
+17:52:23.41 (69283614)|USER_DEBUG|[89]|DEBUG|  PAGO ACTUAL -> Payment_Status=ACH TRANSMITTED &#124; Collection_Status=null
+17:52:23.41 (69285694)|USER_DEBUG|[91]|DEBUG|  PAGO NUEVO  -> Payment_Status=ACCEPTED &#124; Collection_Status=COLLECTED
+17:52:23.41 (69288174)|USER_DEBUG|[92]|DEBUG|  Historico nuevo -> PRC_AUT_FIX_CANCELLED_CONTRACT_ORDER: ACCEPTED //
+17:52:23.41 (69311104)|USER_DEBUG|[86]|DEBUG|---------------------------------------------------------
+17:52:23.41 (69318774)|USER_DEBUG|[87]|DEBUG|PY-01895482  (Orden ACH-29217, Contrato 00317180 / Cancelled)
+17:52:23.41 (69329524)|USER_DEBUG|[89]|DEBUG|  PAGO ACTUAL -> Payment_Status=ACH TRANSMITTED &#124; Collection_Status=null
+17:52:23.41 (69331704)|USER_DEBUG|[91]|DEBUG|  PAGO NUEVO  -> Payment_Status=ACCEPTED &#124; Collection_Status=COLLECTED
+17:52:23.41 (69334284)|USER_DEBUG|[92]|DEBUG|  Historico nuevo -> PRC_AUT_FIX_CANCELLED_CONTRACT_ORDER: ACCEPTED //
+17:52:23.41 (73458742)|USER_DEBUG|[110]|DEBUG|=======================================================
+17:52:23.41 (73511103)|USER_DEBUG|[111]|DEBUG| -> Ordenes ACH involucradas: 10
+17:52:23.41 (73601224)|USER_DEBUG|[113]|DEBUG|  ACH-18260 -> ACTUAL: Completed &#124; NUEVO: Completed
+17:52:23.41 (73610544)|USER_DEBUG|[113]|DEBUG|  ACH-26169 -> ACTUAL: Completed &#124; NUEVO: Completed
+17:52:23.41 (73615854)|USER_DEBUG|[113]|DEBUG|  ACH-26647 -> ACTUAL: Stopped &#124; NUEVO: Completed
+17:52:23.41 (73620584)|USER_DEBUG|[113]|DEBUG|  ACH-27012 -> ACTUAL: Completed &#124; NUEVO: Completed
+17:52:23.41 (73625304)|USER_DEBUG|[113]|DEBUG|  ACH-28209 -> ACTUAL: Completed &#124; NUEVO: Completed
+17:52:23.41 (73629814)|USER_DEBUG|[113]|DEBUG|  ACH-28544 -> ACTUAL: Completed &#124; NUEVO: Completed
+17:52:23.41 (73634614)|USER_DEBUG|[113]|DEBUG|  ACH-29037 -> ACTUAL: Completed &#124; NUEVO: Completed
+17:52:23.41 (73639084)|USER_DEBUG|[113]|DEBUG|  ACH-29190 -> ACTUAL: Completed &#124; NUEVO: Completed
+17:52:23.41 (73643774)|USER_DEBUG|[113]|DEBUG|  ACH-29199 -> ACTUAL: Completed &#124; NUEVO: Completed
+17:52:23.41 (73648744)|USER_DEBUG|[113]|DEBUG|  ACH-29217 -> ACTUAL: Completed &#124; NUEVO: Completed
+17:52:23.41 (73655054)|USER_DEBUG|[115]|DEBUG|=======================================================
+17:52:23.41 (95606120)|CODE_UNIT_STARTED|[EXTERNAL]|Flow:01I1U000002p7mA
+17:52:23.41 (95624580)|CODE_UNIT_FINISHED|Flow:01I1U000002p7mA
+17:52:23.41 (104028927)|CODE_UNIT_STARTED|[EXTERNAL]|01q1U000001iKpN|SM_PaymentTrigger on SM_Payment trigger event BeforeUpdate|__sfdc_trigger/SM_PaymentTrigger
+17:52:23.112 (112833200)|CUMULATIVE_LIMIT_USAGE
+17:52:23.112 (112833200)|LIMIT_USAGE_FOR_NS|(default)|
+  Number of SOQL queries: 2 out of 100
+  Number of query rows: 22 out of 50000
+  Number of SOSL queries: 0 out of 20
+  Number of DML statements: 1 out of 150
+  Number of Publish Immediate DML: 0 out of 150
+  Number of DML rows: 11 out of 10000
+  Maximum CPU time: 0 out of 10000
+  Maximum heap size: 0 out of 6000000
+  Number of callouts: 0 out of 100
+  Number of Email Invocations: 0 out of 10
+  Number of future calls: 0 out of 50
+  Number of queueable jobs added to the queue: 0 out of 50
+  Number of Mobile Apex push calls: 0 out of 10
+
+17:52:23.112 (112833200)|CUMULATIVE_LIMIT_USAGE_END
+
+17:52:23.41 (113047213)|CODE_UNIT_FINISHED|SM_PaymentTrigger on SM_Payment trigger event BeforeUpdate|__sfdc_trigger/SM_PaymentTrigger
+17:52:23.41 (114459099)|CODE_UNIT_STARTED|[EXTERNAL]|01q1U000001iMYY|SM_PaymentTGR on SM_Payment trigger event BeforeUpdate|__sfdc_trigger/SM_PaymentTGR
+17:52:23.119 (119710100)|CUMULATIVE_LIMIT_USAGE
+17:52:23.119 (119710100)|LIMIT_USAGE_FOR_NS|(default)|
+  Number of SOQL queries: 2 out of 100
+  Number of query rows: 23 out of 50000
+  Number of SOSL queries: 0 out of 20
+  Number of DML statements: 1 out of 150
+  Number of Publish Immediate DML: 0 out of 150
+  Number of DML rows: 11 out of 10000
+  Maximum CPU time: 0 out of 10000
+  Maximum heap size: 0 out of 6000000
+  Number of callouts: 0 out of 100
+  Number of Email Invocations: 0 out of 10
+  Number of future calls: 0 out of 50
+  Number of queueable jobs added to the queue: 0 out of 50
+  Number of Mobile Apex push calls: 0 out of 10
+
+17:52:23.119 (119710100)|CUMULATIVE_LIMIT_USAGE_END
+
+17:52:23.41 (119891312)|CODE_UNIT_FINISHED|SM_PaymentTGR on SM_Payment trigger event BeforeUpdate|__sfdc_trigger/SM_PaymentTGR
+17:52:23.41 (132418367)|CODE_UNIT_STARTED|[EXTERNAL]|Validation:SM_Payment:a24UU000005Fuv9
+17:52:23.41 (132486398)|CODE_UNIT_FINISHED|Validation:SM_Payment:a24UU000005Fuv9
+17:52:23.41 (132500618)|CODE_UNIT_STARTED|[EXTERNAL]|Validation:SM_Payment:a24UU000005Fuva
+17:52:23.41 (132517388)|CODE_UNIT_FINISHED|Validation:SM_Payment:a24UU000005Fuva
+17:52:23.41 (132524518)|CODE_UNIT_STARTED|[EXTERNAL]|Validation:SM_Payment:a24UU000005Fuvh
+17:52:23.41 (132539718)|CODE_UNIT_FINISHED|Validation:SM_Payment:a24UU000005Fuvh
+17:52:23.41 (132546939)|CODE_UNIT_STARTED|[EXTERNAL]|Validation:SM_Payment:a24UU000005FuyU
+17:52:23.41 (132561399)|CODE_UNIT_FINISHED|Validation:SM_Payment:a24UU000005FuyU
+17:52:23.41 (132568959)|CODE_UNIT_STARTED|[EXTERNAL]|Validation:SM_Payment:a24UU000005GDKK
+17:52:23.41 (132583959)|CODE_UNIT_FINISHED|Validation:SM_Payment:a24UU000005GDKK
+17:52:23.41 (132590329)|CODE_UNIT_STARTED|[EXTERNAL]|Validation:SM_Payment:a24UU000005GDMh
+17:52:23.41 (132605299)|CODE_UNIT_FINISHED|Validation:SM_Payment:a24UU000005GDMh
+17:52:23.41 (132612579)|CODE_UNIT_STARTED|[EXTERNAL]|Validation:SM_Payment:a24UU000005KHLb
+17:52:23.41 (132626929)|CODE_UNIT_FINISHED|Validation:SM_Payment:a24UU000005KHLb
+17:52:23.41 (132633110)|CODE_UNIT_STARTED|[EXTERNAL]|Validation:SM_Payment:a24UU000005KHLw
+17:52:23.41 (132647910)|CODE_UNIT_FINISHED|Validation:SM_Payment:a24UU000005KHLw
+17:52:23.41 (132659000)|CODE_UNIT_STARTED|[EXTERNAL]|Validation:SM_Payment:a24UU000005KHMg
+17:52:23.41 (132674420)|CODE_UNIT_FINISHED|Validation:SM_Payment:a24UU000005KHMg
+17:52:23.41 (132681130)|CODE_UNIT_STARTED|[EXTERNAL]|Validation:SM_Payment:a24UU000005KHMo
+17:52:23.41 (132695570)|CODE_UNIT_FINISHED|Validation:SM_Payment:a24UU000005KHMo
+17:52:23.41 (132701870)|CODE_UNIT_STARTED|[EXTERNAL]|Validation:SM_Payment:a24UU000005KHN6
+17:52:23.41 (132716810)|CODE_UNIT_FINISHED|Validation:SM_Payment:a24UU000005KHN6
+17:52:23.41 (147242540)|CODE_UNIT_STARTED|[EXTERNAL]|01q1U000001iKpN|SM_PaymentTrigger on SM_Payment trigger event AfterUpdate|__sfdc_trigger/SM_PaymentTrigger
+17:52:23.149 (149809530)|CUMULATIVE_LIMIT_USAGE
+17:52:23.149 (149809530)|LIMIT_USAGE_FOR_NS|(default)|
+  Number of SOQL queries: 2 out of 100
+  Number of query rows: 24 out of 50000
+  Number of SOSL queries: 0 out of 20
+  Number of DML statements: 1 out of 150
+  Number of Publish Immediate DML: 0 out of 150
+  Number of DML rows: 11 out of 10000
+  Maximum CPU time: 0 out of 10000
+  Maximum heap size: 0 out of 6000000
+  Number of callouts: 0 out of 100
+  Number of Email Invocations: 0 out of 10
+  Number of future calls: 0 out of 50
+  Number of queueable jobs added to the queue: 0 out of 50
+  Number of Mobile Apex push calls: 0 out of 10
+
+17:52:23.149 (149809530)|CUMULATIVE_LIMIT_USAGE_END
+
+17:52:23.41 (150023792)|CODE_UNIT_FINISHED|SM_PaymentTrigger on SM_Payment trigger event AfterUpdate|__sfdc_trigger/SM_PaymentTrigger
+17:52:23.41 (150622349)|CODE_UNIT_STARTED|[EXTERNAL]|01q1U000001iMYY|SM_PaymentTGR on SM_Payment trigger event AfterUpdate|__sfdc_trigger/SM_PaymentTGR
+17:52:23.152 (152174367)|CUMULATIVE_LIMIT_USAGE
+17:52:23.152 (152174367)|LIMIT_USAGE_FOR_NS|(default)|
+  Number of SOQL queries: 2 out of 100
+  Number of query rows: 25 out of 50000
+  Number of SOSL queries: 0 out of 20
+  Number of DML statements: 1 out of 150
+  Number of Publish Immediate DML: 0 out of 150
+  Number of DML rows: 11 out of 10000
+  Maximum CPU time: 0 out of 10000
+  Maximum heap size: 0 out of 6000000
+  Number of callouts: 0 out of 100
+  Number of Email Invocations: 0 out of 10
+  Number of future calls: 0 out of 50
+  Number of queueable jobs added to the queue: 0 out of 50
+  Number of Mobile Apex push calls: 0 out of 10
+
+17:52:23.152 (152174367)|CUMULATIVE_LIMIT_USAGE_END
+
+17:52:23.41 (152289028)|CODE_UNIT_FINISHED|SM_PaymentTGR on SM_Payment trigger event AfterUpdate|__sfdc_trigger/SM_PaymentTGR
+17:52:23.41 (154094169)|CODE_UNIT_STARTED|[EXTERNAL]|01qUU0000081AtZ|SM_ACPaymentActivationTrigger on SM_Payment trigger event AfterUpdate|__sfdc_trigger/SM_ACPaymentActivationTrigger
+17:52:23.160 (160955449)|CUMULATIVE_LIMIT_USAGE
+17:52:23.160 (160955449)|LIMIT_USAGE_FOR_NS|(default)|
+  Number of SOQL queries: 2 out of 100
+  Number of query rows: 26 out of 50000
+  Number of SOSL queries: 0 out of 20
+  Number of DML statements: 1 out of 150
+  Number of Publish Immediate DML: 0 out of 150
+  Number of DML rows: 11 out of 10000
+  Maximum CPU time: 0 out of 10000
+  Maximum heap size: 0 out of 6000000
+  Number of callouts: 0 out of 100
+  Number of Email Invocations: 0 out of 10
+  Number of future calls: 0 out of 50
+  Number of queueable jobs added to the queue: 0 out of 50
+  Number of Mobile Apex push calls: 0 out of 10
+
+17:52:23.160 (160955449)|CUMULATIVE_LIMIT_USAGE_END
+
+17:52:23.41 (161071410)|CODE_UNIT_FINISHED|SM_ACPaymentActivationTrigger on SM_Payment trigger event AfterUpdate|__sfdc_trigger/SM_ACPaymentActivationTrigger
+17:52:23.41 (162814430)|CODE_UNIT_STARTED|[EXTERNAL]|01qUU0000081Z5Z|SM_LateFeeReconciliationTrigger on SM_Payment trigger event AfterUpdate|__sfdc_trigger/SM_LateFeeReconciliationTrigger
+17:52:23.166 (166037227)|CUMULATIVE_LIMIT_USAGE
+17:52:23.166 (166037227)|LIMIT_USAGE_FOR_NS|(default)|
+  Number of SOQL queries: 2 out of 100
+  Number of query rows: 27 out of 50000
+  Number of SOSL queries: 0 out of 20
+  Number of DML statements: 1 out of 150
+  Number of Publish Immediate DML: 0 out of 150
+  Number of DML rows: 11 out of 10000
+  Maximum CPU time: 0 out of 10000
+  Maximum heap size: 0 out of 6000000
+  Number of callouts: 0 out of 100
+  Number of Email Invocations: 0 out of 10
+  Number of future calls: 0 out of 50
+  Number of queueable jobs added to the queue: 0 out of 50
+  Number of Mobile Apex push calls: 0 out of 10
+
+17:52:23.166 (166037227)|CUMULATIVE_LIMIT_USAGE_END
+
+17:52:23.41 (166170429)|CODE_UNIT_FINISHED|SM_LateFeeReconciliationTrigger on SM_Payment trigger event AfterUpdate|__sfdc_trigger/SM_LateFeeReconciliationTrigger
+17:52:23.41 (166755456)|CODE_UNIT_STARTED|[EXTERNAL]|Workflow:01I1U000002p7mA
+17:52:23.41 (210652146)|CODE_UNIT_FINISHED|Workflow:01I1U000002p7mA
+17:52:23.41 (211969462)|CODE_UNIT_STARTED|[EXTERNAL]|Flow:01I1U000002p7mA
+17:52:23.41 (219905383)|CODE_UNIT_FINISHED|Flow:01I1U000002p7mA
+17:52:23.41 (220912185)|CODE_UNIT_STARTED|[EXTERNAL]|Flow:01I1U000002p7mA
+17:52:23.41 (220919245)|CODE_UNIT_FINISHED|Flow:01I1U000002p7mA
+17:52:23.41 (240235540)|CODE_UNIT_STARTED|[EXTERNAL]|Flow:Contract
+17:52:23.41 (245657943)|CODE_UNIT_FINISHED|Flow:Contract
+17:52:23.41 (250214925)|CODE_UNIT_STARTED|[EXTERNAL]|01q1U000001e9g3|SM_ContractTrigger on Contract trigger event BeforeUpdate|__sfdc_trigger/SM_ContractTrigger
+17:52:23.255 (255504587)|CUMULATIVE_LIMIT_USAGE
+17:52:23.255 (255504587)|LIMIT_USAGE_FOR_NS|(default)|
+  Number of SOQL queries: 2 out of 100
+  Number of query rows: 28 out of 50000
+  Number of SOSL queries: 0 out of 20
+  Number of DML statements: 1 out of 150
+  Number of Publish Immediate DML: 0 out of 150
+  Number of DML rows: 11 out of 10000
+  Maximum CPU time: 61 out of 10000
+  Maximum heap size: 0 out of 6000000
+  Number of callouts: 0 out of 100
+  Number of Email Invocations: 0 out of 10
+  Number of future calls: 0 out of 50
+  Number of queueable jobs added to the queue: 0 out of 50
+  Number of Mobile Apex push calls: 0 out of 10
+
+17:52:23.255 (255504587)|CUMULATIVE_LIMIT_USAGE_END
+
+17:52:23.41 (255685519)|CODE_UNIT_FINISHED|SM_ContractTrigger on Contract trigger event BeforeUpdate|__sfdc_trigger/SM_ContractTrigger
+17:52:23.41 (256812902)|CODE_UNIT_STARTED|[EXTERNAL]|01qUU000006wHpq|dlrs_ContractTrigger on Contract trigger event BeforeUpdate|__sfdc_trigger/dlrs_ContractTrigger
+17:52:23.258 (258443281)|CUMULATIVE_LIMIT_USAGE
+17:52:23.258 (258443281)|LIMIT_USAGE_FOR_NS|(default)|
+  Number of SOQL queries: 2 out of 100
+  Number of query rows: 28 out of 50000
+  Number of SOSL queries: 0 out of 20
+  Number of DML statements: 1 out of 150
+  Number of Publish Immediate DML: 0 out of 150
+  Number of DML rows: 11 out of 10000
+  Maximum CPU time: 61 out of 10000
+  Maximum heap size: 0 out of 6000000
+  Number of callouts: 0 out of 100
+  Number of Email Invocations: 0 out of 10
+  Number of future calls: 0 out of 50
+  Number of queueable jobs added to the queue: 0 out of 50
+  Number of Mobile Apex push calls: 0 out of 10
+
+17:52:23.258 (258443281)|CUMULATIVE_LIMIT_USAGE_END
+
+17:52:23.41 (258562912)|CODE_UNIT_FINISHED|dlrs_ContractTrigger on Contract trigger event BeforeUpdate|__sfdc_trigger/dlrs_ContractTrigger
+17:52:23.41 (328953200)|CODE_UNIT_STARTED|[EXTERNAL]|Validation:Contract:800UU000005CHQQ
+17:52:23.41 (335651578)|CODE_UNIT_FINISHED|Validation:Contract:800UU000005CHQQ
+17:52:23.41 (335708449)|CODE_UNIT_STARTED|[EXTERNAL]|Validation:Contract:800UU00000dZOsL
+17:52:23.41 (335983982)|CODE_UNIT_FINISHED|Validation:Contract:800UU00000dZOsL
+17:52:23.41 (336003112)|CODE_UNIT_STARTED|[EXTERNAL]|Validation:Contract:800UU00000ePmDn
+17:52:23.41 (336195264)|CODE_UNIT_FINISHED|Validation:Contract:800UU00000ePmDn
+17:52:23.41 (336209494)|CODE_UNIT_STARTED|[EXTERNAL]|Validation:Contract:800UU00000fHFo0
+17:52:23.41 (336318016)|CODE_UNIT_FINISHED|Validation:Contract:800UU00000fHFo0
+17:52:23.41 (336333926)|CODE_UNIT_STARTED|[EXTERNAL]|Validation:Contract:800UU00000fWsDs
+17:52:23.41 (336474247)|CODE_UNIT_FINISHED|Validation:Contract:800UU00000fWsDs
+17:52:23.41 (336487508)|CODE_UNIT_STARTED|[EXTERNAL]|Validation:Contract:800UU00000fjXI2
+17:52:23.41 (336592449)|CODE_UNIT_FINISHED|Validation:Contract:800UU00000fjXI2
+17:52:23.41 (336603159)|CODE_UNIT_STARTED|[EXTERNAL]|Validation:Contract:800UU00000j3Buj
+17:52:23.41 (336699200)|CODE_UNIT_FINISHED|Validation:Contract:800UU00000j3Buj
+17:52:23.41 (336707820)|CODE_UNIT_STARTED|[EXTERNAL]|Validation:Contract:800UU00000j6Aqt
+17:52:23.41 (337732762)|CODE_UNIT_FINISHED|Validation:Contract:800UU00000j6Aqt
+17:52:23.41 (337753482)|CODE_UNIT_STARTED|[EXTERNAL]|Validation:Contract:800UU00000jJrN6
+17:52:23.41 (337887534)|CODE_UNIT_FINISHED|Validation:Contract:800UU00000jJrN6
+17:52:23.41 (337899804)|CODE_UNIT_STARTED|[EXTERNAL]|Validation:Contract:800UU00000knUVd
+17:52:23.41 (337994395)|CODE_UNIT_FINISHED|Validation:Contract:800UU00000knUVd
+17:52:23.41 (362081075)|CODE_UNIT_STARTED|[EXTERNAL]|01q1U000001e9g3|SM_ContractTrigger on Contract trigger event AfterUpdate|__sfdc_trigger/SM_ContractTrigger
+17:52:23.364 (364557574)|CUMULATIVE_LIMIT_USAGE
+17:52:23.364 (364557574)|LIMIT_USAGE_FOR_NS|(default)|
+  Number of SOQL queries: 2 out of 100
+  Number of query rows: 29 out of 50000
+  Number of SOSL queries: 0 out of 20
+  Number of DML statements: 1 out of 150
+  Number of Publish Immediate DML: 0 out of 150
+  Number of DML rows: 11 out of 10000
+  Maximum CPU time: 61 out of 10000
+  Maximum heap size: 0 out of 6000000
+  Number of callouts: 0 out of 100
+  Number of Email Invocations: 0 out of 10
+  Number of future calls: 0 out of 50
+  Number of queueable jobs added to the queue: 0 out of 50
+  Number of Mobile Apex push calls: 0 out of 10
+
+17:52:23.364 (364557574)|CUMULATIVE_LIMIT_USAGE_END
+
+17:52:23.41 (364740726)|CODE_UNIT_FINISHED|SM_ContractTrigger on Contract trigger event AfterUpdate|__sfdc_trigger/SM_ContractTrigger
+17:52:23.41 (365377983)|CODE_UNIT_STARTED|[EXTERNAL]|01qUU000006wHpq|dlrs_ContractTrigger on Contract trigger event AfterUpdate|__sfdc_trigger/dlrs_ContractTrigger
+17:52:23.423 (423145904)|CUMULATIVE_LIMIT_USAGE
+17:52:23.423 (423145904)|LIMIT_USAGE_FOR_NS|(default)|
+  Number of SOQL queries: 2 out of 100
+  Number of query rows: 29 out of 50000
+  Number of SOSL queries: 0 out of 20
+  Number of DML statements: 1 out of 150
+  Number of Publish Immediate DML: 0 out of 150
+  Number of DML rows: 11 out of 10000
+  Maximum CPU time: 61 out of 10000
+  Maximum heap size: 0 out of 6000000
+  Number of callouts: 0 out of 100
+  Number of Email Invocations: 0 out of 10
+  Number of future calls: 0 out of 50
+  Number of queueable jobs added to the queue: 0 out of 50
+  Number of Mobile Apex push calls: 0 out of 10
+
+17:52:23.423 (423145904)|LIMIT_USAGE_FOR_NS|dlrs|
+  Number of SOQL queries: 1 out of 100
+  Number of query rows: 0 out of 50000
+  Number of SOSL queries: 0 out of 20
+  Number of DML statements: 0 out of 150
+  Number of Publish Immediate DML: 0 out of 150
+  Number of DML rows: 0 out of 10000
+  Maximum CPU time: 0 out of 10000
+  Maximum heap size: 0 out of 6000000
+  Number of callouts: 0 out of 100
+  Number of Email Invocations: 0 out of 10
+  Number of future calls: 0 out of 50
+  Number of queueable jobs added to the queue: 0 out of 50
+  Number of Mobile Apex push calls: 0 out of 10
+
+17:52:23.423 (423145904)|CUMULATIVE_LIMIT_USAGE_END
+
+17:52:23.41 (423398917)|CODE_UNIT_FINISHED|dlrs_ContractTrigger on Contract trigger event AfterUpdate|__sfdc_trigger/dlrs_ContractTrigger
+17:52:23.41 (424963335)|CODE_UNIT_STARTED|[EXTERNAL]|Workflow:Contract
+17:52:23.41 (585245736)|CODE_UNIT_FINISHED|Workflow:Contract
+17:52:23.41 (585361958)|CODE_UNIT_STARTED|[EXTERNAL]|Flow:Contract
+17:52:23.611 (611004656)|CODE_UNIT_STARTED|[EXTERNAL]|01q1U000001e9g3|SM_ContractTrigger on Contract trigger event BeforeUpdate|__sfdc_trigger/SM_ContractTrigger
+17:52:23.613 (613624736)|CUMULATIVE_LIMIT_USAGE
+17:52:23.613 (613624736)|LIMIT_USAGE_FOR_NS|(default)|
+  Number of SOQL queries: 3 out of 100
+  Number of query rows: 35 out of 50000
+  Number of SOSL queries: 0 out of 20
+  Number of DML statements: 2 out of 150
+  Number of Publish Immediate DML: 0 out of 150
+  Number of DML rows: 12 out of 10000
+  Maximum CPU time: 250 out of 10000
+  Maximum heap size: 0 out of 6000000
+  Number of callouts: 0 out of 100
+  Number of Email Invocations: 0 out of 10
+  Number of future calls: 0 out of 50
+  Number of queueable jobs added to the queue: 0 out of 50
+  Number of Mobile Apex push calls: 0 out of 10
+
+17:52:23.613 (613624736)|LIMIT_USAGE_FOR_NS|dlrs|
+  Number of SOQL queries: 1 out of 100
+  Number of query rows: 0 out of 50000
+  Number of SOSL queries: 0 out of 20
+  Number of DML statements: 0 out of 150
+  Number of Publish Immediate DML: 0 out of 150
+  Number of DML rows: 0 out of 10000
+  Maximum CPU time: 0 out of 10000
+  Maximum heap size: 0 out of 6000000
+  Number of callouts: 0 out of 100
+  Number of Email Invocations: 0 out of 10
+  Number of future calls: 0 out of 50
+  Number of queueable jobs added to the queue: 0 out of 50
+  Number of Mobile Apex push calls: 0 out of 10
+
+17:52:23.613 (613624736)|CUMULATIVE_LIMIT_USAGE_END
+
+17:52:23.611 (613781158)|CODE_UNIT_FINISHED|SM_ContractTrigger on Contract trigger event BeforeUpdate|__sfdc_trigger/SM_ContractTrigger
+17:52:23.614 (614477866)|CODE_UNIT_STARTED|[EXTERNAL]|01qUU000006wHpq|dlrs_ContractTrigger on Contract trigger event BeforeUpdate|__sfdc_trigger/dlrs_ContractTrigger
+17:52:23.615 (615678410)|CUMULATIVE_LIMIT_USAGE
+17:52:23.615 (615678410)|LIMIT_USAGE_FOR_NS|(default)|
+  Number of SOQL queries: 3 out of 100
+  Number of query rows: 35 out of 50000
+  Number of SOSL queries: 0 out of 20
+  Number of DML statements: 2 out of 150
+  Number of Publish Immediate DML: 0 out of 150
+  Number of DML rows: 12 out of 10000
+  Maximum CPU time: 250 out of 10000
+  Maximum heap size: 0 out of 6000000
+  Number of callouts: 0 out of 100
+  Number of Email Invocations: 0 out of 10
+  Number of future calls: 0 out of 50
+  Number of queueable jobs added to the queue: 0 out of 50
+  Number of Mobile Apex push calls: 0 out of 10
+
+17:52:23.615 (615678410)|LIMIT_USAGE_FOR_NS|dlrs|
+  Number of SOQL queries: 1 out of 100
+  Number of query rows: 0 out of 50000
+  Number of SOSL queries: 0 out of 20
+  Number of DML statements: 0 out of 150
+  Number of Publish Immediate DML: 0 out of 150
+  Number of DML rows: 0 out of 10000
+  Maximum CPU time: 0 out of 10000
+  Maximum heap size: 0 out of 6000000
+  Number of callouts: 0 out of 100
+  Number of Email Invocations: 0 out of 10
+  Number of future calls: 0 out of 50
+  Number of queueable jobs added to the queue: 0 out of 50
+  Number of Mobile Apex push calls: 0 out of 10
+
+17:52:23.615 (615678410)|CUMULATIVE_LIMIT_USAGE_END
+
+17:52:23.614 (615783051)|CODE_UNIT_FINISHED|dlrs_ContractTrigger on Contract trigger event BeforeUpdate|__sfdc_trigger/dlrs_ContractTrigger
+17:52:23.617 (617903376)|CODE_UNIT_STARTED|[EXTERNAL]|Validation:Contract:800UU00000fHFo0
+17:52:23.617 (618189879)|CODE_UNIT_FINISHED|Validation:Contract:800UU00000fHFo0
+17:52:23.632 (632355484)|CODE_UNIT_STARTED|[EXTERNAL]|01q1U000001e9g3|SM_ContractTrigger on Contract trigger event AfterUpdate|__sfdc_trigger/SM_ContractTrigger
+17:52:23.634 (634582600)|CUMULATIVE_LIMIT_USAGE
+17:52:23.634 (634582600)|LIMIT_USAGE_FOR_NS|(default)|
+  Number of SOQL queries: 3 out of 100
+  Number of query rows: 36 out of 50000
+  Number of SOSL queries: 0 out of 20
+  Number of DML statements: 2 out of 150
+  Number of Publish Immediate DML: 0 out of 150
+  Number of DML rows: 12 out of 10000
+  Maximum CPU time: 250 out of 10000
+  Maximum heap size: 0 out of 6000000
+  Number of callouts: 0 out of 100
+  Number of Email Invocations: 0 out of 10
+  Number of future calls: 0 out of 50
+  Number of queueable jobs added to the queue: 0 out of 50
+  Number of Mobile Apex push calls: 0 out of 10
+
+17:52:23.634 (634582600)|LIMIT_USAGE_FOR_NS|dlrs|
+  Number of SOQL queries: 1 out of 100
+  Number of query rows: 0 out of 50000
+  Number of SOSL queries: 0 out of 20
+  Number of DML statements: 0 out of 150
+  Number of Publish Immediate DML: 0 out of 150
+  Number of DML rows: 0 out of 10000
+  Maximum CPU time: 0 out of 10000
+  Maximum heap size: 0 out of 6000000
+  Number of callouts: 0 out of 100
+  Number of Email Invocations: 0 out of 10
+  Number of future calls: 0 out of 50
+  Number of queueable jobs added to the queue: 0 out of 50
+  Number of Mobile Apex push calls: 0 out of 10
+
+17:52:23.634 (634582600)|CUMULATIVE_LIMIT_USAGE_END
+
+17:52:23.632 (634770872)|CODE_UNIT_FINISHED|SM_ContractTrigger on Contract trigger event AfterUpdate|__sfdc_trigger/SM_ContractTrigger
+17:52:23.635 (635392839)|CODE_UNIT_STARTED|[EXTERNAL]|01qUU000006wHpq|dlrs_ContractTrigger on Contract trigger event AfterUpdate|__sfdc_trigger/dlrs_ContractTrigger
+17:52:23.640 (640006143)|CUMULATIVE_LIMIT_USAGE
+17:52:23.640 (640006143)|LIMIT_USAGE_FOR_NS|(default)|
+  Number of SOQL queries: 3 out of 100
+  Number of query rows: 36 out of 50000
+  Number of SOSL queries: 0 out of 20
+  Number of DML statements: 2 out of 150
+  Number of Publish Immediate DML: 0 out of 150
+  Number of DML rows: 12 out of 10000
+  Maximum CPU time: 250 out of 10000
+  Maximum heap size: 0 out of 6000000
+  Number of callouts: 0 out of 100
+  Number of Email Invocations: 0 out of 10
+  Number of future calls: 0 out of 50
+  Number of queueable jobs added to the queue: 0 out of 50
+  Number of Mobile Apex push calls: 0 out of 10
+
+17:52:23.640 (640006143)|LIMIT_USAGE_FOR_NS|dlrs|
+  Number of SOQL queries: 1 out of 100
+  Number of query rows: 0 out of 50000
+  Number of SOSL queries: 0 out of 20
+  Number of DML statements: 0 out of 150
+  Number of Publish Immediate DML: 0 out of 150
+  Number of DML rows: 0 out of 10000
+  Maximum CPU time: 0 out of 10000
+  Maximum heap size: 0 out of 6000000
+  Number of callouts: 0 out of 100
+  Number of Email Invocations: 0 out of 10
+  Number of future calls: 0 out of 50
+  Number of queueable jobs added to the queue: 0 out of 50
+  Number of Mobile Apex push calls: 0 out of 10
+
+17:52:23.640 (640006143)|CUMULATIVE_LIMIT_USAGE_END
+
+17:52:23.635 (640172325)|CODE_UNIT_FINISHED|dlrs_ContractTrigger on Contract trigger event AfterUpdate|__sfdc_trigger/dlrs_ContractTrigger
+17:52:23.41 (649729916)|CODE_UNIT_FINISHED|Flow:Contract
+17:52:23.41 (649826747)|CODE_UNIT_STARTED|[EXTERNAL]|Flow:Contract
+17:52:23.41 (650967800)|CODE_UNIT_FINISHED|Flow:Contract
+17:52:23.41 (653932295)|USER_DEBUG|[130]|DEBUG| -> Paso A (pagos) -> Exitos: 11 &#124; Errores: 0
+17:52:23.41 (670110952)|USER_DEBUG|[154]|DEBUG| -> SALTANDO ACH-18260: ya esta Completed, no hace falta tocarla.
+17:52:23.41 (670137903)|USER_DEBUG|[154]|DEBUG| -> SALTANDO ACH-26169: ya esta Completed, no hace falta tocarla.
+17:52:23.41 (670341245)|USER_DEBUG|[154]|DEBUG| -> SALTANDO ACH-27012: ya esta Completed, no hace falta tocarla.
+17:52:23.41 (670349845)|USER_DEBUG|[154]|DEBUG| -> SALTANDO ACH-28209: ya esta Completed, no hace falta tocarla.
+17:52:23.41 (670356855)|USER_DEBUG|[154]|DEBUG| -> SALTANDO ACH-28544: ya esta Completed, no hace falta tocarla.
+17:52:23.41 (670364195)|USER_DEBUG|[154]|DEBUG| -> SALTANDO ACH-29037: ya esta Completed, no hace falta tocarla.
+17:52:23.41 (670370785)|USER_DEBUG|[154]|DEBUG| -> SALTANDO ACH-29190: ya esta Completed, no hace falta tocarla.
+17:52:23.41 (670377645)|USER_DEBUG|[154]|DEBUG| -> SALTANDO ACH-29199: ya esta Completed, no hace falta tocarla.
+17:52:23.41 (670384286)|USER_DEBUG|[154]|DEBUG| -> SALTANDO ACH-29217: ya esta Completed, no hace falta tocarla.
+17:52:23.41 (686483753)|CODE_UNIT_STARTED|[EXTERNAL]|01q1U000001iMYW|SM_ACHOrderTrigger on SM_ACH_Order trigger event BeforeUpdate|__sfdc_trigger/SM_ACHOrderTrigger
+17:52:23.41 (707984182)|USER_DEBUG|[444]|DEBUG|newRecords: (SM_ACH_Order__c:{Id=a04UU00000HKd0DYAT, IsDeleted=false, Name=ACH-26647, CreatedDate=2026-04-27 20:08:01, CreatedById=0051U000007bbx5QAA, LastModifiedDate=2026-08-31 15:01:22, LastModifiedById=0051U000007NuEPQA0, SystemModstamp=2026-08-31 15:01:22, LastViewedDate=null, LastReferencedDate=null, SM_Contract__c=800UU00000fHFo0YAG, SM_Billing_Email__c=omayraocasioalvira@gmail.com, SM_Charge_Date__c=null, SM_Failed_AC_Transactions__c=null, SM_Failed_Transactions__c=0, SM_IVU_Municipal_Amount__c=0.00, SM_Id_Salesforce_LCS__c=null, IVU_State_Amount__c=0.00, SM_Next_Transaction_Date__c=2026-09-26 00:00:00, SM_Payment_Count__c=null, SM_Payment_End_Date__c=2026-09-26 00:00:00, SM_Payment_Frequency__c=Monthly, SM_Payment_Method__c=a10UU00000B7nOBYAZ, SM_Payment_Start_Date__c=2026-09-26 00:00:00, SM_Payment_Status__c=Completed, SM_Payment_Stop__c=null, SM_Payment_Type__c=Subscription, SM_Quantity_of_scheduled_fees__c=null, SM_Total__c=99.00, SM_Fee_to_collect__c=1, SM_Payment_Condition__c=Fixed value, SM_Apply_penalty__c=false, SM_Failed_payment__c=null, SM_Is_Migrated__c=false, SM_Migration_Date__c=null, SM_Penalty_date__c=null, SM_Penalty_value__c=null, SM_User_who_applies_the_penalty__c=null, SM_Approval_status__c=null, SM_Reason_to_approve_exoneration__c=null, Total_Amount__c=99.00, SM_Bank__c=COOPERATIVA DE A C ROOSEVELT ROADS, SM_DaystocollectPrincipalpayment__c=null, SM_FinalStatus__c=PENDING, SM_last_update_date_transmitted__c=null, SM_Date_ACH_Transmitted__c=null, SM_IsApplyingDaysCollectedPenalty__c=false, SM_Apply_Discount__c=false, SM_Discount_Applies_Date__c=null, Discount_Original_Subtotal__c=null, SM_Discount_Percentage__c=null, SM_Discount_Reason__c=null, SM_Discount_Status__c=null, SM_Discount_Type__c=null, SM_Discount_Value_Afer__c=0.00, SM_Discount_Value__c=null, SM_User_Who_Request_Discount__c=null, SM_User_Who_Applies_Discount__c=null, Invoice__c=null, SM_Original_Type__c=null, Payment_Catery__c=NONE, Order_To_Be_Collected__c=4, SM_PTP_Montly__c=null, Is_PTP__c=true, User_Who_Approve_Discount__c=null, Discount_Value_Afer_Discount_IVU__c=0.00, Discount_Original_Total__c=null, ACH_Tax__c=0.00})
+17:52:23.732 (732596168)|CUMULATIVE_LIMIT_USAGE
+17:52:23.732 (732596168)|LIMIT_USAGE_FOR_NS|(default)|
+  Number of SOQL queries: 6 out of 100
+  Number of query rows: 38 out of 50000
+  Number of SOSL queries: 0 out of 20
+  Number of DML statements: 3 out of 150
+  Number of Publish Immediate DML: 0 out of 150
+  Number of DML rows: 13 out of 10000
+  Maximum CPU time: 274 out of 10000
+  Maximum heap size: 0 out of 6000000
+  Number of callouts: 0 out of 100
+  Number of Email Invocations: 0 out of 10
+  Number of future calls: 0 out of 50
+  Number of queueable jobs added to the queue: 0 out of 50
+  Number of Mobile Apex push calls: 0 out of 10
+
+17:52:23.732 (732596168)|LIMIT_USAGE_FOR_NS|dlrs|
+  Number of SOQL queries: 1 out of 100
+  Number of query rows: 0 out of 50000
+  Number of SOSL queries: 0 out of 20
+  Number of DML statements: 0 out of 150
+  Number of Publish Immediate DML: 0 out of 150
+  Number of DML rows: 0 out of 10000
+  Maximum CPU time: 0 out of 10000
+  Maximum heap size: 0 out of 6000000
+  Number of callouts: 0 out of 100
+  Number of Email Invocations: 0 out of 10
+  Number of future calls: 0 out of 50
+  Number of queueable jobs added to the queue: 0 out of 50
+  Number of Mobile Apex push calls: 0 out of 10
+
+17:52:23.732 (732596168)|CUMULATIVE_LIMIT_USAGE_END
+
+17:52:23.41 (732906302)|CODE_UNIT_FINISHED|SM_ACHOrderTrigger on SM_ACH_Order trigger event BeforeUpdate|__sfdc_trigger/SM_ACHOrderTrigger
+17:52:23.41 (742044208)|CODE_UNIT_STARTED|[EXTERNAL]|Validation:SM_ACH_Order:a04UU00000HKd0D
+17:52:23.41 (742136209)|CODE_UNIT_FINISHED|Validation:SM_ACH_Order:a04UU00000HKd0D
+17:52:23.41 (749638647)|CODE_UNIT_STARTED|[EXTERNAL]|01q1U000001iMYW|SM_ACHOrderTrigger on SM_ACH_Order trigger event AfterUpdate|__sfdc_trigger/SM_ACHOrderTrigger
+17:52:23.759 (759319609)|CUMULATIVE_LIMIT_USAGE
+17:52:23.759 (759319609)|LIMIT_USAGE_FOR_NS|(default)|
+  Number of SOQL queries: 7 out of 100
+  Number of query rows: 39 out of 50000
+  Number of SOSL queries: 0 out of 20
+  Number of DML statements: 3 out of 150
+  Number of Publish Immediate DML: 0 out of 150
+  Number of DML rows: 13 out of 10000
+  Maximum CPU time: 274 out of 10000
+  Maximum heap size: 0 out of 6000000
+  Number of callouts: 0 out of 100
+  Number of Email Invocations: 0 out of 10
+  Number of future calls: 0 out of 50
+  Number of queueable jobs added to the queue: 0 out of 50
+  Number of Mobile Apex push calls: 0 out of 10
+
+17:52:23.759 (759319609)|LIMIT_USAGE_FOR_NS|dlrs|
+  Number of SOQL queries: 1 out of 100
+  Number of query rows: 0 out of 50000
+  Number of SOSL queries: 0 out of 20
+  Number of DML statements: 0 out of 150
+  Number of Publish Immediate DML: 0 out of 150
+  Number of DML rows: 0 out of 10000
+  Maximum CPU time: 0 out of 10000
+  Maximum heap size: 0 out of 6000000
+  Number of callouts: 0 out of 100
+  Number of Email Invocations: 0 out of 10
+  Number of future calls: 0 out of 50
+  Number of queueable jobs added to the queue: 0 out of 50
+  Number of Mobile Apex push calls: 0 out of 10
+
+17:52:23.759 (759319609)|CUMULATIVE_LIMIT_USAGE_END
+
+17:52:23.41 (759536721)|CODE_UNIT_FINISHED|SM_ACHOrderTrigger on SM_ACH_Order trigger event AfterUpdate|__sfdc_trigger/SM_ACHOrderTrigger
+17:52:23.41 (760604723)|CODE_UNIT_STARTED|[EXTERNAL]|Workflow:01I1U000002p7m5
+17:52:23.41 (760639194)|CODE_UNIT_FINISHED|Workflow:01I1U000002p7m5
+17:52:23.41 (767163239)|CODE_UNIT_STARTED|[EXTERNAL]|Flow:Contract
+17:52:23.41 (769208813)|CODE_UNIT_FINISHED|Flow:Contract
+17:52:23.41 (769809640)|CODE_UNIT_STARTED|[EXTERNAL]|01q1U000001e9g3|SM_ContractTrigger on Contract trigger event BeforeUpdate|__sfdc_trigger/SM_ContractTrigger
+17:52:23.771 (771950625)|CUMULATIVE_LIMIT_USAGE
+17:52:23.771 (771950625)|LIMIT_USAGE_FOR_NS|(default)|
+  Number of SOQL queries: 7 out of 100
+  Number of query rows: 40 out of 50000
+  Number of SOSL queries: 0 out of 20
+  Number of DML statements: 3 out of 150
+  Number of Publish Immediate DML: 0 out of 150
+  Number of DML rows: 13 out of 10000
+  Maximum CPU time: 318 out of 10000
+  Maximum heap size: 0 out of 6000000
+  Number of callouts: 0 out of 100
+  Number of Email Invocations: 0 out of 10
+  Number of future calls: 0 out of 50
+  Number of queueable jobs added to the queue: 0 out of 50
+  Number of Mobile Apex push calls: 0 out of 10
+
+17:52:23.771 (771950625)|LIMIT_USAGE_FOR_NS|dlrs|
+  Number of SOQL queries: 1 out of 100
+  Number of query rows: 0 out of 50000
+  Number of SOSL queries: 0 out of 20
+  Number of DML statements: 0 out of 150
+  Number of Publish Immediate DML: 0 out of 150
+  Number of DML rows: 0 out of 10000
+  Maximum CPU time: 0 out of 10000
+  Maximum heap size: 0 out of 6000000
+  Number of callouts: 0 out of 100
+  Number of Email Invocations: 0 out of 10
+  Number of future calls: 0 out of 50
+  Number of queueable jobs added to the queue: 0 out of 50
+  Number of Mobile Apex push calls: 0 out of 10
+
+17:52:23.771 (771950625)|CUMULATIVE_LIMIT_USAGE_END
+
+17:52:23.41 (772086147)|CODE_UNIT_FINISHED|SM_ContractTrigger on Contract trigger event BeforeUpdate|__sfdc_trigger/SM_ContractTrigger
+17:52:23.41 (772726105)|CODE_UNIT_STARTED|[EXTERNAL]|01qUU000006wHpq|dlrs_ContractTrigger on Contract trigger event BeforeUpdate|__sfdc_trigger/dlrs_ContractTrigger
+17:52:23.773 (773928379)|CUMULATIVE_LIMIT_USAGE
+17:52:23.773 (773928379)|LIMIT_USAGE_FOR_NS|(default)|
+  Number of SOQL queries: 7 out of 100
+  Number of query rows: 40 out of 50000
+  Number of SOSL queries: 0 out of 20
+  Number of DML statements: 3 out of 150
+  Number of Publish Immediate DML: 0 out of 150
+  Number of DML rows: 13 out of 10000
+  Maximum CPU time: 318 out of 10000
+  Maximum heap size: 0 out of 6000000
+  Number of callouts: 0 out of 100
+  Number of Email Invocations: 0 out of 10
+  Number of future calls: 0 out of 50
+  Number of queueable jobs added to the queue: 0 out of 50
+  Number of Mobile Apex push calls: 0 out of 10
+
+17:52:23.773 (773928379)|LIMIT_USAGE_FOR_NS|dlrs|
+  Number of SOQL queries: 1 out of 100
+  Number of query rows: 0 out of 50000
+  Number of SOSL queries: 0 out of 20
+  Number of DML statements: 0 out of 150
+  Number of Publish Immediate DML: 0 out of 150
+  Number of DML rows: 0 out of 10000
+  Maximum CPU time: 0 out of 10000
+  Maximum heap size: 0 out of 6000000
+  Number of callouts: 0 out of 100
+  Number of Email Invocations: 0 out of 10
+  Number of future calls: 0 out of 50
+  Number of queueable jobs added to the queue: 0 out of 50
+  Number of Mobile Apex push calls: 0 out of 10
+
+17:52:23.773 (773928379)|CUMULATIVE_LIMIT_USAGE_END
+
+17:52:23.41 (774039390)|CODE_UNIT_FINISHED|dlrs_ContractTrigger on Contract trigger event BeforeUpdate|__sfdc_trigger/dlrs_ContractTrigger
+17:52:23.41 (776365527)|CODE_UNIT_STARTED|[EXTERNAL]|Validation:Contract:800UU00000fHFo0
+17:52:23.41 (776686681)|CODE_UNIT_FINISHED|Validation:Contract:800UU00000fHFo0
+17:52:23.41 (789982255)|CODE_UNIT_STARTED|[EXTERNAL]|01q1U000001e9g3|SM_ContractTrigger on Contract trigger event AfterUpdate|__sfdc_trigger/SM_ContractTrigger
+17:52:23.792 (792289471)|CUMULATIVE_LIMIT_USAGE
+17:52:23.792 (792289471)|LIMIT_USAGE_FOR_NS|(default)|
+  Number of SOQL queries: 7 out of 100
+  Number of query rows: 41 out of 50000
+  Number of SOSL queries: 0 out of 20
+  Number of DML statements: 3 out of 150
+  Number of Publish Immediate DML: 0 out of 150
+  Number of DML rows: 13 out of 10000
+  Maximum CPU time: 318 out of 10000
+  Maximum heap size: 0 out of 6000000
+  Number of callouts: 0 out of 100
+  Number of Email Invocations: 0 out of 10
+  Number of future calls: 0 out of 50
+  Number of queueable jobs added to the queue: 0 out of 50
+  Number of Mobile Apex push calls: 0 out of 10
+
+17:52:23.792 (792289471)|LIMIT_USAGE_FOR_NS|dlrs|
+  Number of SOQL queries: 1 out of 100
+  Number of query rows: 0 out of 50000
+  Number of SOSL queries: 0 out of 20
+  Number of DML statements: 0 out of 150
+  Number of Publish Immediate DML: 0 out of 150
+  Number of DML rows: 0 out of 10000
+  Maximum CPU time: 0 out of 10000
+  Maximum heap size: 0 out of 6000000
+  Number of callouts: 0 out of 100
+  Number of Email Invocations: 0 out of 10
+  Number of future calls: 0 out of 50
+  Number of queueable jobs added to the queue: 0 out of 50
+  Number of Mobile Apex push calls: 0 out of 10
+
+17:52:23.792 (792289471)|CUMULATIVE_LIMIT_USAGE_END
+
+17:52:23.41 (792499574)|CODE_UNIT_FINISHED|SM_ContractTrigger on Contract trigger event AfterUpdate|__sfdc_trigger/SM_ContractTrigger
+17:52:23.41 (793156751)|CODE_UNIT_STARTED|[EXTERNAL]|01qUU000006wHpq|dlrs_ContractTrigger on Contract trigger event AfterUpdate|__sfdc_trigger/dlrs_ContractTrigger
+17:52:23.797 (797098657)|CUMULATIVE_LIMIT_USAGE
+17:52:23.797 (797098657)|LIMIT_USAGE_FOR_NS|(default)|
+  Number of SOQL queries: 7 out of 100
+  Number of query rows: 41 out of 50000
+  Number of SOSL queries: 0 out of 20
+  Number of DML statements: 3 out of 150
+  Number of Publish Immediate DML: 0 out of 150
+  Number of DML rows: 13 out of 10000
+  Maximum CPU time: 318 out of 10000
+  Maximum heap size: 0 out of 6000000
+  Number of callouts: 0 out of 100
+  Number of Email Invocations: 0 out of 10
+  Number of future calls: 0 out of 50
+  Number of queueable jobs added to the queue: 0 out of 50
+  Number of Mobile Apex push calls: 0 out of 10
+
+17:52:23.797 (797098657)|LIMIT_USAGE_FOR_NS|dlrs|
+  Number of SOQL queries: 1 out of 100
+  Number of query rows: 0 out of 50000
+  Number of SOSL queries: 0 out of 20
+  Number of DML statements: 0 out of 150
+  Number of Publish Immediate DML: 0 out of 150
+  Number of DML rows: 0 out of 10000
+  Maximum CPU time: 0 out of 10000
+  Maximum heap size: 0 out of 6000000
+  Number of callouts: 0 out of 100
+  Number of Email Invocations: 0 out of 10
+  Number of future calls: 0 out of 50
+  Number of queueable jobs added to the queue: 0 out of 50
+  Number of Mobile Apex push calls: 0 out of 10
+
+17:52:23.797 (797098657)|CUMULATIVE_LIMIT_USAGE_END
+
+17:52:23.41 (797290139)|CODE_UNIT_FINISHED|dlrs_ContractTrigger on Contract trigger event AfterUpdate|__sfdc_trigger/dlrs_ContractTrigger
+17:52:23.41 (797436421)|CODE_UNIT_STARTED|[EXTERNAL]|Workflow:Contract
+17:52:23.41 (819217864)|CODE_UNIT_FINISHED|Workflow:Contract
+17:52:23.41 (819298935)|CODE_UNIT_STARTED|[EXTERNAL]|Flow:Contract
+17:52:23.41 (820451369)|CODE_UNIT_FINISHED|Flow:Contract
+17:52:23.41 (820498259)|CODE_UNIT_STARTED|[EXTERNAL]|Flow:Contract
+17:52:23.41 (820715162)|CODE_UNIT_FINISHED|Flow:Contract
+17:52:23.41 (825175833)|USER_DEBUG|[172]|DEBUG| -> Paso B (ordenes) -> Exitos: 1 &#124; Errores: 0 &#124; Saltadas: 9
+17:52:23.868 (868332695)|CUMULATIVE_LIMIT_USAGE
+17:52:23.868 (868332695)|LIMIT_USAGE_FOR_NS|(default)|
+  Number of SOQL queries: 7 out of 100
+  Number of query rows: 41 out of 50000
+  Number of SOSL queries: 0 out of 20
+  Number of DML statements: 3 out of 150
+  Number of Publish Immediate DML: 0 out of 150
+  Number of DML rows: 13 out of 10000
+  Maximum CPU time: 349 out of 10000
+  Maximum heap size: 0 out of 6000000
+  Number of callouts: 0 out of 100
+  Number of Email Invocations: 0 out of 10
+  Number of future calls: 0 out of 50
+  Number of queueable jobs added to the queue: 0 out of 50
+  Number of Mobile Apex push calls: 0 out of 10
+
+17:52:23.868 (868332695)|LIMIT_USAGE_FOR_NS|dlrs|
+  Number of SOQL queries: 1 out of 100
+  Number of query rows: 0 out of 50000
+  Number of SOSL queries: 0 out of 20
+  Number of DML statements: 0 out of 150
+  Number of Publish Immediate DML: 0 out of 150
+  Number of DML rows: 0 out of 10000
+  Maximum CPU time: 0 out of 10000
+  Maximum heap size: 0 out of 6000000
+  Number of callouts: 0 out of 100
+  Number of Email Invocations: 0 out of 10
+  Number of future calls: 0 out of 50
+  Number of queueable jobs added to the queue: 0 out of 50
+  Number of Mobile Apex push calls: 0 out of 10
+
+17:52:23.868 (868332695)|CUMULATIVE_LIMIT_USAGE_END
+
+17:52:23.41 (868432656)|CODE_UNIT_FINISHED|execute_anonymous_apex
+17:52:23.41 (868451867)|EXECUTION_FINISHED
+

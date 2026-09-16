@@ -1,0 +1,42 @@
+<?xml version="1.0" encoding="UTF-8"?>
+<CustomField xmlns="http://soap.sforce.com/2006/04/metadata">
+    <fullName>SM_Payment_Type__c</fullName>
+    <label>Payment Type</label>
+    <required>false</required>
+    <trackFeedHistory>false</trackFeedHistory>
+    <trackHistory>true</trackHistory>
+    <trackTrending>false</trackTrending>
+    <type>Picklist</type>
+    <valueSet>
+        <restricted>true</restricted>
+        <valueSetDefinition>
+            <sorted>false</sorted>
+            <value>
+                <fullName>Subscription</fullName>
+                <default>false</default>
+                <label>Subscription</label>
+            </value>
+            <value>
+                <fullName>AC</fullName>
+                <default>false</default>
+                <label>AC</label>
+            </value>
+            <value>
+                <fullName>Fee</fullName>
+                <default>false</default>
+                <label>Fee</label>
+            </value>
+            <value>
+                <fullName>Late payment fee</fullName>
+                <default>false</default>
+                <label>Late payment fee</label>
+            </value>
+            <value>
+                <fullName>Suscripción</fullName>
+                <default>false</default>
+                <isActive>false</isActive>
+                <label>Suscripción</label>
+            </value>
+        </valueSetDefinition>
+    </valueSet>
+</CustomField>

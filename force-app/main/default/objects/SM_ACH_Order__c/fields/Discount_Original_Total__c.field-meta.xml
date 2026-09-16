@@ -1,0 +1,14 @@
+<?xml version="1.0" encoding="UTF-8"?>
+<CustomField xmlns="http://soap.sforce.com/2006/04/metadata">
+    <fullName>Discount_Original_Total__c</fullName>
+    <description>Registro del Valor original &quot;Total Amount&quot; [Total_Amount__c] antes de aplicar el descuento solicitado</description>
+    <inlineHelpText>Registro del Valor original &quot;Total Amount&quot; [Total_Amount__c] antes de aplicar el descuento solicitado</inlineHelpText>
+    <label>Discount Original Value (&quot;Total Amount&quot;)</label>
+    <precision>18</precision>
+    <required>false</required>
+    <scale>2</scale>
+    <trackFeedHistory>false</trackFeedHistory>
+    <trackHistory>false</trackHistory>
+    <trackTrending>false</trackTrending>
+    <type>Currency</type>
+</CustomField>
