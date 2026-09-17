@@ -1,6 +1,7 @@
 /*
  * mark_transmitted_accepted.apex
  * -------------------------------
+//#region titulo
  * Ejecutar via run_mark_transmitted_accepted.sh (o "SFDX: Execute
  * Anonymous Apex" directo en VS Code).
  *
@@ -26,14 +27,17 @@
  * llego ya este aplicado -- este script solo mira el estado ACTUAL en
  * Salesforce, no escanea PDFs.
  *
+ //#endregion titulo
  * MODO DE USO:
  *   - Corre primero con DRY_RUN = true  -> solo preview, NO actualiza nada.
  *   - Revisa el debug log completo.
  *   - Si todo esta correcto, cambia DRY_RUN a false y corre de nuevo -> aplica el UPDATE real.
  */
 
+
+
 // ============ CONFIGURACION ============
-Boolean DRY_RUN = true; // <-- cambiar a false para ejecutar el update real
+Boolean DRY_RUN = false; // <-- cambiar a false para ejecutar el update real
 Integer DAYS_SINCE_TRANSMITTED = 15;
 // ========================================
 
@@ -52,6 +56,11 @@ List<SM_Payment__c> candidates = [
     WHERE Payment_Status__c = 'ACH TRANSMITTED'
     AND SM_Transmission_Date_ACH_File__c < :cutoff
     AND SM_Check_Collection_Status__c = null
+    // Nunca auto-aceptar un pago de prueba o VIP como cobrado sin reporte del
+    // banco -- caso real 2026-09-17: ninguno de los scripts diarios filtraba
+    // por esto (validado, 0 casos reales hasta ahora, pero riesgo latente).
+    AND SM_Contract__r.Is_Test_Contract__c = false
+    AND SM_Contract__r.Is_VIP_Contract__c = false
     ORDER BY SM_Transmission_Date_ACH_File__c ASC
 ];
 

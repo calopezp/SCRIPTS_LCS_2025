@@ -147,7 +147,8 @@ for (SM_Payment__c p : [
     SELECT Id, Name, SM_ACH_Order__c, Payment_Status__c, SM_Check_Collection_Date__c,
            SM_Check_Collection__c, SM_Check_Collection_Status__c, SM_Historical_Collection_Status__c,
            SM_Check_Collection_Return_Reason__c, SM_Return_code__c,
-           SM_Contract__r.ContractNumber, SM_Contract__r.Status
+           SM_Contract__r.ContractNumber, SM_Contract__r.Status,
+           SM_Contract__r.Is_Test_Contract__c, SM_Contract__r.Is_VIP_Contract__c
     FROM SM_Payment__c
     WHERE Name IN :paymentNames
 ]) {
@@ -193,6 +194,7 @@ List<RowData> matchedRows = new List<RowData>();
 List<RowData> alreadyAppliedRows = new List<RowData>();
 List<RowData> regressionBlockedRows = new List<RowData>();
 List<RowData> cancelledContractBlockedRows = new List<RowData>();
+List<RowData> testOrVipBlockedRows = new List<RowData>();
 List<RowData> staleRows = new List<RowData>();
 List<String> notFound = new List<String>();
 
@@ -205,6 +207,14 @@ for (RowData r : rows) {
     r.matchedPaymentId = match.Id;
     r.achOrderId = match.SM_ACH_Order__c;
     r.contractNumber = match.SM_Contract__r != null ? match.SM_Contract__r.ContractNumber : null;
+
+    // Contrato de prueba o VIP: nunca auto-aplicar, siempre revision manual
+    // (caso real 2026-09-17: ningun script diario filtraba esto -- validado,
+    // sin impacto real hasta ahora, pero riesgo latente).
+    if (match.SM_Contract__r != null && (match.SM_Contract__r.Is_Test_Contract__c == true || match.SM_Contract__r.Is_VIP_Contract__c == true)) {
+        testOrVipBlockedRows.add(r);
+        continue;
+    }
 
     // Guard por fecha: ver la nota equivalente en update_ach_returns.apex --
     // nunca dejar que una fila de un reporte MAS VIEJO pise lo que ya esta
@@ -379,6 +389,14 @@ if (!cancelledContractBlockedRows.isEmpty()) {
     System.debug('\u2192 ' +' ->   -> Contratos a analizar manualmente: ' + String.join(cancelledContractsQuoted, ', '));
 } else {
     System.debug('\u2192 ' +' -> Bloqueados por contrato Cancelado (riesgo de tumbar la oleada): 0');
+}
+if (!testOrVipBlockedRows.isEmpty()) {
+    List<String> testVipNames = new List<String>();
+    for (RowData r : testOrVipBlockedRows) { testVipNames.add(r.paymentName); }
+    System.debug('\u2192 ' +' -> ***** ALERTA: ' + testOrVipBlockedRows.size() + ' pago(s) de contrato(s) de PRUEBA o VIP -- NO SE APLICARON automaticamente, revisar manualmente *****');
+    System.debug('\u2192 ' +' ->   -> Nombres bloqueados por Test/VIP: ' + testVipNames);
+} else {
+    System.debug('\u2192 ' +' -> Bloqueados por contrato de Prueba/VIP: 0');
 }
 System.debug('\u2192 ' +' -> Pendientes de aplicar en esta corrida: ' + matchedRows.size());
 System.debug('\u2192 ' +' -> Oleadas necesarias por colisiones de orden ACH repetida: ' + (matchedRows.isEmpty() ? 0 : (maxWave + 1)));

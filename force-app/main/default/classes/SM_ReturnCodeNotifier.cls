@@ -47,7 +47,8 @@ public without sharing class SM_ReturnCodeNotifier {
         List<SM_Payment__c> codePayments = [
             SELECT Id, Name, SM_Amount__c, CreatedDate,
                    SM_Contract__c, SM_Contract__r.ContractNumber, SM_Contract__r.Status,
-                   SM_Contract__r.SM_Customer_Cancellation__c
+                   SM_Contract__r.SM_Customer_Cancellation__c,
+                   SM_Contract__r.Is_Test_Contract__c, SM_Contract__r.Is_VIP_Contract__c
             FROM SM_Payment__c
             WHERE SM_Return_code__c IN :returnCodes
             ORDER BY SM_Contract__r.ContractNumber, CreatedDate
@@ -99,7 +100,8 @@ public without sharing class SM_ReturnCodeNotifier {
             if (p.SM_Contract__c == null || p.SM_Contract__r == null) {
                 continue;
             }
-            if (CLOSED_CONTRACT_STATUSES.contains(p.SM_Contract__r.Status) || p.SM_Contract__r.SM_Customer_Cancellation__c == true) {
+            if (CLOSED_CONTRACT_STATUSES.contains(p.SM_Contract__r.Status) || p.SM_Contract__r.SM_Customer_Cancellation__c == true
+                || p.SM_Contract__r.Is_Test_Contract__c == true || p.SM_Contract__r.Is_VIP_Contract__c == true) {
                 continue;
             }
             contractsById.put(p.SM_Contract__c, p.SM_Contract__r);

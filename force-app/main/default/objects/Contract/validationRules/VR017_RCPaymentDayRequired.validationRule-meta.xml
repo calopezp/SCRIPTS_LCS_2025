@@ -1,0 +1,25 @@
+<?xml version="1.0" encoding="UTF-8"?>
+<ValidationRule xmlns="http://soap.sforce.com/2006/04/metadata">
+    <fullName>VR017_RCPaymentDayRequired</fullName>
+    <active>true</active>
+    <description>Exige SM_Payment_day__c antes de cambiar el Status de un contrato que requiere pago RC. Ver VR016_RCStartDateRequired para el contexto (2026-09-17).</description>
+    <errorConditionFormula>AND(NOT(ISPICKVAL(Contract_Type__c , &apos;Dependent&apos;)),
+    ISCHANGED(Status),
+    NOT(
+        OR(
+            ISPICKVAL(Status, &apos;Draft&apos;),
+            ISPICKVAL(Status, &apos;Finalized&apos;),
+            ISPICKVAL(Status, &apos;Cancelled&apos;)
+        )
+    ),
+    NOT(Is_Test_Contract__c),
+    NOT(Is_VIP_Contract__c),
+    NOT(SM_Full_Payment__c),
+    NOT(SM_Customer_Cancellation__c),
+    SM_Billing_status__c &lt;&gt; &apos;PAYMENT COMPLETED&apos;,
+    ISBLANK(CB_Subscription__c),
+    SM_Requires_RC_Payment__c = true,
+    ISBLANK(TEXT(SM_Payment_day__c))
+)</errorConditionFormula>
+    <errorMessage>SM_Payment_day__c (Dia de Pago de RC) es obligatorio antes de cambiar el Status de un contrato que requiere pago RC.</errorMessage>
+</ValidationRule>

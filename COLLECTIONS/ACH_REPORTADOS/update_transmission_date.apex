@@ -87,13 +87,20 @@ if (rows.size() > 9000) {
     return;
 }
 
-// 3) Buscar los registros SM_Payment__c que hagan match por Name
+// 3) Buscar los registros SM_Payment__c que hagan match por Name (excluye
+// contratos de Prueba/VIP -- ver la misma nota en update_check_collection.apex,
+// 2026-09-17)
 Map<String, Id> nameToId = new Map<String, Id>();
+Set<String> testOrVipNames = new Set<String>();
 for (SM_Payment__c p : [
-    SELECT Id, Name
+    SELECT Id, Name, SM_Contract__r.Is_Test_Contract__c, SM_Contract__r.Is_VIP_Contract__c
     FROM SM_Payment__c
     WHERE Name IN :paymentNames
 ]) {
+    if (p.SM_Contract__r != null && (p.SM_Contract__r.Is_Test_Contract__c == true || p.SM_Contract__r.Is_VIP_Contract__c == true)) {
+        testOrVipNames.add(p.Name);
+        continue;
+    }
     nameToId.put(p.Name, p.Id);
 }
 
@@ -103,6 +110,9 @@ List<String> notFound = new List<String>();
 Integer previewCount = 0;
 
 for (RowData r : rows) {
+    if (testOrVipNames.contains(r.paymentName)) {
+        continue;
+    }
     if (!nameToId.containsKey(r.paymentName)) {
         notFound.add(r.paymentName);
         continue;
@@ -125,6 +135,7 @@ if (rows.size() > 50) {
 
 System.debug('\u2192 ' +'======================================================');
 System.debug('\u2192 ' +'Registros con match encontrado (listos para update): ' + toUpdate.size());
+System.debug('\u2192 ' +'Saltados por contrato de Prueba/VIP: ' + testOrVipNames.size());
 System.debug('\u2192 ' +'Registros SIN match (PY-XXXX no existe como Payment): ' + notFound.size());
 if (!notFound.isEmpty() && notFound.size() <= 100) {
     System.debug('\u2192 ' +'  -> Nombres no encontrados: ' + notFound);

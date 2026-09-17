@@ -106,7 +106,8 @@ for (SM_Payment__c p : [
     SELECT Id, Name, SM_ACH_Order__c, Payment_Status__c, SM_Check_Collection_Date__c,
            SM_Check_Collection__c, SM_Check_Collection_Status__c, SM_Historical_Collection_Status__c,
            SM_Check_Collection_Return_Reason__c, SM_Return_code__c,
-           SM_Contract__r.ContractNumber, SM_Contract__r.Status
+           SM_Contract__r.ContractNumber, SM_Contract__r.Status,
+           SM_Contract__r.Is_Test_Contract__c, SM_Contract__r.Is_VIP_Contract__c
     FROM SM_Payment__c
     WHERE Name IN :paymentNames
 ]) {
@@ -116,6 +117,7 @@ for (SM_Payment__c p : [
 List<RowData> matchedRows = new List<RowData>();
 Integer alreadyAppliedCount = 0;
 Integer notFoundCount = 0;
+Integer testOrVipCount = 0;
 
 for (RowData r : rows) {
     SM_Payment__c match = paymentByName.get(r.paymentName);
@@ -125,6 +127,13 @@ for (RowData r : rows) {
     }
     r.matchedPaymentId = match.Id;
     r.contractNumber = match.SM_Contract__r != null ? match.SM_Contract__r.ContractNumber : null;
+
+    // Ver la misma nota en update_check_collection.apex (2026-09-17).
+    if (match.SM_Contract__r != null && (match.SM_Contract__r.Is_Test_Contract__c == true || match.SM_Contract__r.Is_VIP_Contract__c == true)) {
+        testOrVipCount++;
+        System.debug('→ ' +' -> SALTADO por contrato de Prueba/VIP: ' + r.paymentName + ' (' + r.contractNumber + ')');
+        continue;
+    }
 
     Boolean alreadyApplied =
         match.Payment_Status__c == r.status &&
@@ -163,6 +172,7 @@ for (RowData r : rows) {
 
 System.debug('\u2192 ' +' -> Ya aplicados (se saltan): ' + alreadyAppliedCount);
 System.debug('\u2192 ' +' -> Sin match: ' + notFoundCount);
+System.debug('\u2192 ' +' -> Saltados por contrato de Prueba/VIP: ' + testOrVipCount);
 System.debug('\u2192 ' +' -> Pendientes de aplicar en total: ' + matchedRows.size());
 
 List<RowData> toProcess = new List<RowData>();
