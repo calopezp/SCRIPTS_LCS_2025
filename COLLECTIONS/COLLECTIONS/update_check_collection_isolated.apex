@@ -34,9 +34,9 @@ Integer HISTORICAL_MAX_LENGTH = 150;
 Integer MAX_TO_PROCESS = 12;
 // ========================================
 
-System.debug(' -> ======================================================');
-System.debug(' -> MODO: ' + (DRY_RUN ? 'DRY RUN (solo preview, sin cambios)' : 'EJECUCION REAL AISLADA (1 registro por DML)'));
-System.debug(' -> ======================================================');
+System.debug('\u2192 ' +' -> ======================================================');
+System.debug('\u2192 ' +' -> MODO: ' + (DRY_RUN ? 'DRY RUN (solo preview, sin cambios)' : 'EJECUCION REAL AISLADA (1 registro por DML)'));
+System.debug('\u2192 ' +' -> ======================================================');
 
 StaticResource sr = [SELECT Body FROM StaticResource WHERE Name = :STATIC_RESOURCE_NAME LIMIT 1];
 String csvBody = sr.Body.toString();
@@ -99,7 +99,7 @@ for (Integer i = 1; i < lines.size(); i++) {
     }
 }
 
-System.debug(' -> Total filas leidas del CSV: ' + rows.size());
+System.debug('\u2192 ' +' -> Total filas leidas del CSV: ' + rows.size());
 
 Map<String, SM_Payment__c> paymentByName = new Map<String, SM_Payment__c>();
 for (SM_Payment__c p : [
@@ -147,7 +147,7 @@ for (RowData r : rows) {
     Boolean isCurrentlySuccess = (match.Payment_Status__c == 'ACCEPTED' || match.SM_Check_Collection_Status__c == 'COLLECTED');
     Boolean isTargetRegression = r.collStatus == 'RETURN' || r.collStatus == 'NOT_COLLECTED' || r.collStatus == 'NOT COLLECTED' || r.collStatus == 'PENDING';
     if (isCurrentlySuccess && isTargetRegression) {
-        System.debug(' -> SALTADO por guard de regresion: ' + r.paymentName);
+        System.debug('\u2192 ' +' -> SALTADO por guard de regresion: ' + r.paymentName);
         continue;
     }
 
@@ -161,19 +161,19 @@ for (RowData r : rows) {
     matchedRows.add(r);
 }
 
-System.debug(' -> Ya aplicados (se saltan): ' + alreadyAppliedCount);
-System.debug(' -> Sin match: ' + notFoundCount);
-System.debug(' -> Pendientes de aplicar en total: ' + matchedRows.size());
+System.debug('\u2192 ' +' -> Ya aplicados (se saltan): ' + alreadyAppliedCount);
+System.debug('\u2192 ' +' -> Sin match: ' + notFoundCount);
+System.debug('\u2192 ' +' -> Pendientes de aplicar en total: ' + matchedRows.size());
 
 List<RowData> toProcess = new List<RowData>();
 for (Integer i = 0; i < matchedRows.size() && i < MAX_TO_PROCESS; i++) {
     toProcess.add(matchedRows[i]);
 }
-System.debug(' -> Procesando en esta corrida (MAX_TO_PROCESS=' + MAX_TO_PROCESS + '): ' + toProcess.size());
-System.debug(' -> Quedaran para la proxima corrida: ' + (matchedRows.size() - toProcess.size()));
+System.debug('\u2192 ' +' -> Procesando en esta corrida (MAX_TO_PROCESS=' + MAX_TO_PROCESS + '): ' + toProcess.size());
+System.debug('\u2192 ' +' -> Quedaran para la proxima corrida: ' + (matchedRows.size() - toProcess.size()));
 
 for (RowData r : toProcess) {
-    System.debug('PREVIEW -> ' + r.paymentName + ' (' + r.contractNumber + ') | target: ' + r.status + '/' + r.collStatus);
+    System.debug('\u2192 ' +'PREVIEW -> ' + r.paymentName + ' (' + r.contractNumber + ') ｜ target: ' + r.status + '/' + r.collStatus);
 }
 
 if (!DRY_RUN) {
@@ -205,23 +205,23 @@ if (!DRY_RUN) {
                 errCount++;
                 failedNames.add(r.paymentName);
                 failedContracts.add(r.contractNumber);
-                System.debug(' -> ERROR (SaveResult) ' + r.paymentName + ' (' + r.contractNumber + '): ' + res.getErrors()[0].getMessage());
+                System.debug('\u2192 ' +' -> ERROR (SaveResult) ' + r.paymentName + ' (' + r.contractNumber + '): ' + res.getErrors()[0].getMessage());
             }
         } catch (Exception ex) {
             errCount++;
             failedNames.add(r.paymentName);
             failedContracts.add(r.contractNumber);
-            System.debug(' -> ERROR (excepcion) ' + r.paymentName + ' (' + r.contractNumber + '): ' + ex.getMessage());
+            System.debug('\u2192 ' +' -> ERROR (excepcion) ' + r.paymentName + ' (' + r.contractNumber + '): ' + ex.getMessage());
         }
     }
 
-    System.debug(' -> ======================================================');
-    System.debug(' -> UPDATE AISLADO COMPLETADO -> Exitos: ' + okCount + ' | Errores: ' + errCount);
+    System.debug('\u2192 ' +' -> ======================================================');
+    System.debug('\u2192 ' +' -> UPDATE AISLADO COMPLETADO -> Exitos: ' + okCount + ' ｜ Errores: ' + errCount);
     if (!failedNames.isEmpty()) {
-        System.debug(' -> Pagos que fallaron individualmente: ' + failedNames);
-        System.debug(' -> Contratos de los pagos que fallaron: ' + failedContracts);
+        System.debug('\u2192 ' +' -> Pagos que fallaron individualmente: ' + failedNames);
+        System.debug('\u2192 ' +' -> Contratos de los pagos que fallaron: ' + failedContracts);
     }
-    System.debug(' -> ======================================================');
+    System.debug('\u2192 ' +' -> ======================================================');
 } else {
-    System.debug(' -> DRY RUN activo: no se ejecuto ningun UPDATE.');
+    System.debug('\u2192 ' +' -> DRY RUN activo: no se ejecuto ningun UPDATE.');
 }

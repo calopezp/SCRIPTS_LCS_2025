@@ -45,9 +45,9 @@ String STATIC_RESOURCE_NAME = 'CheckCollectionImport';
 Integer HISTORICAL_MAX_LENGTH = 150; // Text(150) -- SM_Historical_Collection_Status__c
 // ========================================
 
-System.debug(' -> ======================================================');
-System.debug(' -> MODO: ' + (DRY_RUN ? 'DRY RUN (solo preview, sin cambios)' : 'EJECUCION REAL (se va a actualizar)'));
-System.debug(' -> ======================================================');
+System.debug('\u2192 ' +' -> ======================================================');
+System.debug('\u2192 ' +' -> MODO: ' + (DRY_RUN ? 'DRY RUN (solo preview, sin cambios)' : 'EJECUCION REAL (se va a actualizar)'));
+System.debug('\u2192 ' +' -> ======================================================');
 
 // 1) Leer el Static Resource (CSV generado por el script Python)
 StaticResource sr = [
@@ -137,7 +137,7 @@ for (Integer i = 1; i < lines.size(); i++) {
     }
 }
 
-System.debug(' -> Total filas leidas del CSV: ' + rows.size());
+System.debug('\u2192 ' +' -> Total filas leidas del CSV: ' + rows.size());
 
 // 3) Buscar los registros SM_Payment__c que hagan match por Name (trayendo
 // tambien el estado ACTUAL de los campos que vamos a actualizar, para poder
@@ -321,34 +321,34 @@ for (RowData r : matchedRows) {
 
 // 5) Preview (solo lo que realmente se va a tocar, en el orden original del CSV)
 for (RowData r : matchedRows) {
-    System.debug(
-        'PREVIEW -> ' + r.paymentName +
-        ' | Payment_Status__c: ' + r.status +
-        ' | SM_Check_Collection_Date__c: ' + r.collDate +
-        ' | SM_Check_Collection__c: ' + r.coll +
-        ' | SM_Check_Collection_Status__c: ' + r.collStatus +
-        ' | SM_Check_Collection_Return_Reason__c: ' + r.reasonShort +
-        ' | SM_Return_code__c: ' + r.returnCode +
-        ' | SM_Historical_Collection_Status__c -> [' + r.newHistorical + ']'
+    System.debug('\u2192 ' +
+        ' PREVIEW -> ' + r.paymentName +
+        ' ｜ Payment_Status: ' + r.status +
+        ' ｜ CheckColl_Date: ' + r.collDate +
+        ' ｜ Check_Collection: ' + r.coll +
+        ' ｜ CheckColl_Status: ' + r.collStatus +
+        ' ｜ CheckColl_Return_Reason: ' + r.reasonShort +
+        ' ｜ Return_code: ' + r.returnCode +
+        ' ｜ Historical_CheckColl -> [' + r.newHistorical + ']\n'
     );
 }
 
-System.debug(' -> ======================================================');
-System.debug(' -> Total filas del CSV: ' + (rows.size() + malformedRows.size()));
+System.debug('\u2192 ' +' ======================================================');
+System.debug('\u2192 ' +' Total filas del CSV: ' + (rows.size() + malformedRows.size()));
 if (!malformedRows.isEmpty()) {
-    System.debug(' -> Filas MALFORMADAS (se saltan, revisar el PDF de origen): ' + malformedRows.size());
-    System.debug(' ->   -> ' + malformedRows);
+    System.debug('\u2192 ' +' -> Filas MALFORMADAS (se saltan, revisar el PDF de origen): ' + malformedRows.size());
+    System.debug('\u2192 ' +' ->   -> ' + malformedRows);
 }
-System.debug(' -> Registros SIN match (PY-XXXX no existe como Payment): ' + notFound.size());
+System.debug('\u2192 ' +' -> Registros SIN match (PY-XXXX no existe como Payment): ' + notFound.size());
 if (!notFound.isEmpty()) {
-    System.debug(' ->   -> Nombres no encontrados: ' + notFound);
+    System.debug('\u2192 ' +' ->   -> Nombres no encontrados: ' + notFound);
 }
-System.debug(' -> Ya aplicados anteriormente (sin cambios, se omiten): ' + alreadyAppliedRows.size());
-System.debug(' -> Descartados por ser mas viejos que el reporte ya guardado (fuera de orden): ' + staleRows.size());
+System.debug('\u2192 ' +' -> Ya aplicados anteriormente (sin cambios, se omiten): ' + alreadyAppliedRows.size());
+System.debug('\u2192 ' +' -> Descartados por ser mas viejos que el reporte ya guardado (fuera de orden): ' + staleRows.size());
 if (!staleRows.isEmpty()) {
     List<String> staleNames = new List<String>();
     for (RowData r : staleRows) { staleNames.add(r.paymentName); }
-    System.debug(' ->   -> Nombres: ' + staleNames);
+    System.debug('\u2192 ' +' ->   -> Nombres: ' + staleNames);
 }
 if (!regressionBlockedRows.isEmpty()) {
     List<String> regressionNames = new List<String>();
@@ -359,11 +359,11 @@ if (!regressionBlockedRows.isEmpty()) {
     }
     List<String> regressionContractsQuoted = new List<String>();
     for (String cn : regressionContracts) { regressionContractsQuoted.add('\'' + cn + '\''); }
-    System.debug(' -> ***** ALERTA: ' + regressionBlockedRows.size() + ' pago(s) ya COLLECTED/ACCEPTED que este reporte queria pasar a RETURN/NOT COLLECTED -- NO SE APLICARON, ANALIZAR MANUALMENTE *****');
-    System.debug(' ->   -> Nombres bloqueados por regresion: ' + regressionNames);
-    System.debug(' ->   -> Contratos a analizar manualmente: ' + String.join(regressionContractsQuoted, ', '));
+    System.debug('\u2192 ' +' -> ***** ALERTA: ' + regressionBlockedRows.size() + ' pago(s) ya COLLECTED/ACCEPTED que este reporte queria pasar a RETURN/NOT COLLECTED -- NO SE APLICARON, ANALIZAR MANUALMENTE *****');
+    System.debug('\u2192 ' +' ->   -> Nombres bloqueados por regresion: ' + regressionNames);
+    System.debug('\u2192 ' +' ->   -> Contratos a analizar manualmente: ' + String.join(regressionContractsQuoted, ', '));
 } else {
-    System.debug(' -> Bloqueados por regresion (COLLECTED/ACCEPTED -> RETURN/NOT COLLECTED, nunca automatico): 0');
+    System.debug('\u2192 ' +' -> Bloqueados por regresion (COLLECTED/ACCEPTED -> RETURN/NOT COLLECTED, nunca automatico): 0');
 }
 if (!cancelledContractBlockedRows.isEmpty()) {
     List<String> cancelledNames = new List<String>();
@@ -374,18 +374,18 @@ if (!cancelledContractBlockedRows.isEmpty()) {
     }
     List<String> cancelledContractsQuoted = new List<String>();
     for (String cn : cancelledContracts) { cancelledContractsQuoted.add('\'' + cn + '\''); }
-    System.debug(' -> ***** ALERTA: ' + cancelledContractBlockedRows.size() + ' pago(s) de contrato(s) Cancelado(s) -- NO SE APLICARON (riesgo de tumbar la oleada completa por validation rule en la ACH Order), ANALIZAR MANUALMENTE *****');
-    System.debug(' ->   -> Nombres bloqueados por contrato cancelado: ' + cancelledNames);
-    System.debug(' ->   -> Contratos a analizar manualmente: ' + String.join(cancelledContractsQuoted, ', '));
+    System.debug('\u2192 ' +' -> ***** ALERTA: ' + cancelledContractBlockedRows.size() + ' pago(s) de contrato(s) Cancelado(s) -- NO SE APLICARON (riesgo de tumbar la oleada completa por validation rule en la ACH Order), ANALIZAR MANUALMENTE *****');
+    System.debug('\u2192 ' +' ->   -> Nombres bloqueados por contrato cancelado: ' + cancelledNames);
+    System.debug('\u2192 ' +' ->   -> Contratos a analizar manualmente: ' + String.join(cancelledContractsQuoted, ', '));
 } else {
-    System.debug(' -> Bloqueados por contrato Cancelado (riesgo de tumbar la oleada): 0');
+    System.debug('\u2192 ' +' -> Bloqueados por contrato Cancelado (riesgo de tumbar la oleada): 0');
 }
-System.debug(' -> Pendientes de aplicar en esta corrida: ' + matchedRows.size());
-System.debug(' -> Oleadas necesarias por colisiones de orden ACH repetida: ' + (matchedRows.isEmpty() ? 0 : (maxWave + 1)));
+System.debug('\u2192 ' +' -> Pendientes de aplicar en esta corrida: ' + matchedRows.size());
+System.debug('\u2192 ' +' -> Oleadas necesarias por colisiones de orden ACH repetida: ' + (matchedRows.isEmpty() ? 0 : (maxWave + 1)));
 for (Integer w = 0; w <= maxWave && !matchedRows.isEmpty(); w++) {
-    System.debug(' ->   -> Oleada ' + (w + 1) + ': ' + waves.get(w).size() + ' registro(s)');
+    System.debug('\u2192 ' +' ->   -> Oleada ' + (w + 1) + ': ' + waves.get(w).size() + ' registro(s)');
 }
-System.debug(' -> ======================================================');
+System.debug('\u2192 ' +' -> ======================================================');
 
 // 6) Ejecutar el update SOLO si DRY_RUN = false -- una oleada a la vez.
 // Los pagos de contrato Cancelado que arriesgaban tumbar la oleada completa
@@ -395,7 +395,7 @@ System.debug(' -> ======================================================');
 // reporta como SaveResult individual, sin tumbar al resto de la oleada.
 if (!DRY_RUN) {
     if (matchedRows.isEmpty()) {
-        System.debug(' -> No hay registros pendientes de aplicar.');
+        System.debug('\u2192 ' +' -> No hay registros pendientes de aplicar.');
     } else {
         Integer totalOk = 0;
         Integer totalErr = 0;
@@ -432,20 +432,20 @@ if (!DRY_RUN) {
                     okCount++;
                 } else {
                     errCount++;
-                    System.debug(
+                    System.debug('\u2192 ' +
                         'ERROR actualizando ' + waveUpdate[i].Id + ': ' +
                         res.getErrors()[0].getMessage()
                     );
                 }
             }
-            System.debug(' ->   -> Oleada ' + (w + 1) + ' completada -> Exitos: ' + okCount + ' | Errores: ' + errCount);
+            System.debug('\u2192 ' +' ->   -> Oleada ' + (w + 1) + ' completada -> Exitos: ' + okCount + ' | Errores: ' + errCount);
             totalOk += okCount;
             totalErr += errCount;
         }
-        System.debug(' -> ======================================================');
-        System.debug(' -> UPDATE COMPLETADO -> Exitos: ' + totalOk + ' | Errores: ' + totalErr);
-        System.debug(' -> ======================================================');
+        System.debug('\u2192 ' +' -> ======================================================');
+        System.debug('\u2192 ' +' -> UPDATE COMPLETADO -> Exitos: ' + totalOk + ' | Errores: ' + totalErr);
+        System.debug('\u2192 ' +' -> ======================================================');
     }
 } else {
-    System.debug(' -> DRY RUN activo: no se ejecuto ningun UPDATE. Cambia DRY_RUN a false para aplicar los cambios.');
+    System.debug('\u2192 ' +' -> DRY RUN activo: no se ejecuto ningun UPDATE. Cambia DRY_RUN a false para aplicar los cambios.');
 }

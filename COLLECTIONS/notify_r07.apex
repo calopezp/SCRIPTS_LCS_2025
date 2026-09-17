@@ -13,4 +13,4 @@
  *   sf apex run -o MONEE -f COLLECTIONS/notify_r07.apex
  */
 SM_ReturnCodeNotifier.sendR07Report();
-System.debug('OK - reporte de R07 enviado a ' + SM_ReturnCodeNotifier.NOTIFY_EMAIL);
+System.debug('\u2192 ' +'OK - reporte de R07 enviado a ' + SM_ReturnCodeNotifier.NOTIFY_EMAIL);

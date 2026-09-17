@@ -15,4 +15,4 @@
  *   sf apex run -o MONEE -f COLLECTIONS/notify_r02.apex
  */
 SM_ReturnCodeNotifier.sendR02Report();
-System.debug('OK - reporte de R02 enviado a ' + SM_ReturnCodeNotifier.NOTIFY_EMAIL);
+System.debug('\u2192 ' +'OK - reporte de R02 enviado a ' + SM_ReturnCodeNotifier.NOTIFY_EMAIL);

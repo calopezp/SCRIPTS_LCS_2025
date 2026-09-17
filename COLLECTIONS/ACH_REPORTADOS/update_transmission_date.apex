@@ -32,9 +32,9 @@ Boolean DRY_RUN = true; // <-- cambiar a false para ejecutar el update real
 String STATIC_RESOURCE_NAME = 'ACHTransmissionImport';
 // ========================================
 
-System.debug('======================================================');
-System.debug('MODO: ' + (DRY_RUN ? 'DRY RUN (solo preview, sin cambios)' : 'EJECUCIÓN REAL (se va a actualizar)'));
-System.debug('======================================================');
+System.debug('\u2192 ' +'======================================================');
+System.debug('\u2192 ' +'MODO: ' + (DRY_RUN ? 'DRY RUN (solo preview, sin cambios)' : 'EJECUCIÓN REAL (se va a actualizar)'));
+System.debug('\u2192 ' +'======================================================');
 
 // 1) Leer el Static Resource (CSV generado por el script Python)
 StaticResource sr = [
@@ -76,14 +76,14 @@ for (Integer i = 1; i < lines.size(); i++) {
     paymentNames.add(r.paymentName);
 }
 
-System.debug('Total filas leídas del CSV: ' + rows.size());
+System.debug('\u2192 ' +'Total filas leídas del CSV: ' + rows.size());
 
 if (rows.size() > 9000) {
-    System.debug('======================================================');
-    System.debug('ABORTADO: el CSV trae ' + rows.size() + ' filas, por encima del límite');
-    System.debug('seguro de DML por transacción (10,000). Partir el archivo en bloques');
-    System.debug('más chicos antes de correr este script (ver split_index_for_backfill.py).');
-    System.debug('======================================================');
+    System.debug('\u2192 ' +'======================================================');
+    System.debug('\u2192 ' +'ABORTADO: el CSV trae ' + rows.size() + ' filas, por encima del límite');
+    System.debug('\u2192 ' +'seguro de DML por transacción (10,000). Partir el archivo en bloques');
+    System.debug('\u2192 ' +'más chicos antes de correr este script (ver split_index_for_backfill.py).');
+    System.debug('\u2192 ' +'======================================================');
     return;
 }
 
@@ -110,7 +110,7 @@ for (RowData r : rows) {
     r.matchedPaymentId = nameToId.get(r.paymentName);
 
     if (previewCount < 50) {
-        System.debug('PREVIEW -> ' + r.paymentName + ' | SM_Transmission_Date_ACH_File__c: ' + r.transDate);
+        System.debug('\u2192 ' +'PREVIEW -> ' + r.paymentName + ' ｜ TRX_Date_ACH_File: ' + r.transDate);
         previewCount++;
     }
 
@@ -120,23 +120,23 @@ for (RowData r : rows) {
     ));
 }
 if (rows.size() > 50) {
-    System.debug('(preview truncado a 50 filas de ' + rows.size() + ' -- el resto se procesa igual)');
+    System.debug('\u2192 ' +'(preview truncado a 50 filas de ' + rows.size() + ' -- el resto se procesa igual)');
 }
 
-System.debug('======================================================');
-System.debug('Registros con match encontrado (listos para update): ' + toUpdate.size());
-System.debug('Registros SIN match (PY-XXXX no existe como Payment): ' + notFound.size());
+System.debug('\u2192 ' +'======================================================');
+System.debug('\u2192 ' +'Registros con match encontrado (listos para update): ' + toUpdate.size());
+System.debug('\u2192 ' +'Registros SIN match (PY-XXXX no existe como Payment): ' + notFound.size());
 if (!notFound.isEmpty() && notFound.size() <= 100) {
-    System.debug('  -> Nombres no encontrados: ' + notFound);
+    System.debug('\u2192 ' +'  -> Nombres no encontrados: ' + notFound);
 } else if (!notFound.isEmpty()) {
-    System.debug('  -> ' + notFound.size() + ' nombres no encontrados (lista omitida, muy larga).');
+    System.debug('\u2192 ' +'  -> ' + notFound.size() + ' nombres no encontrados (lista omitida, muy larga).');
 }
-System.debug('======================================================');
+System.debug('\u2192 ' +'======================================================');
 
 // 5) Ejecutar el update SOLO si DRY_RUN = false
 if (!DRY_RUN) {
     if (toUpdate.isEmpty()) {
-        System.debug('No hay registros para actualizar.');
+        System.debug('\u2192 ' +'No hay registros para actualizar.');
     } else {
         List<Database.SaveResult> results = Database.update(toUpdate, false);
         Integer okCount = 0;
@@ -148,17 +148,17 @@ if (!DRY_RUN) {
             } else {
                 errCount++;
                 if (errCount <= 20) {
-                    System.debug(
+                    System.debug('\u2192 ' +
                         'ERROR actualizando ' + toUpdate[i].Id + ': ' +
                         res.getErrors()[0].getMessage()
                     );
                 }
             }
         }
-        System.debug('======================================================');
-        System.debug('UPDATE COMPLETADO -> Éxitos: ' + okCount + ' | Errores: ' + errCount);
-        System.debug('======================================================');
+        System.debug('\u2192 ' +'======================================================');
+        System.debug('\u2192 ' +'UPDATE COMPLETADO -> Éxitos: ' + okCount + ' ｜ Errores: ' + errCount);
+        System.debug('\u2192 ' +'======================================================');
     }
 } else {
-    System.debug('DRY RUN activo: no se ejecutó ningún UPDATE. Cambia DRY_RUN a false para aplicar los cambios.');
+    System.debug('\u2192 ' +'DRY RUN activo: no se ejecutó ningún UPDATE. Cambia DRY_RUN a false para aplicar los cambios.');
 }

@@ -11,4 +11,4 @@
  *   sf apex run -o MONEE -f COLLECTIONS/notify_r16.apex
  */
 SM_ReturnCodeNotifier.sendR16Report();
-System.debug('OK - reporte de R16 enviado a ' + SM_ReturnCodeNotifier.NOTIFY_EMAIL);
+System.debug('\u2192 ' +'OK - reporte de R16 enviado a ' + SM_ReturnCodeNotifier.NOTIFY_EMAIL);
