@@ -2,6 +2,15 @@
 set -e
 
 # ============================================================
+# DEPRECADO (2026-09-18) -- reemplazado por run_daily_new_files.sh /
+# run_daily_catchup.sh (ambos en COLLECTIONS/, no aqui). NO CORRER: al
+# moverlo a UTILITARIOS/deprecated/ sus llamadas relativas a
+# RETURNS/, COLLECTIONS/, ACH_REPORTADOS/ (dos niveles mas arriba ahora)
+# quedaron rotas a proposito -- se conserva solo como referencia
+# historica de como funcionaba el flujo antes del 2026-09-09.
+# ============================================================
+
+# ============================================================
 # run_all_imports.sh
 # Corre en un solo comando los 3 imports diarios:
 #   1) ACH Returns          (RETURNS/run_import_return.sh)

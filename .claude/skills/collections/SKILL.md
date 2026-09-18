@@ -18,9 +18,10 @@ Org de Salesforce: siempre **MONEE** (producción) vía `sf` CLI (`sf data query
 | **ACH Reportados / Transmission** | `COLLECTIONS/ACH_REPORTADOS/` | CSV `ACH_YYYYMMDD*.csv` (OneDrive) + `ContentVersion` "ACH%" subidos a Salesforce | Qué payments fueron transmitidos al banco y cuándo (no si se cobraron) |
 
 Cada uno tiene su propio `build_index.py`/parser/`.apex`/`run_*.sh`. **Comandos de uso diario (ver `CLAUDE.md` sección 2 para el detalle completo y las reglas de negocio detrás):**
-- `./run_daily_new_files.sh apply` — uso diario normal, los 3 pipelines en un paso, solo archivos nunca antes indexados. En modo `apply` también dispara 5 notificaciones de return codes (ver sección 4 abajo).
+- `./run_daily_new_files.sh apply` — uso diario normal, los 3 pipelines en un paso, solo archivos nunca antes indexados. En modo `apply` también dispara 6 notificaciones de return codes/alertas (ver sección 4 abajo).
 - `./run_daily_catchup.sh apply` (o `CONFIRM_OLD=1 ./run_daily_catchup.sh apply` para más de 2 meses atrás) — reprocesa a propósito histórico ya indexado.
-- `run_all_imports.sh` quedó **reemplazado** por los dos anteriores — no usarlo más, se deja en el repo solo por referencia histórica.
+- `UTILITARIOS/run_mark_transmitted_accepted.sh apply` — periódico (no literalmente diario), después de lo anterior: acepta por timeout lo que 15/20+ días después sigue sin ningún reporte.
+- `UTILITARIOS/deprecated/run_all_imports.sh` quedó **reemplazado** por los dos primeros — no usarlo más, se movió ahí (2026-09-18) solo por referencia histórica.
 
 ## 2. Mapa de archivos e índices
 
@@ -29,8 +30,7 @@ COLLECTIONS/
 ├── build_index.py              # escanea OneDrive, clasifica PDF por contenido (Returns vs Collection), llama a los 2 extractores
 ├── build_pending_deltas.py     # decide quién "gana" cuando un Payment aparece en Returns Y Collection (fuerza-incluye lo de *_last_run_delta.csv sin importar --days-back, ver CLAUDE.md Rule 1)
 ├── build_daily_apply_plan.py   # usado por run_daily_catchup.sh: lista fechas pendientes del índice y arma el CSV por fecha especifica
-├── buscar_payment.py           # diagnóstico: 1 o más PY-xxxxx → estado en vivo (SOQL) + los 3 índices históricos
-├── mark_transmitted_accepted.apex   # manual: acepta payments transmitidos DAYS_SINCE_TRANSMITTED+ días sin reporte (15 confirmado por Comercial 2026-09-14; subido a 20 en disco 2026-09-18, sin commitear a un valor definitivo todavía -- ver TAREAS_PENDIENTES.md)
+├── buscar_payment.py           # diagnóstico: 1 o más PY-xxxxx → estado en vivo (SOQL) + los 3 índices históricos -- OJO: hace `import build_index` e `import ACH_REPORTADOS.build_index`, no se puede mover de aquí sin romperse
 ├── notify_r02.apex              # correo con contratos que tienen ACH Return R02 (cuenta cerrada) sin resolver -- ver SM_ReturnCodeNotifier.cls, sección 5
 ├── notify_r10.apex              # igual pero para R10 (cliente no autoriza el cobro) -- misma clase, ver sección 5
 ├── notify_invalid_account.apex  # igual pero para R04+R13 (cuenta/routing invalido, un solo reporte combinado) -- misma clase, ver sección 5
@@ -39,7 +39,6 @@ COLLECTIONS/
 ├── notify_timeout_reversal.apex # (nuevo 2026-09-18) correo cuando un pago aceptado por timeout (mark_transmitted_accepted.apex) resulta luego contradicho por un reporte real -- misma clase, ver sección 5
 ├── run_daily_new_files.sh      # COMANDO DIARIO -- los 3 pipelines + 6 notify_*.apex en modo apply, solo archivos nunca antes indexados (ver CLAUDE.md sección 2)
 ├── run_daily_catchup.sh        # reprocesa histórico ya indexado, día por día, con gate de 2 meses (CONFIRM_OLD=1)
-├── run_all_imports.sh          # REEMPLAZADO por los 2 de arriba -- no usar, referencia histórica
 ├── index/
 │   ├── collections_index.csv          # histórico completo Check Collection
 │   ├── collections_last_run_delta.csv # solo lo nuevo de la corrida más reciente
@@ -53,16 +52,24 @@ COLLECTIONS/
 │   ├── update_check_collection.apex
 │   ├── CheckCollectionImport_R10_ClienteSolicitoDevolucion.csv  # reporte aparte para Comercial (ver sección 3)
 │   └── reportes_comercial_R10/
-└── ACH_REPORTADOS/
-    ├── build_index.py           # combina OneDrive + Salesforce Files (ContentVersion "ACH%")
-    ├── extract_ach_transmission.py  # la fecha de transmisión sale del NOMBRE del archivo, no del contenido
-    ├── fetch_salesforce_files.py     # descarga ContentVersion vía REST directo (API v60.0 — desactualizado, housekeeping pendiente)
-    ├── split_index_for_backfill.py   # parte en bloques <10k filas por el límite DML
-    ├── index/
-    │   ├── transmission_index.csv     # 1 fila por Payment, fecha MÁS RECIENTE (deduplicado)
-    │   ├── transmission_raw_log.csv   # log crudo, todas las apariciones
-    │   └── last_run_delta.csv
-    └── sf_files/_manifest.csv         # qué ContentVersion ya se descargaron (Title, ContentVersionId, Date, LocalFile, Status)
+├── ACH_REPORTADOS/
+│   ├── build_index.py           # combina OneDrive + Salesforce Files (ContentVersion "ACH%")
+│   ├── extract_ach_transmission.py  # la fecha de transmisión sale del NOMBRE del archivo, no del contenido
+│   ├── fetch_salesforce_files.py     # descarga ContentVersion vía REST directo (API v60.0 — desactualizado, housekeeping pendiente)
+│   ├── update_transmission_date.apex # template que usa run_transmission_import.sh -- SÍ es parte del pipeline activo pese al nombre "update_*", no es un utilitario suelto
+│   ├── index/
+│   │   ├── transmission_index.csv     # 1 fila por Payment, fecha MÁS RECIENTE (deduplicado)
+│   │   ├── transmission_raw_log.csv   # log crudo, todas las apariciones
+│   │   └── last_run_delta.csv
+│   └── sf_files/_manifest.csv         # qué ContentVersion ya se descargaron (Title, ContentVersionId, Date, LocalFile, Status)
+└── UTILITARIOS/                 # (nuevo 2026-09-18) scripts manuales/puntuales, fuera del flujo diario automático
+    ├── mark_transmitted_accepted.apex
+    ├── run_mark_transmitted_accepted.sh
+    ├── update_check_collection_isolated.apex
+    └── deprecated/
+        └── run_all_imports.sh   # REEMPLAZADO por run_daily_new_files.sh/run_daily_catchup.sh -- no usar, referencia histórica. Movido aquí tal cual (sus llamadas internas a rutas hermanas quedaron rotas a propósito, nunca se debe volver a correr)
+
+**No se movieron a `UTILITARIOS/` pese a ser manuales**: `buscar_payment.py` (imports de Python que dependen de estar en la raíz de `COLLECTIONS/`) y `ACH_REPORTADOS/split_index_for_backfill.py` (ruta a su índice hardcodeada como hermana, `SCRIPT_DIR/index/...`) — moverlos rompería ambos. Se quedan donde están; son "utilitarios" en propósito, no en ubicación.
 ```
 
 **Columnas de `collections_index.csv` / `returns_index.csv`:**
@@ -91,7 +98,7 @@ Todos: `DRY_RUN=true` por default, comparan contra el estado ACTUAL de `SM_Payme
   - **Excepción a la excepción**: si ese `COLLECTED`/`ACCEPTED` viene de `mark_transmitted_accepted.apex` (se detecta por el tag `"...D_SIN_REPORTE:"` en el historial), no es un cobro confirmado por el banco sino una aceptación por timeout — en ese caso el reporte oficial SÍ puede corregirlo.
   - **Hueco conocido (encontrado 2026-09-18, caso real `PY-01888816`)**: la excepción SOLO reconoce el tag `D_SIN_REPORTE:` — cualquier OTRO script ad-hoc que marque `ACCEPTED` sin confirmación real del banco (ej. `TEMP/fix_stuck_cancelled_contracts.apex`, tag `PRC_AUT_FIX_CANCELLED_CONTRACT_ORDER:`) **sí queda bloqueado** por el guard cuando llega el reporte real, y necesita corrección manual cada vez (ver `TEMP/fix_py01888816_regression.apex` como plantilla del patrón de arreglo: mismos valores que aplicaría el script normal, `SM_TriggerHandler.avoidAllHandlerExcecution=true` si el contrato está Cancelled para no re-disparar el intento de tocar la ACH Order). No corregido en el código — decidir si vale la pena ampliar el patrón reconocido o dejarlo así a propósito (cualquier aceptación "no estándar" pasa por revisión humana).
   - Cada cambio real deja rastro en `SM_Historical_Collection_Status__c` con prefijo `"PRC_AUT: <STATUS> //"` (Text(150), se trunca desde el final si no cabe).
-- **`mark_transmitted_accepted.apex`**: marca `ACCEPTED`/`COLLECTED` los payments en `Payment_Status__c='ACH TRANSMITTED'` con `SM_Transmission_Date_ACH_File__c` de 15+ días (`DAYS_SINCE_TRANSMITTED`) y sin ningún reporte (`SM_Check_Collection_Status__c = null`). Historial: `"PRC_AUT_15D_SIN_REPORTE: ACCEPTED //"`. **Es manual y deliberadamente NO está en `run_all_imports.sh`** (decisión explícita documentada en el propio script) — requiere correr antes el import diario de Returns/Collection.
+- **`UTILITARIOS/mark_transmitted_accepted.apex`**: marca `ACCEPTED`/`COLLECTED` los payments en `Payment_Status__c='ACH TRANSMITTED'` con `SM_Transmission_Date_ACH_File__c` de 15+ días (`DAYS_SINCE_TRANSMITTED`) y sin ningún reporte (`SM_Check_Collection_Status__c = null`). Historial: `"PRC_AUT_15D_SIN_REPORTE: ACCEPTED //"`. **Es manual y deliberadamente NO está en `run_all_imports.sh`** (decisión explícita documentada en el propio script) — requiere correr antes el import diario de Returns/Collection.
 - **`update_transmission_date.apex`**: solo llena `SM_Transmission_Date_ACH_File__c` por `Payment_Name`, sin comparar estado. Aborta si el CSV trae >9000 filas.
 - **`notify_r02.apex` / `notify_r10.apex` / `notify_invalid_account.apex` / `notify_r07.apex` / `notify_r16.apex`** (nuevos 2026-09-14): invocan `SM_ReturnCodeNotifier.sendR02Report()` / `.sendR10Report()` / `.sendInvalidAccountReport()` / `.sendR07Report()` / `.sendR16Report()` — correo con contratos activos que tienen un `SM_Payment__c.SM_Return_code__c` en `R02` (ACCOUNT CLOSED), `R10` (CUSTOMER ADVISES NOT AUTHORIZED), `R04`/`R13` (número de cuenta/routing inválido, un solo reporte combinado), `R07` (autorización revocada permanentemente — no un cargo puntual disputado como R10) o `R16` (cuenta congelada, usualmente orden legal) sin resolver. Ninguno se arregla reintentando el mismo método de pago. Excluye contratos `Cancelled`/`Finalized`/`SM_Customer_Cancellation__c=true`; marca "OJO" si hubo un pago `ACCEPTED` después del último return (posible ya resuelto). Se disparan solo en modo `apply` de `run_daily_new_files.sh`. Distinto del CSV de R10 para Comercial (`CheckCollectionImport_R10_ClienteSolicitoDevolucion.csv`, generado por `extract_check_collection.py` por corrida) — ese es seguimiento comercial puntual, este es un correo acumulativo del estado actual en Salesforce. **R01/R09 (NSF, se resuelve solo reintentando) y R08 (pago detenido — puede ser puntual) quedaron deliberadamente fuera**, ver `BITACORA_HALLAZGOS_TECNICOS.md` para el detalle completo del análisis de los 24 códigos.
 - **`notify_timeout_reversal.apex`** (nuevo 2026-09-18): invoca `SM_ReturnCodeNotifier.sendTimeoutReversalReport()` — correo con pagos que `mark_transmitted_accepted.apex` aceptó por timeout y que un reporte REAL de Returns/Collection, llegado después, contradijo (`Payment_Status__c='REJECTED'`, o `SM_Check_Collection_Status__c` en `RETURN`/`NOT_COLLECTED`/`NOT COLLECTED`/`PENDING`). Es la contraparte de visibilidad del hueco de arriba: cuando la excepción del guard de regresión SÍ aplica (tag `D_SIN_REPORTE:`) y deja pasar la corrección silenciosamente, este correo es la única forma de enterarse de que el timeout de 15/20 días resultó equivocado para ese pago en particular. A diferencia de los R02/R10/etc, no filtra Test/VIP ni contratos cerrados a propósito — cualquier reversión es evidencia útil sobre qué tan agresivo es el timeout. **Gotcha de Apex encontrado al construirlo**: el wildcard `_` de `LIKE` escapado como `\_` (la forma correcta en SOQL vía API/CLI) devuelve CERO filas en SOQL **inline/estático** dentro de una clase Apex — Apex no lo interpreta igual que `Database.query()`/la API REST. Con datos reales que debían matchear, la versión escapada dio 0 y la versión sin escapar (`_` normal, sirve igual de bien aquí porque el texto del tag es fijo) dio el conteo correcto. Ver `BITACORA_HALLAZGOS_TECNICOS.md` fila 2026-09-18 para el detalle completo — aplica a cualquier SOQL estático futuro que necesite escapar `_` o `%`.
