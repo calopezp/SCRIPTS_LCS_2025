@@ -1,0 +1,529 @@
+Compiled successfully.
+Executed successfully.
+
+67.0 APEX_CODE,DEBUG;APEX_PROFILING,INFO
+Execute Anonymous: Savepoint sp = Database.setSavepoint();
+Execute Anonymous: try {
+Execute Anonymous:     update new SM_Payment__c(
+Execute Anonymous:         Id = 'a24UU000005GDNsYAO', Payment_Status__c = 'ACCEPTED', SM_Check_Collection_Date__c = Date.today(),
+Execute Anonymous:         SM_Check_Collection__c = true, SM_Check_Collection_Status__c = 'COLLECTED'
+Execute Anonymous:     );
+Execute Anonymous:     System.debug('EXITO INESPERADO');
+Execute Anonymous: } catch (Exception e) {
+Execute Anonymous:     System.debug('TIPO: ' + e.getTypeName());
+Execute Anonymous:     System.debug('MENSAJE COMPLETO: ' + e.getMessage());
+Execute Anonymous:     System.debug('STACK: ' + e.getStackTraceString());
+Execute Anonymous: } finally {
+Execute Anonymous:     Database.rollback(sp);
+Execute Anonymous: }
+21:52:29.22 (22792335)|USER_INFO|[EXTERNAL]|0051U000007bbx5|clopez@legal-credit.com|(GMT+02:00) Central European Summer Time (Europe/Madrid)|GMT+02:00
+21:52:29.22 (22814515)|EXECUTION_STARTED
+21:52:29.22 (22832536)|CODE_UNIT_STARTED|[EXTERNAL]|execute_anonymous_apex
+21:52:29.22 (35125431)|CODE_UNIT_STARTED|[EXTERNAL]|Flow:01I1U000002p7mA
+21:52:29.22 (35139601)|CODE_UNIT_FINISHED|Flow:01I1U000002p7mA
+21:52:29.22 (35550902)|CODE_UNIT_STARTED|[EXTERNAL]|01q1U000001iKpN|SM_PaymentTrigger on SM_Payment trigger event BeforeUpdate|__sfdc_trigger/SM_PaymentTrigger
+21:52:29.77 (77713584)|CUMULATIVE_LIMIT_USAGE
+21:52:29.77 (77713584)|LIMIT_USAGE_FOR_NS|(default)|
+  Number of SOQL queries: 2 out of 100
+  Number of query rows: 3 out of 50000
+  Number of SOSL queries: 0 out of 20
+  Number of DML statements: 3 out of 150
+  Number of Publish Immediate DML: 0 out of 150
+  Number of DML rows: 2 out of 10000
+  Maximum CPU time: 0 out of 10000
+  Maximum heap size: 0 out of 6000000
+  Number of callouts: 0 out of 100
+  Number of Email Invocations: 0 out of 10
+  Number of future calls: 0 out of 50
+  Number of queueable jobs added to the queue: 0 out of 50
+  Number of Mobile Apex push calls: 0 out of 10
+
+21:52:29.77 (77713584)|CUMULATIVE_LIMIT_USAGE_END
+
+21:52:29.22 (79260928)|CODE_UNIT_FINISHED|SM_PaymentTrigger on SM_Payment trigger event BeforeUpdate|__sfdc_trigger/SM_PaymentTrigger
+21:52:29.22 (80292621)|CODE_UNIT_STARTED|[EXTERNAL]|01q1U000001iMYY|SM_PaymentTGR on SM_Payment trigger event BeforeUpdate|__sfdc_trigger/SM_PaymentTGR
+21:52:29.82 (82274637)|CUMULATIVE_LIMIT_USAGE
+21:52:29.82 (82274637)|LIMIT_USAGE_FOR_NS|(default)|
+  Number of SOQL queries: 2 out of 100
+  Number of query rows: 4 out of 50000
+  Number of SOSL queries: 0 out of 20
+  Number of DML statements: 3 out of 150
+  Number of Publish Immediate DML: 0 out of 150
+  Number of DML rows: 2 out of 10000
+  Maximum CPU time: 0 out of 10000
+  Maximum heap size: 0 out of 6000000
+  Number of callouts: 0 out of 100
+  Number of Email Invocations: 0 out of 10
+  Number of future calls: 0 out of 50
+  Number of queueable jobs added to the queue: 0 out of 50
+  Number of Mobile Apex push calls: 0 out of 10
+
+21:52:29.82 (82274637)|CUMULATIVE_LIMIT_USAGE_END
+
+21:52:29.22 (82397827)|CODE_UNIT_FINISHED|SM_PaymentTGR on SM_Payment trigger event BeforeUpdate|__sfdc_trigger/SM_PaymentTGR
+21:52:29.22 (91654864)|CODE_UNIT_STARTED|[EXTERNAL]|Validation:SM_Payment:a24UU000005GDNs
+21:52:29.22 (91726534)|CODE_UNIT_FINISHED|Validation:SM_Payment:a24UU000005GDNs
+21:52:29.22 (97082100)|CODE_UNIT_STARTED|[EXTERNAL]|01q1U000001iKpN|SM_PaymentTrigger on SM_Payment trigger event AfterUpdate|__sfdc_trigger/SM_PaymentTrigger
+21:52:29.22 (118507992)|CODE_UNIT_STARTED|[EXTERNAL]|01q1U000001iMYW|SM_ACHOrderTrigger on SM_ACH_Order trigger event BeforeUpdate|__sfdc_trigger/SM_ACHOrderTrigger
+21:52:29.22 (135476852)|USER_DEBUG|[444]|DEBUG|newRecords: (SM_ACH_Order__c:{Id=a04UU00000HTnAEYA1, IsDeleted=false, Name=ACH-28527, CreatedDate=2026-08-12 16:19:15, CreatedById=0051U000007bbx5QAA, LastModifiedDate=2026-08-27 07:54:30, LastModifiedById=0051U000007bbx5QAA, SystemModstamp=2026-08-27 07:54:30, LastViewedDate=null, LastReferencedDate=null, SM_Contract__c=800UU00000kERIpYAO, SM_Billing_Email__c=sorfaura@gmail.com, SM_Charge_Date__c=null, SM_Failed_AC_Transactions__c=null, SM_Failed_Transactions__c=null, SM_IVU_Municipal_Amount__c=0.00, SM_Id_Salesforce_LCS__c=null, IVU_State_Amount__c=0.00, SM_Next_Transaction_Date__c=null, SM_Payment_Count__c=1, SM_Payment_End_Date__c=2026-08-28 00:00:00, SM_Payment_Frequency__c=Once, SM_Payment_Method__c=a10UU00000DtzGHYAZ, SM_Payment_Start_Date__c=2026-08-28 00:00:00, SM_Payment_Status__c=Completed, SM_Payment_Stop__c=null, SM_Payment_Type__c=AC, SM_Quantity_of_scheduled_fees__c=null, SM_Total__c=99.00, SM_Fee_to_collect__c=1, SM_Payment_Condition__c=Fixed value, SM_Apply_penalty__c=false, SM_Failed_payment__c=null, SM_Is_Migrated__c=false, SM_Migration_Date__c=null, SM_Penalty_date__c=null, SM_Penalty_value__c=0.00, SM_User_who_applies_the_penalty__c=null, SM_Approval_status__c=null, SM_Reason_to_approve_exoneration__c=null, Total_Amount__c=99.00, SM_Bank__c=BANCO POPULAR, SM_DaystocollectPrincipalpayment__c=null, SM_FinalStatus__c=PENDING, SM_last_update_date_transmitted__c=null, SM_Date_ACH_Transmitted__c=null, SM_IsApplyingDaysCollectedPenalty__c=false, SM_Apply_Discount__c=false, SM_Discount_Applies_Date__c=null, Discount_Original_Subtotal__c=null, SM_Discount_Percentage__c=null, SM_Discount_Reason__c=null, SM_Discount_Status__c=null, SM_Discount_Type__c=null, SM_Discount_Value_Afer__c=0.00, SM_Discount_Value__c=null, SM_User_Who_Request_Discount__c=null, SM_User_Who_Applies_Discount__c=null, Invoice__c=null, SM_Original_Type__c=null, Payment_Catery__c=NONE, Order_To_Be_Collected__c=2, SM_PTP_Montly__c=null, Is_PTP__c=true, User_Who_Approve_Discount__c=null, Discount_Value_Afer_Discount_IVU__c=0.00, Discount_Original_Total__c=null, ACH_Tax__c=0.00})
+21:52:29.142 (142985114)|CUMULATIVE_LIMIT_USAGE
+21:52:29.142 (142985114)|LIMIT_USAGE_FOR_NS|(default)|
+  Number of SOQL queries: 5 out of 100
+  Number of query rows: 9 out of 50000
+  Number of SOSL queries: 0 out of 20
+  Number of DML statements: 4 out of 150
+  Number of Publish Immediate DML: 0 out of 150
+  Number of DML rows: 3 out of 10000
+  Maximum CPU time: 0 out of 10000
+  Maximum heap size: 0 out of 6000000
+  Number of callouts: 0 out of 100
+  Number of Email Invocations: 0 out of 10
+  Number of future calls: 0 out of 50
+  Number of queueable jobs added to the queue: 0 out of 50
+  Number of Mobile Apex push calls: 0 out of 10
+
+21:52:29.142 (142985114)|CUMULATIVE_LIMIT_USAGE_END
+
+21:52:29.22 (143204034)|CODE_UNIT_FINISHED|SM_ACHOrderTrigger on SM_ACH_Order trigger event BeforeUpdate|__sfdc_trigger/SM_ACHOrderTrigger
+21:52:29.22 (150931777)|CODE_UNIT_STARTED|[EXTERNAL]|Validation:SM_ACH_Order:a04UU00000HTnAE
+21:52:29.22 (150996347)|CODE_UNIT_FINISHED|Validation:SM_ACH_Order:a04UU00000HTnAE
+21:52:29.22 (155609850)|CODE_UNIT_STARTED|[EXTERNAL]|01q1U000001iMYW|SM_ACHOrderTrigger on SM_ACH_Order trigger event AfterUpdate|__sfdc_trigger/SM_ACHOrderTrigger
+21:52:29.160 (160403944)|CUMULATIVE_LIMIT_USAGE
+21:52:29.160 (160403944)|LIMIT_USAGE_FOR_NS|(default)|
+  Number of SOQL queries: 6 out of 100
+  Number of query rows: 10 out of 50000
+  Number of SOSL queries: 0 out of 20
+  Number of DML statements: 4 out of 150
+  Number of Publish Immediate DML: 0 out of 150
+  Number of DML rows: 3 out of 10000
+  Maximum CPU time: 0 out of 10000
+  Maximum heap size: 0 out of 6000000
+  Number of callouts: 0 out of 100
+  Number of Email Invocations: 0 out of 10
+  Number of future calls: 0 out of 50
+  Number of queueable jobs added to the queue: 0 out of 50
+  Number of Mobile Apex push calls: 0 out of 10
+
+21:52:29.160 (160403944)|CUMULATIVE_LIMIT_USAGE_END
+
+21:52:29.22 (160533364)|CODE_UNIT_FINISHED|SM_ACHOrderTrigger on SM_ACH_Order trigger event AfterUpdate|__sfdc_trigger/SM_ACHOrderTrigger
+21:52:29.22 (160598255)|CODE_UNIT_STARTED|[EXTERNAL]|Workflow:01I1U000002p7m5
+21:52:29.22 (160620125)|CODE_UNIT_FINISHED|Workflow:01I1U000002p7m5
+21:52:29.22 (165313468)|USER_DEBUG|[295]|DEBUG|achOrdersById - sr: [{"id":"a04UU00000HTnAEYA1","success":true,"errors":[]}]
+21:52:29.200 (200318609)|CUMULATIVE_LIMIT_USAGE
+21:52:29.200 (200318609)|LIMIT_USAGE_FOR_NS|(default)|
+  Number of SOQL queries: 9 out of 100
+  Number of query rows: 10 out of 50000
+  Number of SOSL queries: 0 out of 20
+  Number of DML statements: 4 out of 150
+  Number of Publish Immediate DML: 0 out of 150
+  Number of DML rows: 3 out of 10000
+  Maximum CPU time: 0 out of 10000
+  Maximum heap size: 0 out of 6000000
+  Number of callouts: 0 out of 100
+  Number of Email Invocations: 0 out of 10
+  Number of future calls: 0 out of 50
+  Number of queueable jobs added to the queue: 0 out of 50
+  Number of Mobile Apex push calls: 0 out of 10
+
+21:52:29.200 (200318609)|CUMULATIVE_LIMIT_USAGE_END
+
+21:52:29.22 (200564520)|CODE_UNIT_FINISHED|SM_PaymentTrigger on SM_Payment trigger event AfterUpdate|__sfdc_trigger/SM_PaymentTrigger
+21:52:29.22 (200966181)|CODE_UNIT_STARTED|[EXTERNAL]|01q1U000001iMYY|SM_PaymentTGR on SM_Payment trigger event AfterUpdate|__sfdc_trigger/SM_PaymentTGR
+21:52:29.202 (202589746)|CUMULATIVE_LIMIT_USAGE
+21:52:29.202 (202589746)|LIMIT_USAGE_FOR_NS|(default)|
+  Number of SOQL queries: 9 out of 100
+  Number of query rows: 11 out of 50000
+  Number of SOSL queries: 0 out of 20
+  Number of DML statements: 4 out of 150
+  Number of Publish Immediate DML: 0 out of 150
+  Number of DML rows: 3 out of 10000
+  Maximum CPU time: 0 out of 10000
+  Maximum heap size: 0 out of 6000000
+  Number of callouts: 0 out of 100
+  Number of Email Invocations: 0 out of 10
+  Number of future calls: 0 out of 50
+  Number of queueable jobs added to the queue: 0 out of 50
+  Number of Mobile Apex push calls: 0 out of 10
+
+21:52:29.202 (202589746)|CUMULATIVE_LIMIT_USAGE_END
+
+21:52:29.22 (202698066)|CODE_UNIT_FINISHED|SM_PaymentTGR on SM_Payment trigger event AfterUpdate|__sfdc_trigger/SM_PaymentTGR
+21:52:29.22 (203089877)|CODE_UNIT_STARTED|[EXTERNAL]|01qUU0000081AtZ|SM_ACPaymentActivationTrigger on SM_Payment trigger event AfterUpdate|__sfdc_trigger/SM_ACPaymentActivationTrigger
+21:52:29.204 (204584041)|CUMULATIVE_LIMIT_USAGE
+21:52:29.204 (204584041)|LIMIT_USAGE_FOR_NS|(default)|
+  Number of SOQL queries: 9 out of 100
+  Number of query rows: 12 out of 50000
+  Number of SOSL queries: 0 out of 20
+  Number of DML statements: 4 out of 150
+  Number of Publish Immediate DML: 0 out of 150
+  Number of DML rows: 3 out of 10000
+  Maximum CPU time: 0 out of 10000
+  Maximum heap size: 0 out of 6000000
+  Number of callouts: 0 out of 100
+  Number of Email Invocations: 0 out of 10
+  Number of future calls: 0 out of 50
+  Number of queueable jobs added to the queue: 0 out of 50
+  Number of Mobile Apex push calls: 0 out of 10
+
+21:52:29.204 (204584041)|CUMULATIVE_LIMIT_USAGE_END
+
+21:52:29.22 (204691752)|CODE_UNIT_FINISHED|SM_ACPaymentActivationTrigger on SM_Payment trigger event AfterUpdate|__sfdc_trigger/SM_ACPaymentActivationTrigger
+21:52:29.22 (205066523)|CODE_UNIT_STARTED|[EXTERNAL]|01qUU0000081Z5Z|SM_LateFeeReconciliationTrigger on SM_Payment trigger event AfterUpdate|__sfdc_trigger/SM_LateFeeReconciliationTrigger
+21:52:29.211 (211547751)|CUMULATIVE_LIMIT_USAGE
+21:52:29.211 (211547751)|LIMIT_USAGE_FOR_NS|(default)|
+  Number of SOQL queries: 10 out of 100
+  Number of query rows: 13 out of 50000
+  Number of SOSL queries: 0 out of 20
+  Number of DML statements: 4 out of 150
+  Number of Publish Immediate DML: 0 out of 150
+  Number of DML rows: 3 out of 10000
+  Maximum CPU time: 0 out of 10000
+  Maximum heap size: 0 out of 6000000
+  Number of callouts: 0 out of 100
+  Number of Email Invocations: 0 out of 10
+  Number of future calls: 0 out of 50
+  Number of queueable jobs added to the queue: 0 out of 50
+  Number of Mobile Apex push calls: 0 out of 10
+
+21:52:29.211 (211547751)|CUMULATIVE_LIMIT_USAGE_END
+
+21:52:29.22 (211689662)|CODE_UNIT_FINISHED|SM_LateFeeReconciliationTrigger on SM_Payment trigger event AfterUpdate|__sfdc_trigger/SM_LateFeeReconciliationTrigger
+21:52:29.22 (212520094)|CODE_UNIT_STARTED|[EXTERNAL]|Workflow:01I1U000002p7mA
+21:52:29.22 (219622725)|CODE_UNIT_FINISHED|Workflow:01I1U000002p7mA
+21:52:29.22 (220336667)|CODE_UNIT_STARTED|[EXTERNAL]|Flow:01I1U000002p7mA
+21:52:29.235 (235896282)|CODE_UNIT_STARTED|[EXTERNAL]|Flow:Contract
+21:52:29.235 (252694350)|CODE_UNIT_FINISHED|Flow:Contract
+21:52:29.253 (253084351)|CODE_UNIT_STARTED|[EXTERNAL]|01q1U000001e9g3|SM_ContractTrigger on Contract trigger event BeforeUpdate|__sfdc_trigger/SM_ContractTrigger
+21:52:29.255 (255137517)|CUMULATIVE_LIMIT_USAGE
+21:52:29.255 (255137517)|LIMIT_USAGE_FOR_NS|(default)|
+  Number of SOQL queries: 12 out of 100
+  Number of query rows: 16 out of 50000
+  Number of SOSL queries: 0 out of 20
+  Number of DML statements: 5 out of 150
+  Number of Publish Immediate DML: 0 out of 150
+  Number of DML rows: 4 out of 10000
+  Maximum CPU time: 115 out of 10000
+  Maximum heap size: 0 out of 6000000
+  Number of callouts: 0 out of 100
+  Number of Email Invocations: 0 out of 10
+  Number of future calls: 0 out of 50
+  Number of queueable jobs added to the queue: 0 out of 50
+  Number of Mobile Apex push calls: 0 out of 10
+
+21:52:29.255 (255137517)|CUMULATIVE_LIMIT_USAGE_END
+
+21:52:29.253 (255304848)|CODE_UNIT_FINISHED|SM_ContractTrigger on Contract trigger event BeforeUpdate|__sfdc_trigger/SM_ContractTrigger
+21:52:29.255 (255590149)|CODE_UNIT_STARTED|[EXTERNAL]|01qUU000006wHpq|dlrs_ContractTrigger on Contract trigger event BeforeUpdate|__sfdc_trigger/dlrs_ContractTrigger
+21:52:29.256 (256457131)|CUMULATIVE_LIMIT_USAGE
+21:52:29.256 (256457131)|LIMIT_USAGE_FOR_NS|(default)|
+  Number of SOQL queries: 12 out of 100
+  Number of query rows: 16 out of 50000
+  Number of SOSL queries: 0 out of 20
+  Number of DML statements: 5 out of 150
+  Number of Publish Immediate DML: 0 out of 150
+  Number of DML rows: 4 out of 10000
+  Maximum CPU time: 115 out of 10000
+  Maximum heap size: 0 out of 6000000
+  Number of callouts: 0 out of 100
+  Number of Email Invocations: 0 out of 10
+  Number of future calls: 0 out of 50
+  Number of queueable jobs added to the queue: 0 out of 50
+  Number of Mobile Apex push calls: 0 out of 10
+
+21:52:29.256 (256457131)|CUMULATIVE_LIMIT_USAGE_END
+
+21:52:29.255 (256527891)|CODE_UNIT_FINISHED|dlrs_ContractTrigger on Contract trigger event BeforeUpdate|__sfdc_trigger/dlrs_ContractTrigger
+21:52:29.308 (308850604)|CODE_UNIT_STARTED|[EXTERNAL]|Validation:Contract:800UU00000kERIp
+21:52:29.308 (312660505)|CODE_UNIT_FINISHED|Validation:Contract:800UU00000kERIp
+21:52:29.323 (323783217)|CODE_UNIT_STARTED|[EXTERNAL]|01q1U000001e9g3|SM_ContractTrigger on Contract trigger event AfterUpdate|__sfdc_trigger/SM_ContractTrigger
+21:52:29.326 (326162254)|CUMULATIVE_LIMIT_USAGE
+21:52:29.326 (326162254)|LIMIT_USAGE_FOR_NS|(default)|
+  Number of SOQL queries: 12 out of 100
+  Number of query rows: 17 out of 50000
+  Number of SOSL queries: 0 out of 20
+  Number of DML statements: 5 out of 150
+  Number of Publish Immediate DML: 0 out of 150
+  Number of DML rows: 4 out of 10000
+  Maximum CPU time: 115 out of 10000
+  Maximum heap size: 0 out of 6000000
+  Number of callouts: 0 out of 100
+  Number of Email Invocations: 0 out of 10
+  Number of future calls: 0 out of 50
+  Number of queueable jobs added to the queue: 0 out of 50
+  Number of Mobile Apex push calls: 0 out of 10
+
+21:52:29.326 (326162254)|CUMULATIVE_LIMIT_USAGE_END
+
+21:52:29.323 (326354534)|CODE_UNIT_FINISHED|SM_ContractTrigger on Contract trigger event AfterUpdate|__sfdc_trigger/SM_ContractTrigger
+21:52:29.326 (326803006)|CODE_UNIT_STARTED|[EXTERNAL]|01qUU000006wHpq|dlrs_ContractTrigger on Contract trigger event AfterUpdate|__sfdc_trigger/dlrs_ContractTrigger
+21:52:29.465 (465862738)|CUMULATIVE_LIMIT_USAGE
+21:52:29.465 (465862738)|LIMIT_USAGE_FOR_NS|(default)|
+  Number of SOQL queries: 12 out of 100
+  Number of query rows: 17 out of 50000
+  Number of SOSL queries: 0 out of 20
+  Number of DML statements: 5 out of 150
+  Number of Publish Immediate DML: 0 out of 150
+  Number of DML rows: 4 out of 10000
+  Maximum CPU time: 115 out of 10000
+  Maximum heap size: 0 out of 6000000
+  Number of callouts: 0 out of 100
+  Number of Email Invocations: 0 out of 10
+  Number of future calls: 0 out of 50
+  Number of queueable jobs added to the queue: 0 out of 50
+  Number of Mobile Apex push calls: 0 out of 10
+
+21:52:29.465 (465862738)|LIMIT_USAGE_FOR_NS|dlrs|
+  Number of SOQL queries: 4 out of 100
+  Number of query rows: 2 out of 50000
+  Number of SOSL queries: 0 out of 20
+  Number of DML statements: 0 out of 150
+  Number of Publish Immediate DML: 0 out of 150
+  Number of DML rows: 0 out of 10000
+  Maximum CPU time: 0 out of 10000
+  Maximum heap size: 0 out of 6000000
+  Number of callouts: 0 out of 100
+  Number of Email Invocations: 0 out of 10
+  Number of future calls: 0 out of 50
+  Number of queueable jobs added to the queue: 0 out of 50
+  Number of Mobile Apex push calls: 0 out of 10
+
+21:52:29.465 (465862738)|CUMULATIVE_LIMIT_USAGE_END
+
+21:52:29.326 (466068769)|CODE_UNIT_FINISHED|dlrs_ContractTrigger on Contract trigger event AfterUpdate|__sfdc_trigger/dlrs_ContractTrigger
+21:52:29.466 (466259809)|CODE_UNIT_STARTED|[EXTERNAL]|Workflow:Contract
+21:52:29.466 (524633258)|CODE_UNIT_FINISHED|Workflow:Contract
+21:52:29.524 (524756438)|CODE_UNIT_STARTED|[EXTERNAL]|Flow:Contract
+21:52:29.552 (552245337)|CODE_UNIT_STARTED|[EXTERNAL]|01q1U000001iMYW|SM_ACHOrderTrigger on SM_ACH_Order trigger event BeforeInsert|__sfdc_trigger/SM_ACHOrderTrigger
+21:52:29.552 (566240958)|USER_DEBUG|[23]|DEBUG|Executing disableValidationRules: SM_Bypasser__c:{Id=a201U000000sM7PQAU, IsDeleted=false, Name=Bypasser (Profile), SetupOwnerId=00e1U000001XfCgQAK, CreatedDate=2021-04-21 02:07:03, CreatedById=0051U0000089GwCQAU, LastModifiedDate=2026-09-16 19:37:01, LastModifiedById=0051U000007bbx5QAA, SystemModstamp=2026-09-16 19:37:01, SM_Disable_Validation_Rules__c=false}
+21:52:29.552 (582596115)|CODE_UNIT_STARTED|[EXTERNAL]|01q1U000001e9g3|SM_ContractTrigger on Contract trigger event BeforeUpdate|__sfdc_trigger/SM_ContractTrigger
+21:52:29.586 (586016295)|CUMULATIVE_LIMIT_USAGE
+21:52:29.586 (586016295)|LIMIT_USAGE_FOR_NS|(default)|
+  Number of SOQL queries: 16 out of 100
+  Number of query rows: 24 out of 50000
+  Number of SOSL queries: 0 out of 20
+  Number of DML statements: 8 out of 150
+  Number of Publish Immediate DML: 0 out of 150
+  Number of DML rows: 7 out of 10000
+  Maximum CPU time: 293 out of 10000
+  Maximum heap size: 0 out of 6000000
+  Number of callouts: 0 out of 100
+  Number of Email Invocations: 0 out of 10
+  Number of future calls: 0 out of 50
+  Number of queueable jobs added to the queue: 0 out of 50
+  Number of Mobile Apex push calls: 0 out of 10
+
+21:52:29.586 (586016295)|LIMIT_USAGE_FOR_NS|dlrs|
+  Number of SOQL queries: 4 out of 100
+  Number of query rows: 2 out of 50000
+  Number of SOSL queries: 0 out of 20
+  Number of DML statements: 0 out of 150
+  Number of Publish Immediate DML: 0 out of 150
+  Number of DML rows: 0 out of 10000
+  Maximum CPU time: 0 out of 10000
+  Maximum heap size: 0 out of 6000000
+  Number of callouts: 0 out of 100
+  Number of Email Invocations: 0 out of 10
+  Number of future calls: 0 out of 50
+  Number of queueable jobs added to the queue: 0 out of 50
+  Number of Mobile Apex push calls: 0 out of 10
+
+21:52:29.586 (586016295)|CUMULATIVE_LIMIT_USAGE_END
+
+21:52:29.552 (586190685)|CODE_UNIT_FINISHED|SM_ContractTrigger on Contract trigger event BeforeUpdate|__sfdc_trigger/SM_ContractTrigger
+21:52:29.552 (586536446)|CODE_UNIT_STARTED|[EXTERNAL]|01qUU000006wHpq|dlrs_ContractTrigger on Contract trigger event BeforeUpdate|__sfdc_trigger/dlrs_ContractTrigger
+21:52:29.587 (587512339)|CUMULATIVE_LIMIT_USAGE
+21:52:29.587 (587512339)|LIMIT_USAGE_FOR_NS|(default)|
+  Number of SOQL queries: 16 out of 100
+  Number of query rows: 24 out of 50000
+  Number of SOSL queries: 0 out of 20
+  Number of DML statements: 8 out of 150
+  Number of Publish Immediate DML: 0 out of 150
+  Number of DML rows: 7 out of 10000
+  Maximum CPU time: 293 out of 10000
+  Maximum heap size: 0 out of 6000000
+  Number of callouts: 0 out of 100
+  Number of Email Invocations: 0 out of 10
+  Number of future calls: 0 out of 50
+  Number of queueable jobs added to the queue: 0 out of 50
+  Number of Mobile Apex push calls: 0 out of 10
+
+21:52:29.587 (587512339)|LIMIT_USAGE_FOR_NS|dlrs|
+  Number of SOQL queries: 4 out of 100
+  Number of query rows: 2 out of 50000
+  Number of SOSL queries: 0 out of 20
+  Number of DML statements: 0 out of 150
+  Number of Publish Immediate DML: 0 out of 150
+  Number of DML rows: 0 out of 10000
+  Maximum CPU time: 0 out of 10000
+  Maximum heap size: 0 out of 6000000
+  Number of callouts: 0 out of 100
+  Number of Email Invocations: 0 out of 10
+  Number of future calls: 0 out of 50
+  Number of queueable jobs added to the queue: 0 out of 50
+  Number of Mobile Apex push calls: 0 out of 10
+
+21:52:29.587 (587512339)|CUMULATIVE_LIMIT_USAGE_END
+
+21:52:29.552 (587590019)|CODE_UNIT_FINISHED|dlrs_ContractTrigger on Contract trigger event BeforeUpdate|__sfdc_trigger/dlrs_ContractTrigger
+21:52:29.552 (589891386)|CODE_UNIT_STARTED|[EXTERNAL]|Validation:Contract:800UU00000kERIp
+21:52:29.552 (593509847)|CODE_UNIT_FINISHED|Validation:Contract:800UU00000kERIp
+21:52:29.552 (601571480)|CODE_UNIT_STARTED|[EXTERNAL]|01q1U000001e9g3|SM_ContractTrigger on Contract trigger event AfterUpdate|__sfdc_trigger/SM_ContractTrigger
+21:52:29.603 (603683156)|CUMULATIVE_LIMIT_USAGE
+21:52:29.603 (603683156)|LIMIT_USAGE_FOR_NS|(default)|
+  Number of SOQL queries: 16 out of 100
+  Number of query rows: 25 out of 50000
+  Number of SOSL queries: 0 out of 20
+  Number of DML statements: 8 out of 150
+  Number of Publish Immediate DML: 0 out of 150
+  Number of DML rows: 7 out of 10000
+  Maximum CPU time: 293 out of 10000
+  Maximum heap size: 0 out of 6000000
+  Number of callouts: 0 out of 100
+  Number of Email Invocations: 0 out of 10
+  Number of future calls: 0 out of 50
+  Number of queueable jobs added to the queue: 0 out of 50
+  Number of Mobile Apex push calls: 0 out of 10
+
+21:52:29.603 (603683156)|LIMIT_USAGE_FOR_NS|dlrs|
+  Number of SOQL queries: 4 out of 100
+  Number of query rows: 2 out of 50000
+  Number of SOSL queries: 0 out of 20
+  Number of DML statements: 0 out of 150
+  Number of Publish Immediate DML: 0 out of 150
+  Number of DML rows: 0 out of 10000
+  Maximum CPU time: 0 out of 10000
+  Maximum heap size: 0 out of 6000000
+  Number of callouts: 0 out of 100
+  Number of Email Invocations: 0 out of 10
+  Number of future calls: 0 out of 50
+  Number of queueable jobs added to the queue: 0 out of 50
+  Number of Mobile Apex push calls: 0 out of 10
+
+21:52:29.603 (603683156)|CUMULATIVE_LIMIT_USAGE_END
+
+21:52:29.552 (603868706)|CODE_UNIT_FINISHED|SM_ContractTrigger on Contract trigger event AfterUpdate|__sfdc_trigger/SM_ContractTrigger
+21:52:29.552 (604176047)|CODE_UNIT_STARTED|[EXTERNAL]|01qUU000006wHpq|dlrs_ContractTrigger on Contract trigger event AfterUpdate|__sfdc_trigger/dlrs_ContractTrigger
+21:52:29.608 (608704630)|CUMULATIVE_LIMIT_USAGE
+21:52:29.608 (608704630)|LIMIT_USAGE_FOR_NS|(default)|
+  Number of SOQL queries: 16 out of 100
+  Number of query rows: 25 out of 50000
+  Number of SOSL queries: 0 out of 20
+  Number of DML statements: 8 out of 150
+  Number of Publish Immediate DML: 0 out of 150
+  Number of DML rows: 7 out of 10000
+  Maximum CPU time: 293 out of 10000
+  Maximum heap size: 0 out of 6000000
+  Number of callouts: 0 out of 100
+  Number of Email Invocations: 0 out of 10
+  Number of future calls: 0 out of 50
+  Number of queueable jobs added to the queue: 0 out of 50
+  Number of Mobile Apex push calls: 0 out of 10
+
+21:52:29.608 (608704630)|LIMIT_USAGE_FOR_NS|dlrs|
+  Number of SOQL queries: 4 out of 100
+  Number of query rows: 2 out of 50000
+  Number of SOSL queries: 0 out of 20
+  Number of DML statements: 0 out of 150
+  Number of Publish Immediate DML: 0 out of 150
+  Number of DML rows: 0 out of 10000
+  Maximum CPU time: 0 out of 10000
+  Maximum heap size: 0 out of 6000000
+  Number of callouts: 0 out of 100
+  Number of Email Invocations: 0 out of 10
+  Number of future calls: 0 out of 50
+  Number of queueable jobs added to the queue: 0 out of 50
+  Number of Mobile Apex push calls: 0 out of 10
+
+21:52:29.608 (608704630)|CUMULATIVE_LIMIT_USAGE_END
+
+21:52:29.552 (608810111)|CODE_UNIT_FINISHED|dlrs_ContractTrigger on Contract trigger event AfterUpdate|__sfdc_trigger/dlrs_ContractTrigger
+21:52:29.552 (610276745)|USER_DEBUG|[32]|DEBUG|Executing enableValidationRules: SM_Bypasser__c:{Id=a201U000000sM7PQAU, IsDeleted=false, Name=Bypasser (Profile), SetupOwnerId=00e1U000001XfCgQAK, CreatedDate=2021-04-21 02:07:03, CreatedById=0051U0000089GwCQAU, LastModifiedDate=2026-09-16 19:52:29, LastModifiedById=0051U000007bbx5QAA, SystemModstamp=2026-09-16 19:52:29, SM_Disable_Validation_Rules__c=true}
+21:52:29.552 (620023653)|USER_DEBUG|[510]|DEBUG|rs: [{"id":"800UU00000kERIpYAO","success":true,"errors":[]}]
+21:52:29.552 (624932877)|FATAL_ERROR|System.NullPointerException: Attempt to de-reference a null object
+
+Class.SM_ACHOrderHandler.insertNextScheduledPaymentDate: line 588, column 1
+Class.SM_ACHOrderHandler.beforeInsert: line 22, column 1
+Class.SM_TriggerHandler.run: line 61, column 1
+Trigger.SM_ACHOrderTrigger: line 14, column 1
+21:52:29.552 (624945957)|FATAL_ERROR|System.NullPointerException: Attempt to de-reference a null object
+
+Class.SM_ACHOrderHandler.insertNextScheduledPaymentDate: line 588, column 1
+Class.SM_ACHOrderHandler.beforeInsert: line 22, column 1
+Class.SM_TriggerHandler.run: line 61, column 1
+Trigger.SM_ACHOrderTrigger: line 14, column 1
+21:52:29.624 (624973947)|CUMULATIVE_LIMIT_USAGE
+21:52:29.624 (624973947)|LIMIT_USAGE_FOR_NS|(default)|
+  Number of SOQL queries: 17 out of 100
+  Number of query rows: 26 out of 50000
+  Number of SOSL queries: 0 out of 20
+  Number of DML statements: 9 out of 150
+  Number of Publish Immediate DML: 0 out of 150
+  Number of DML rows: 8 out of 10000
+  Maximum CPU time: 293 out of 10000
+  Maximum heap size: 0 out of 6000000
+  Number of callouts: 0 out of 100
+  Number of Email Invocations: 0 out of 10
+  Number of future calls: 0 out of 50
+  Number of queueable jobs added to the queue: 0 out of 50
+  Number of Mobile Apex push calls: 0 out of 10
+
+21:52:29.624 (624973947)|LIMIT_USAGE_FOR_NS|dlrs|
+  Number of SOQL queries: 4 out of 100
+  Number of query rows: 2 out of 50000
+  Number of SOSL queries: 0 out of 20
+  Number of DML statements: 0 out of 150
+  Number of Publish Immediate DML: 0 out of 150
+  Number of DML rows: 0 out of 10000
+  Maximum CPU time: 0 out of 10000
+  Maximum heap size: 0 out of 6000000
+  Number of callouts: 0 out of 100
+  Number of Email Invocations: 0 out of 10
+  Number of future calls: 0 out of 50
+  Number of queueable jobs added to the queue: 0 out of 50
+  Number of Mobile Apex push calls: 0 out of 10
+
+21:52:29.624 (624973947)|CUMULATIVE_LIMIT_USAGE_END
+
+21:52:29.552 (625164148)|CODE_UNIT_FINISHED|SM_ACHOrderTrigger on SM_ACH_Order trigger event BeforeInsert|__sfdc_trigger/SM_ACHOrderTrigger
+21:52:29.524 (761424492)|CODE_UNIT_FINISHED|Flow:Contract
+21:52:29.22 (870102178)|CODE_UNIT_FINISHED|Flow:01I1U000002p7mA
+21:52:29.22 (872622535)|EXCEPTION_THROWN|[3]|System.DmlException: Update failed. First exception on row 0 with id a24UU000005GDNsYAO; first error: CANNOT_EXECUTE_FLOW_TRIGGER, We can't save this record because the “PAYMENT: Accumulate AC On Contract” process failed. Give your Salesforce admin these details. The flow tried to update these records: 800UU00000kERIpYAO. This error occurred: CANNOT_EXECUTE_FLOW_TRIGGER: We can't save this record because the “CONTRACT: 10 - After Save Orchestrator” process failed. Give your Salesforce admin these details. This error occurred when the flow tried to create records: CANNOT_INSERT_UPDATE_ACTIVATE_ENTITY: SM_ACHOrderTrigger: execution of BeforeInsert
+
+caused by: System.NullPointerException: Attempt to de-reference a null object
+
+Class.SM_ACHOrderHandler.insertNextScheduledPaymentDate: line 588, column 1
+Class.SM_ACHOrderHandler.beforeInsert: line 22, column 1
+Class.SM_TriggerHandler.run: line 61, column 1
+Trigger.SM_ACHOrderTrigger: line 14, column 1. You can look up ExceptionCode values in the <a href='https://developer.salesforce.com/docs/atlas.en-us.api.meta/api/sforce_api_calls_concepts_core_data_objects.htm#'>SOAP API Developer Guide</a>. Erro...pts_core_data_objects.htm#'>SOAP API Developer Guide</a>. Error ID: 1809853682-723401 (-1852317392): []
+21:52:29.22 (873283237)|USER_DEBUG|[9]|DEBUG|TIPO: System.DmlException
+21:52:29.22 (873308637)|USER_DEBUG|[10]|DEBUG|MENSAJE COMPLETO: Update failed. First exception on row 0 with id a24UU000005GDNsYAO; first error: CANNOT_EXECUTE_FLOW_TRIGGER, We can't save this record because the “PAYMENT: Accumulate AC On Contract” process failed. Give your Salesforce admin these details. The flow tried to update these records: 800UU00000kERIpYAO. This error occurred: CANNOT_EXECUTE_FLOW_TRIGGER: We can't save this record because the “CONTRACT: 10 - After Save Orchestrator” process failed. Give your Salesforce admin these details. This error occurred when the flow tried to create records: CANNOT_INSERT_UPDATE_ACTIVATE_ENTITY: SM_ACHOrderTrigger: execution of BeforeInsert
+
+caused by: System.NullPointerException: Attempt to de-reference a null object
+
+Class.SM_ACHOrderHandler.insertNextScheduledPaymentDate: line 588, column 1
+Class.SM_ACHOrderHandler.beforeInsert: line 22, column 1
+Class.SM_TriggerHandler.run: line 61, column 1
+Trigger.SM_ACHOrderTrigger: line 14, column 1. You can look up ExceptionCode values in the <a href='https://developer.salesforce.com/docs/atlas.en-us.api.meta/api/sforce_api_calls_concepts_core_data_objects.htm#'>SOAP API Developer Guide</a>. Erro...pts_core_data_objects.htm#'>SOAP API Developer Guide</a>. Error ID: 1809853682-723401 (-1852317392): []
+21:52:29.22 (873332587)|USER_DEBUG|[11]|DEBUG|STACK: AnonymousBlock: line 3, column 1
+21:52:29.873 (873621118)|CUMULATIVE_LIMIT_USAGE
+21:52:29.873 (873621118)|LIMIT_USAGE_FOR_NS|(default)|
+  Number of SOQL queries: 0 out of 100
+  Number of query rows: 0 out of 50000
+  Number of SOSL queries: 0 out of 20
+  Number of DML statements: 3 out of 150
+  Number of Publish Immediate DML: 0 out of 150
+  Number of DML rows: 1 out of 10000
+  Maximum CPU time: 0 out of 10000
+  Maximum heap size: 0 out of 6000000
+  Number of callouts: 0 out of 100
+  Number of Email Invocations: 0 out of 10
+  Number of future calls: 0 out of 50
+  Number of queueable jobs added to the queue: 0 out of 50
+  Number of Mobile Apex push calls: 0 out of 10
+
+21:52:29.873 (873621118)|CUMULATIVE_LIMIT_USAGE_END
+
+21:52:29.22 (873688848)|CODE_UNIT_FINISHED|execute_anonymous_apex
+21:52:29.22 (873696798)|EXECUTION_FINISHED
+
