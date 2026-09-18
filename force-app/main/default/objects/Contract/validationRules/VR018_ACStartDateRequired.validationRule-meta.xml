@@ -1,0 +1,25 @@
+<?xml version="1.0" encoding="UTF-8"?>
+<ValidationRule xmlns="http://soap.sforce.com/2006/04/metadata">
+    <fullName>VR018_ACStartDateRequired</fullName>
+    <active>true</active>
+    <description>Exige SM_AC_start_date__c antes de cambiar Status en contrato que requiere pago AC. Ver VR016 (2026-09-17). Gate correcto es SM_Requires_AC_Payment__c, no RC -- 92 contratos "solo RC" tienen esto en blanco legitimamente.</description>
+    <errorConditionFormula>AND(NOT(ISPICKVAL(Contract_Type__c , &apos;Dependent&apos;)),
+    ISCHANGED(Status),
+    NOT(
+        OR(
+            ISPICKVAL(Status, &apos;Draft&apos;),
+            ISPICKVAL(Status, &apos;Finalized&apos;),
+            ISPICKVAL(Status, &apos;Cancelled&apos;)
+        )
+    ),
+    NOT(Is_Test_Contract__c),
+    NOT(Is_VIP_Contract__c),
+    NOT(SM_Full_Payment__c),
+    NOT(SM_Customer_Cancellation__c),
+    SM_Billing_status__c &lt;&gt; &apos;PAYMENT COMPLETED&apos;,
+    ISBLANK(CB_Subscription__c),
+    SM_Requires_AC_Payment__c = true,
+    ISBLANK(SM_AC_start_date__c)
+)</errorConditionFormula>
+    <errorMessage>SM_AC_start_date__c (Fecha de Inicio de AC) es obligatoria antes de cambiar el Status de un contrato que requiere pago AC.</errorMessage>
+</ValidationRule>

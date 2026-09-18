@@ -12,4 +12,4 @@
  *   sf apex run -o MONEE -f COLLECTIONS/notify_invalid_account.apex
  */
 SM_ReturnCodeNotifier.sendInvalidAccountReport();
-System.debug('OK - reporte de R04/R13 enviado a ' + SM_ReturnCodeNotifier.NOTIFY_EMAIL);
+System.debug('\u2192 ' +'OK - reporte de R04/R13 enviado a ' + SM_ReturnCodeNotifier.NOTIFY_EMAIL);

@@ -22,7 +22,7 @@ public without sharing class SM_ReturnCodeNotifierTest {
 
     @IsTest
     static void reportsContractWithUnresolvedCode() {
-        Contract ct = [SELECT Id, ContractNumber, Status, SM_Customer_Cancellation__c FROM Contract LIMIT 1];
+        Contract ct = [SELECT Id, ContractNumber, Status, SM_Customer_Cancellation__c, Is_Test_Contract__c, Is_VIP_Contract__c FROM Contract LIMIT 1];
         SM_Payment__c codePayment = new SM_Payment__c(
             SM_Contract__c = ct.Id, SM_Amount__c = 79, Payment_Status__c = 'REJECTED', CreatedDate = DateTime.now()
         );
@@ -38,7 +38,7 @@ public without sharing class SM_ReturnCodeNotifierTest {
 
     @IsTest
     static void flagsContractThatRecoveredAfterCode() {
-        Contract ct = [SELECT Id, ContractNumber, Status, SM_Customer_Cancellation__c FROM Contract LIMIT 1];
+        Contract ct = [SELECT Id, ContractNumber, Status, SM_Customer_Cancellation__c, Is_Test_Contract__c, Is_VIP_Contract__c FROM Contract LIMIT 1];
         SM_Payment__c codePayment = new SM_Payment__c(
             SM_Contract__c = ct.Id, SM_Amount__c = 79, Payment_Status__c = 'REJECTED', CreatedDate = DateTime.now().addDays(-10)
         );
@@ -56,7 +56,7 @@ public without sharing class SM_ReturnCodeNotifierTest {
 
     @IsTest
     static void skipsCancelledContracts() {
-        Contract ct = [SELECT Id, ContractNumber, Status, SM_Customer_Cancellation__c FROM Contract LIMIT 1];
+        Contract ct = [SELECT Id, ContractNumber, Status, SM_Customer_Cancellation__c, Is_Test_Contract__c, Is_VIP_Contract__c FROM Contract LIMIT 1];
         ct.Status = 'Cancelled';
         SM_Payment__c codePayment = new SM_Payment__c(SM_Contract__c = ct.Id, SM_Amount__c = 79, CreatedDate = DateTime.now());
         codePayment.SM_Contract__r = ct;
@@ -66,6 +66,26 @@ public without sharing class SM_ReturnCodeNotifierTest {
         Test.stopTest();
 
         System.assert(!report.contains(ct.ContractNumber), 'A Cancelled contract is no longer actionable and should be excluded.');
+    }
+
+    @IsTest
+    static void skipsTestAndVipContracts() {
+        Contract ct = [SELECT Id, ContractNumber, Status, SM_Customer_Cancellation__c, Is_Test_Contract__c, Is_VIP_Contract__c FROM Contract LIMIT 1];
+        ct.Is_Test_Contract__c = true;
+        SM_Payment__c testContractPayment = new SM_Payment__c(SM_Contract__c = ct.Id, SM_Amount__c = 79, CreatedDate = DateTime.now());
+        testContractPayment.SM_Contract__r = ct;
+
+        Contract vipCt = ct.clone(false, true, false, false);
+        vipCt.Is_Test_Contract__c = false;
+        vipCt.Is_VIP_Contract__c = true;
+        SM_Payment__c vipContractPayment = new SM_Payment__c(SM_Contract__c = ct.Id, SM_Amount__c = 79, CreatedDate = DateTime.now());
+        vipContractPayment.SM_Contract__r = vipCt;
+
+        Test.startTest();
+            String report = SM_ReturnCodeNotifier.buildReport(new List<SM_Payment__c>{ testContractPayment, vipContractPayment }, new List<SM_Payment__c>(), LABEL, EXPLANATION);
+        Test.stopTest();
+
+        System.assert(report.contains('Sin contratos'), 'Test and VIP contracts should never appear in the report.');
     }
 
     @IsTest

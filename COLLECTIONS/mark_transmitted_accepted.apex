@@ -1,6 +1,7 @@
 /*
  * mark_transmitted_accepted.apex
  * -------------------------------
+//#region titulo
  * Ejecutar via run_mark_transmitted_accepted.sh (o "SFDX: Execute
  * Anonymous Apex" directo en VS Code).
  *
@@ -26,23 +27,26 @@
  * llego ya este aplicado -- este script solo mira el estado ACTUAL en
  * Salesforce, no escanea PDFs.
  *
+ //#endregion titulo
  * MODO DE USO:
  *   - Corre primero con DRY_RUN = true  -> solo preview, NO actualiza nada.
  *   - Revisa el debug log completo.
  *   - Si todo esta correcto, cambia DRY_RUN a false y corre de nuevo -> aplica el UPDATE real.
  */
 
+
+
 // ============ CONFIGURACION ============
-Boolean DRY_RUN = true; // <-- cambiar a false para ejecutar el update real
+Boolean DRY_RUN = false; // <-- cambiar a false para ejecutar el update real
 Integer DAYS_SINCE_TRANSMITTED = 15;
 // ========================================
 
 Date cutoff = Date.today().addDays(-DAYS_SINCE_TRANSMITTED);
 
-System.debug('\u2192  -> ======================================================');
-System.debug('\u2192  -> MODO: ' + (DRY_RUN ? 'DRY RUN (solo preview, sin cambios)' : 'EJECUCION REAL (se va a actualizar)'));
-System.debug('\u2192  -> Corte: ACH TRANSMITTED antes de ' + cutoff + ' (' + DAYS_SINCE_TRANSMITTED + ' dia(s) o mas) y sin ningun reporte de Returns/Collection');
-System.debug('\u2192  -> ======================================================');
+System.debug('\u2192 ' +'\u2192  -> ======================================================');
+System.debug('\u2192 ' +'\u2192  -> MODO: ' + (DRY_RUN ? 'DRY RUN (solo preview, sin cambios)' : 'EJECUCION REAL (se va a actualizar)'));
+System.debug('\u2192 ' +'\u2192  -> Corte: ACH TRANSMITTED antes de ' + cutoff + ' (' + DAYS_SINCE_TRANSMITTED + ' dia(s) o mas) y sin ningun reporte de Returns/Collection');
+System.debug('\u2192 ' +'\u2192  -> ======================================================');
 
 // 1) Candidatos: transmitidos hace rato, sin ningun reporte
 List<SM_Payment__c> candidates = [
@@ -52,12 +56,17 @@ List<SM_Payment__c> candidates = [
     WHERE Payment_Status__c = 'ACH TRANSMITTED'
     AND SM_Transmission_Date_ACH_File__c < :cutoff
     AND SM_Check_Collection_Status__c = null
+    // Nunca auto-aceptar un pago de prueba o VIP como cobrado sin reporte del
+    // banco -- caso real 2026-09-17: ninguno de los scripts diarios filtraba
+    // por esto (validado, 0 casos reales hasta ahora, pero riesgo latente).
+    AND SM_Contract__r.Is_Test_Contract__c = false
+    AND SM_Contract__r.Is_VIP_Contract__c = false
     ORDER BY SM_Transmission_Date_ACH_File__c ASC
 ];
 
 for (SM_Payment__c p : candidates) {
     Integer nDias = p.SM_Transmission_Date_ACH_File__c.daysBetween(Date.today());
-    System.debug('\u2192 PREVIEW -> ' + p.Name + ' \uFF5C Transmitido: ' + p.SM_Transmission_Date_ACH_File__c + ' -> Transmitido hace ' + nDias + ' días');
+    System.debug('\u2192 ' +'\u2192 PREVIEW -> ' + p.Name + ' \uFF5C Transmitido: ' + p.SM_Transmission_Date_ACH_File__c + ' -> Transmitido hace ' + nDias + ' días');
 }
 
 // 2) Agrupar en OLEADAS por SM_ACH_Order__c -- mismo motivo que en
@@ -78,15 +87,15 @@ for (SM_Payment__c p : candidates) {
     waves.get(wave).add(p);
 }
 
-System.debug('\u2192  -> ======================================================');
-System.debug('\u2192  -> Candidatos (ACH TRANSMITTED hace ' + DAYS_SINCE_TRANSMITTED + '+ dia(s), sin reporte): ' + candidates.size());
+System.debug('\u2192 ' +'\u2192  -> ======================================================');
+System.debug('\u2192 ' +'\u2192  -> Candidatos (ACH TRANSMITTED hace ' + DAYS_SINCE_TRANSMITTED + '+ dia(s), sin reporte): ' + candidates.size());
 if (!candidates.isEmpty()) {
-    System.debug('\u2192  -> Oleadas necesarias por colisiones de orden ACH repetida: ' + (maxWave + 1));
+    System.debug('\u2192 ' +'\u2192  -> Oleadas necesarias por colisiones de orden ACH repetida: ' + (maxWave + 1));
     for (Integer w = 0; w <= maxWave; w++) {
-        System.debug('\u2192  ->   -> Oleada ' + (w + 1) + ': ' + waves.get(w).size() + ' registro(s)');
+        System.debug('\u2192 ' +'\u2192  ->   -> Oleada ' + (w + 1) + ': ' + waves.get(w).size() + ' registro(s)');
     }
 }
-System.debug('\u2192  -> ======================================================');
+System.debug('\u2192 ' +'\u2192  -> ======================================================');
 
 // 2b) Contratos de pagos AC entre los candidatos (SM_Type__c u
 // SM_Original_Type__c = 'AC') -- para el proceso de activacion de
@@ -102,16 +111,16 @@ List<String> acContractNumbersQuoted = new List<String>();
 for (String cn : acContractNumbers) {
     acContractNumbersQuoted.add('\'' + cn + '\'');
 }
-System.debug('\u2192  -> Contratos AC entre los candidatos (para activacion posterior): ' + acContractNumbers.size());
+System.debug('\u2192 ' +'\u2192  -> Contratos AC entre los candidatos (para activacion posterior): ' + acContractNumbers.size());
 if (!acContractNumbersQuoted.isEmpty()) {
-    System.debug('\u2192  \n \u2192 -> ' + String.join(acContractNumbersQuoted, ', '));
+    System.debug('\u2192 ' +'\u2192  \n \u2192 -> ' + String.join(acContractNumbersQuoted, ', '));
 }
-System.debug('\u2192  -> ======================================================');
+System.debug('\u2192 ' +'\u2192  -> ======================================================');
 
 // 3) Ejecutar el update SOLO si DRY_RUN = false -- una oleada a la vez
 if (!DRY_RUN) {
     if (candidates.isEmpty()) {
-        System.debug('\u2192  -> No hay candidatos para actualizar.');
+        System.debug('\u2192 ' +'\u2192  -> No hay candidatos para actualizar.');
     } else {
         Date today = Date.today();
         Integer totalOk = 0;
@@ -147,20 +156,20 @@ if (!DRY_RUN) {
                     okCount++;
                 } else {
                     errCount++;
-                    System.debug(
+                    System.debug('\u2192 ' +
                         'ERROR actualizando ' + waveUpdate[i].Id + ': ' +
                         res.getErrors()[0].getMessage()
                     );
                 }
             }
-            System.debug('\u2192  ->   -> Oleada ' + (w + 1) + ' completada -> Exitos: ' + okCount + ' \uFF5C Errores: ' + errCount);
+            System.debug('\u2192 ' +'\u2192  ->   -> Oleada ' + (w + 1) + ' completada -> Exitos: ' + okCount + ' \uFF5C Errores: ' + errCount);
             totalOk += okCount;
             totalErr += errCount;
         }
-        System.debug('\u2192  -> ======================================================');
-        System.debug('\u2192  -> UPDATE COMPLETADO -> Exitos: ' + totalOk + ' \uFF5C Errores: ' + totalErr);
-        System.debug('\u2192  -> ======================================================');
+        System.debug('\u2192 ' +'\u2192  -> ======================================================');
+        System.debug('\u2192 ' +'\u2192  -> UPDATE COMPLETADO -> Exitos: ' + totalOk + ' \uFF5C Errores: ' + totalErr);
+        System.debug('\u2192 ' +'\u2192  -> ======================================================');
     }
 } else {
-    System.debug('\u2192  -> DRY RUN activo: no se ejecuto ningun UPDATE. Cambia DRY_RUN a false para aplicar los cambios.');
+    System.debug('\u2192 ' +'\u2192  -> DRY RUN activo: no se ejecuto ningun UPDATE. Cambia DRY_RUN a false para aplicar los cambios.');
 }
