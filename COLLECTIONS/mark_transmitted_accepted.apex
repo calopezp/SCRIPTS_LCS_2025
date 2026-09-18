@@ -38,7 +38,7 @@
 
 // ============ CONFIGURACION ============
 Boolean DRY_RUN = false; // <-- cambiar a false para ejecutar el update real
-Integer DAYS_SINCE_TRANSMITTED = 15;
+Integer DAYS_SINCE_TRANSMITTED = 20;
 // ========================================
 
 Date cutoff = Date.today().addDays(-DAYS_SINCE_TRANSMITTED);

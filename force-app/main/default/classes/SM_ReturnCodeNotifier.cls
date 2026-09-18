@@ -16,6 +16,21 @@
  * via notify_r02.apex / notify_r10.apex / notify_invalid_account.apex / notify_r07.apex /
  * notify_r16.apex, wired into COLLECTIONS/run_daily_new_files.sh's apply mode so Carlos gets
  * the current lists every time he runs the daily collections pipeline.
+ *
+ * sendTimeoutReversalReport() (added 2026-09-18) is a different kind of alert: it's not about a
+ * NACHA return code, it's about the "accepted by timeout" mechanism itself
+ * (mark_transmitted_accepted.apex, tag "PRC_AUT_<N>D_SIN_REPORTE:") turning out to be wrong for a
+ * given payment. That mechanism auto-marks a payment ACCEPTED/COLLECTED after N days with no bank
+ * report at all - and update_check_collection.apex / update_ach_returns.apex deliberately let a
+ * REAL Returns/Collection report overturn that default acceptance later (the regression guard's
+ * documented exception, since a timeout default isn't a bank-confirmed collection). That's correct
+ * behavior, but it happens silently - nothing surfaced when a "already collected" payment actually
+ * turns out to be a Return/Not Collected days or weeks later. Found 2026-09-18 auditing
+ * PY-01888808/PY-01888831/PY-01888987 (all tagged D_SIN_REPORTE, all later reported by the bank as
+ * something other than collected). Detects this from data already on the record - a payment whose
+ * history trail ever carried a D_SIN_REPORTE tag but whose CURRENT status is no longer a success -
+ * so no change to update_check_collection.apex/update_ach_returns.apex was needed. Invoked via
+ * notify_timeout_reversal.apex, wired into run_daily_new_files.sh the same way as the others.
  * @author Carlos Alberto Lopez Prada
  */
 public without sharing class SM_ReturnCodeNotifier {
@@ -41,6 +56,75 @@ public without sharing class SM_ReturnCodeNotifier {
 
     public static void sendR16Report() {
         sendReport(new Set<String>{ 'R16' }, 'R16 (CUENTA CONGELADA)', 'la cuenta esta congelada (usualmente por una orden legal/judicial) - fuera del control del cliente, dar seguimiento aparte antes de reintentar.');
+    }
+
+    /**
+     * @description Payments that mark_transmitted_accepted.apex once auto-accepted by timeout
+     * (no bank report within N days) but whose CURRENT status shows a real Returns/Collection
+     * report later contradicted that default (Payment_Status__c = REJECTED, or
+     * SM_Check_Collection_Status__c = RETURN/NOT COLLECTED). Detected from
+     * SM_Historical_Collection_Status__c still carrying a "D_SIN_REPORTE:" tag - see the class doc.
+     */
+    public static void sendTimeoutReversalReport() {
+        List<SM_Payment__c> reversedPayments = [
+            SELECT Id, Name, SM_Amount__c, CreatedDate,
+                   Payment_Status__c, SM_Check_Collection_Status__c, SM_Check_Collection_Date__c,
+                   SM_Return_code__c, SM_Historical_Collection_Status__c,
+                   SM_Contract__c, SM_Contract__r.ContractNumber, SM_Contract__r.Status,
+                   SM_Contract__r.Is_Test_Contract__c, SM_Contract__r.Is_VIP_Contract__c
+            FROM SM_Payment__c
+            // Note: NOT escaped with \_ -- inline SOQL in Apex does not unescape "\_" the way
+            // Database.query()/the API does, so the literal backslash reaches the server and
+            // never matches (verified 2026-09-18: escaped version returns 0 rows against live
+            // data that should match). The unescaped "_" wildcard is safe here -- it just also
+            // matches non-underscore filler chars, which never occurs in this tag's fixed text.
+            WHERE SM_Historical_Collection_Status__c LIKE '%D_SIN_REPORTE:%'
+            AND (
+                Payment_Status__c = 'REJECTED'
+                OR SM_Check_Collection_Status__c IN ('RETURN', 'NOT_COLLECTED', 'NOT COLLECTED', 'PENDING')
+            )
+            ORDER BY SM_Contract__r.ContractNumber, SM_Check_Collection_Date__c
+        ];
+
+        String body = buildTimeoutReversalReport(reversedPayments);
+
+        Messaging.SingleEmailMessage mail = new Messaging.SingleEmailMessage();
+        mail.setToAddresses(new String[]{ NOTIFY_EMAIL });
+        mail.setSubject('[ALERTA] Pagos aceptados por timeout y luego revertidos por reporte real - ' + Date.today().format());
+        mail.setPlainTextBody(body);
+        if (!Test.isRunningTest()) {
+            Messaging.sendEmail(new Messaging.SingleEmailMessage[]{ mail });
+        }
+    }
+
+    /**
+     * @description Separated from sendTimeoutReversalReport() so the report text can be built/
+     * tested with in-memory data, same pattern as buildReport(). Unlike buildReport(), Test/VIP
+     * and closed contracts are NOT excluded here - a timeout-vs-reality mismatch on any contract,
+     * even a closed one, is still evidence the 15/20-day default is over-eager and worth seeing.
+     */
+    public static String buildTimeoutReversalReport(List<SM_Payment__c> reversedPayments) {
+        if (reversedPayments.isEmpty()) {
+            return 'Sin pagos aceptados por timeout que hayan sido revertidos por un reporte real de Returns/Collection.\n';
+        }
+
+        String body = 'Pagos que mark_transmitted_accepted.apex marco ACCEPTED/COLLECTED por timeout '
+            + '(sin reporte del banco en 15/20 dias) y que un reporte real de Returns/Collection '
+            + 'llegado DESPUES contradijo -- revisar si el timeout esta siendo demasiado agresivo.\n\n';
+
+        for (SM_Payment__c p : reversedPayments) {
+            String contractLabel = p.SM_Contract__r != null
+                ? p.SM_Contract__r.ContractNumber + ' (' + p.SM_Contract__r.Status + ')'
+                : '(sin contrato)';
+            body += '- ' + p.Name + ' - Contrato ' + contractLabel + '\n'
+                + '    Estado actual -> Payment_Status: ' + p.Payment_Status__c
+                + ' | Check_Collection_Status: ' + p.SM_Check_Collection_Status__c
+                + ' | Return_code: ' + (p.SM_Return_code__c == null ? '(ninguno)' : p.SM_Return_code__c)
+                + ' | Fecha reporte: ' + (p.SM_Check_Collection_Date__c == null ? '(ninguna)' : p.SM_Check_Collection_Date__c.format()) + '\n'
+                + '    Historial -> ' + p.SM_Historical_Collection_Status__c + '\n';
+        }
+
+        return body;
     }
 
     private static void sendReport(Set<String> returnCodes, String codeLabel, String explanation) {

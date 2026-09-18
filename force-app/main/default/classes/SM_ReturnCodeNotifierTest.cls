@@ -127,4 +127,36 @@ public without sharing class SM_ReturnCodeNotifierTest {
         Test.stopTest();
         System.assert(true, 'sendR16Report should run end-to-end (live SOQL) without throwing.');
     }
+
+    @IsTest
+    static void reportsPaymentAcceptedByTimeoutThenReversed() {
+        Contract ct = [SELECT Id, ContractNumber, Status FROM Contract LIMIT 1];
+        SM_Payment__c reversed = new SM_Payment__c(
+            SM_Contract__c = ct.Id, SM_Amount__c = 55, Payment_Status__c = 'REJECTED',
+            SM_Check_Collection_Status__c = 'RETURN', SM_Return_code__c = 'R01',
+            SM_Historical_Collection_Status__c = 'PRC_AUT: RETURN //PRC_AUT_15D_SIN_REPORTE: ACCEPTED //'
+        );
+        reversed.SM_Contract__r = ct;
+
+        Test.startTest();
+            String report = SM_ReturnCodeNotifier.buildTimeoutReversalReport(new List<SM_Payment__c>{ reversed });
+        Test.stopTest();
+
+        System.assert(report.contains(ct.ContractNumber), 'The report should list the contract whose timeout-acceptance got reversed.');
+        System.assert(report.contains('RETURN'), 'The report should show the current status that contradicted the timeout default.');
+    }
+
+    @IsTest
+    static void skipsPaymentsStillAcceptedAfterTimeout() {
+        String report = SM_ReturnCodeNotifier.buildTimeoutReversalReport(new List<SM_Payment__c>());
+        System.assert(report.contains('Sin pagos'), 'No reversed payments means no findings to report.');
+    }
+
+    @IsTest
+    static void sendsTimeoutReversalReportWithoutError() {
+        Test.startTest();
+            SM_ReturnCodeNotifier.sendTimeoutReversalReport();
+        Test.stopTest();
+        System.assert(true, 'sendTimeoutReversalReport should run end-to-end (live SOQL) without throwing.');
+    }
 }

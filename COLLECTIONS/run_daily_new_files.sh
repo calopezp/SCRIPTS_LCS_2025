@@ -158,6 +158,16 @@ if [ "$MODE" = "apply" ]; then
     R16_EXIT=$?
     set -e
     [ $R16_EXIT -ne 0 ] && echo "AVISO: notify_r16.apex termino con codigo $R16_EXIT (revisar arriba)."
+
+    echo ""
+    echo "############################################################"
+    echo "# Notificacion: pagos aceptados por timeout y luego revertidos por reporte real"
+    echo "############################################################"
+    set +e
+    sf apex run -o MONEE -f "$SCRIPT_DIR/notify_timeout_reversal.apex"
+    TIMEOUT_REVERSAL_EXIT=$?
+    set -e
+    [ $TIMEOUT_REVERSAL_EXIT -ne 0 ] && echo "AVISO: notify_timeout_reversal.apex termino con codigo $TIMEOUT_REVERSAL_EXIT (revisar arriba)."
 fi
 
 if [ -s "$ARCHIVOS_VIEJOS_CSV" ]; then
