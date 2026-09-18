@@ -16,12 +16,13 @@ Este archivo es la **fuente de verdad compartida entre las dos máquinas** del u
 2. [Collections / Cobranza](#2-collections--cobranza) — comandos diarios, reglas explícitas del usuario
 3. [Chargent — migración en curso (NO TOCAR)](#3-chargent--migración-en-curso-no-tocar)
 4. [Winter '27 Release Readiness](#4-winter-27-release-readiness--análisis-puntual-2026-09-06) (análisis puntual, revisar después del 10-oct-2026)
-5. **[Bitácora de hallazgos técnicos](BITACORA_HALLAZGOS_TECNICOS.md)** — tabla acumulativa (Fecha /
+5. [Trigger Panel (SM_Trigger_Panel__mdt) — estado esperado y monitoreo](#5-trigger-panel-sm_trigger_panelmdt--estado-esperado-y-monitoreo)
+6. **[Bitácora de hallazgos técnicos](BITACORA_HALLAZGOS_TECNICOS.md)** — tabla acumulativa (Fecha /
    FIX-ERROR / Consecuencias / Solución / Estado) de bugs reales encontrados en MONEE/PREPROD a lo
    largo de las sesiones, para consulta rápida y copiar/pegar directo a un reporte gerencial.
    **Agregar una fila cada vez que aparezca un hallazgo técnico nuevo** (no un ajuste de datos
    puntual) — no es este archivo, es un archivo aparte en la raíz del repo.
-6. **[Tareas pendientes](TAREAS_PENDIENTES.md)** — lista acumulativa de temas abiertos/en espera/
+7. **[Tareas pendientes](TAREAS_PENDIENTES.md)** — lista acumulativa de temas abiertos/en espera/
    pausados, de cualquier hilo de trabajo. **Si el usuario pregunta "¿qué tenemos pendiente?" en
    cualquier sesión, leer este archivo primero** antes de reconstruir la respuesta desde cero —
    y mantenerlo actualizado (mover a "Cerrado recientemente" lo que se resuelva, agregar fila nueva
@@ -237,3 +238,41 @@ Validado con `sf data query -o MONEE -q "SELECT Application, LoginUrl, COUNT(Id)
 - [SOAP API login() Call Retirement (Release Update) — Salesforce Help](https://help.salesforce.com/s/articleView?id=release-notes.rn_api_upcoming_retirement_258rn.htm&language=en_US&release=258&type=5)
 - [Salesforce API Versions 31.0–40.0 Retire June 2028 — Vantagepoint](https://vantagepoint.io/blog/sf/salesforce-api-versions-31-40-retirement)
 - [Salesforce Winter '27 Release: What to Expect and How to Prepare — Salesforce Ben](https://www.salesforceben.com/salesforce-winter-27-release-what-to-expect-and-how-to-prepare/)
+
+---
+
+## 5. Trigger Panel (`SM_Trigger_Panel__mdt`) — estado esperado y monitoreo
+
+`SM_Trigger_Panel__mdt` es el Custom Metadata que consulta `SM_TriggerHandler.getTriggerPanel()`
+(`force-app/main/default/classes/SM_TriggerHandler.cls`) para decidir, por cada trigger que
+extiende ese framework, en qué contextos (`before/after insert/update/delete`, `undelete`) llamar
+realmente al handler — un checkbox apagado en Setup → Custom Metadata Types → SM_Trigger_Panel
+(el "Triggers Panel") no borra el trigger, solo hace que `run()` no invoque el método de ese
+contexto. Visible en Setup vía
+`https://monee.my.salesforce-setup.com/lightning/setup/CustomMetadata/page?address=%2Fm09%3Fsetupid%3DCustomMetadata`.
+
+**Validado en vivo 2026-09-18** (`sf data query -o MONEE -q "SELECT SM_TriggerName__c, SM_Process... FROM SM_Trigger_Panel__mdt"`,
+18 registros) contra el código real de cada trigger/handler. La mayoría de los triggers del
+framework tienen los 7 contextos en `true` (comportamiento normal, sin sorpresas). Los que **no**
+están así, y por qué:
+
+| Registro (`SM_TriggerName__c`) | Estado esperado | Por qué |
+|---|---|---|
+| `SM_ACPaymentActivationTrigger` | Solo `AfterInsert`/`AfterUpdate` en `true`, resto `false` | El trigger (`SM_ACPaymentActivationTrigger.trigger`) solo está declarado `after insert, after update` — los demás contextos no existen para él, apagarlos no oculta nada. Activa el AC de contratos ChargeBee/Credit Card/Cash (`SM_ACPaymentActivationHandler.cls`, desplegado 2026-09-12, ver `BITACORA_HALLAZGOS_TECNICOS.md` fila 2026-09-12). |
+| `SM_LateFeeReconciliationTrigger` | Solo `AfterUpdate` en `true`, resto `false` | Mismo caso: el trigger solo está declarado `after update`. Cancela Late Payment Fees huérfanas cuando el pago original resuelve a `COLLECTED` (`SM_LateFeeReconciliationHandler.cls`, ver bitácora 2026-09-13). |
+| `SM_ChargentOrderTrigger` | **Los 7 en `false`** | Gatea `SM_ChargentOrderTrigger.trigger` → `SM_ChargentOrderHandler.cls`, que sí tiene lógica real (estados de contrato, fechas de cobro, penalidades) — pero la app/licencia de Chargent ya no está activa en MONEE: `ChargentOrders__ChargentOrder__c` existe en el schema (confirmado vía Tooling `EntityDefinition`) pero ya no es consultable por API estándar (`INVALID_TYPE`, probado 2026-09-17), y los jobs `Chargent Recurring Batch*` en `CronTrigger` están `PAUSED`. Consistente con la migración de Chargent en curso (sección 3) — **no reactivar sin confirmar con el usuario.** *(El repo no tiene el archivo de metadata de este registro — existe en MONEE pero nunca se retrajo; no se trajo a propósito, ver sección 3.)* |
+| `SM_ChargentTransactionTGR` | **Los 7 en `false`** | **Trampa de nombres:** este registro NO gatea el trigger `SM_ChargentTransactionTGR` real — gatea `SM_PaymentTGR.trigger` (`trigger SM_PaymentTGR on SM_Payment__c ...`), que le pasa el nombre equivocado a su handler: `new SM_paymentTGR_Handler('SM_ChargentTransactionTGR')`. Root cause ya diagnosticado y resuelto (bitácora fila 2026-09-06): al retirar Chargent esto quedó apagado por error, afectando 24 contratos; se reemplazó con el Flow permanente `PAYMENT_Accumulate_AC_On_Contract` (desplegado 2026-09-02). **Reactivarlo resucitaría lógica legacy que hoy chocaría con ese Flow y con `SM_ACPaymentActivationHandler` — no tocar sin confirmar con el usuario.** |
+| `SM_PaymentTGR` | Los 7 en `true`, pero **sin efecto real** | Registro huérfano — por la trampa de arriba, `SM_PaymentTGR.trigger` nunca lo consulta. No es un bug de configuración, el problema está en el trigger. |
+| `SM_PaymentTrigger` | Los 7 en `true` | Este sí es el handler activo real de `SM_Payment__c` (`SM_PaymentHandler.cls`) — el motor principal de todo el pipeline de payments. Debe quedarse en `true`. |
+
+**Monitoreo automático:** `SM_TriggerPanelMonitor.cls` (Schedulable, desplegado 2026-09-18) corre
+diario a las 8:20 AM hora de España (`SM_TriggerPanelMonitor_Daily`, programado con
+`scripts/apex/Schedule_Trigger_Panel_Monitor.apex`) y compara los 18 registros contra el baseline
+de arriba (hardcodeado en `EXPECTED_BASELINE` dentro de la clase). Si algo cambió — alguien
+reactivó un checkbox de Chargent, o desactivó por error `SM_PaymentTrigger`/`SM_ACHOrderTrigger`,
+o apareció un registro nuevo sin baseline documentado — manda un correo `[REVISAR]` a
+`clopez@legal-credit.com`; si todo coincide, manda `[OK]`. Solo diagnostica, nunca corrige nada
+solo. **Si el correo reporta una anomalía en cualquiera de los 4 registros de Chargent de la tabla
+de arriba, no reactivar/corregir sin confirmar con el usuario primero** (sección 3, "no tocar").
+Al agregar o quitar un trigger real del framework `SM_TriggerHandler`, actualizar
+`EXPECTED_BASELINE` en la clase Y esta tabla en el mismo cambio.
