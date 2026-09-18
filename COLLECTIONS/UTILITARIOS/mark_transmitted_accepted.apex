@@ -37,7 +37,7 @@
 
 
 // ============ CONFIGURACION ============
-Boolean DRY_RUN = false; // <-- cambiar a false para ejecutar el update real
+Boolean DRY_RUN = true; // <-- cambiar a false para ejecutar el update real
 Integer DAYS_SINCE_TRANSMITTED = 20;
 // ========================================
 

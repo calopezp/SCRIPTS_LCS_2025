@@ -10,12 +10,20 @@ set -e
 #      Return primero, despues Collection, sin importar la fecha interna
 #      de cada fila (Rule 1: un archivo nuevo se procesa completo).
 #   3. Despues corre ACH Reportados (run_transmission_import.sh).
-#   4. En modo apply, manda 5 correos (notify_r02.apex, notify_r10.apex,
-#      notify_invalid_account.apex, notify_r07.apex, notify_r16.apex -- todos via
-#      SM_ReturnCodeNotifier.cls) con la lista actual de contratos con un ACH Return R02
-#      (cuenta cerrada), R10 (cliente no autoriza), R04/R13 (cuenta/routing invalido),
-#      R07 (autorizacion revocada), o R16 (cuenta congelada) sin resolver -- ninguno se
-#      arregla reintentando el mismo metodo de pago.
+#   4. Corre UTILITARIOS/mark_transmitted_accepted.apex (automatizado aqui
+#      2026-09-18): marca ACCEPTED/COLLECTED los payments ACH TRANSMITTED
+#      hace 15/20+ dias (DAYS_SINCE_TRANSMITTED) sin NINGUN reporte de
+#      Returns/Collection -- corre a proposito DESPUES de los pasos 1-3 de
+#      arriba, para que un reporte real que si llego hoy tenga prioridad.
+#      Respeta el modo DRY RUN/apply igual que el resto del script.
+#   5. En modo apply, manda 6 correos (notify_r02.apex, notify_r10.apex,
+#      notify_invalid_account.apex, notify_r07.apex, notify_r16.apex,
+#      notify_timeout_reversal.apex -- todos via SM_ReturnCodeNotifier.cls) con la
+#      lista actual de contratos con un ACH Return R02 (cuenta cerrada), R10 (cliente
+#      no autoriza), R04/R13 (cuenta/routing invalido), R07 (autorizacion revocada),
+#      R16 (cuenta congelada) sin resolver, o un pago aceptado por timeout que un
+#      reporte real luego contradijo -- ninguno se arregla reintentando el mismo
+#      metodo de pago.
 #
 # Corte de 1 semana por archivo (no por fecha interna de la fila): un
 # archivo NUNCA antes visto pero con mas de 7 dias de antiguedad en disco
@@ -53,7 +61,7 @@ RETURNS_CSV_OUT="$SCRIPT_DIR/RETURNS/ACHReturnsImport.csv"
 COLLECTIONS_CSV_OUT="$SCRIPT_DIR/COLLECTIONS/CheckCollectionImport.csv"
 
 echo "############################################################"
-echo "# 1/3 Escaneando Returns + Check Collection por archivos NUEVOS"
+echo "# 1/4 Escaneando Returns + Check Collection por archivos NUEVOS"
 echo "############################################################"
 python3 "$SCRIPT_DIR/build_index.py"
 
@@ -68,7 +76,7 @@ if [ "$RETURNS_PENDING" = "0" ] && [ "$COLLECTIONS_PENDING" = "0" ]; then
 else
     echo ""
     echo "############################################################"
-    echo "# 2/3 Aplicando SOLO los archivos nuevos (modo: $MODE)"
+    echo "# 2/4 Aplicando SOLO los archivos nuevos (modo: $MODE)"
     echo "############################################################"
 
     if [ "$RETURNS_PENDING" = "1" ]; then
@@ -100,13 +108,41 @@ fi
 
 echo ""
 echo "############################################################"
-echo "# 3/3 ACH Reportados (transmission)"
+echo "# 3/4 ACH Reportados (transmission)"
 echo "############################################################"
 set +e
 bash "$SCRIPT_DIR/ACH_REPORTADOS/run_transmission_import.sh" $APPLY_ARG
 TRANSMISSION_EXIT=$?
 set -e
 [ $TRANSMISSION_EXIT -ne 0 ] && echo "AVISO: ACH Reportados termino con codigo $TRANSMISSION_EXIT (revisar arriba)."
+
+echo ""
+echo "############################################################"
+echo "# 4/4 Marcar ACCEPTED por timeout (sin reporte tras N dias)"
+echo "############################################################"
+# Corre DESPUES de los 3 pipelines de arriba a proposito -- asi cualquier
+# reporte real que SI llego hoy ya quedo aplicado antes de asumir "sin
+# reporte = aceptado" (ver UTILITARIOS/mark_transmitted_accepted.apex).
+# Mismo patron seguro que usan RETURNS/run_import_return.sh y
+# COLLECTIONS/run_import_collection.sh: el .apex en el repo SIEMPRE queda
+# en DRY_RUN=true, este script copia a un temporal y solo ahi cambia a
+# false en modo apply -- nunca se edita el archivo del repo.
+TIMEOUT_APEX_TEMPLATE="$SCRIPT_DIR/UTILITARIOS/mark_transmitted_accepted.apex"
+TMP_TIMEOUT_APEX="$(mktemp -u /tmp/mark_accepted_apex_XXXXXX.apex)"
+cp "$TIMEOUT_APEX_TEMPLATE" "$TMP_TIMEOUT_APEX"
+if [ "$MODE" = "apply" ]; then
+    if sed --version >/dev/null 2>&1; then
+        sed -i 's/Boolean DRY_RUN = true;/Boolean DRY_RUN = false;/' "$TMP_TIMEOUT_APEX"
+    else
+        sed -i '' 's/Boolean DRY_RUN = true;/Boolean DRY_RUN = false;/' "$TMP_TIMEOUT_APEX"
+    fi
+fi
+set +e
+sf apex run -o MONEE -f "$TMP_TIMEOUT_APEX"
+TIMEOUT_EXIT=$?
+set -e
+rm -f "$TMP_TIMEOUT_APEX"
+[ $TIMEOUT_EXIT -ne 0 ] && echo "AVISO: mark_transmitted_accepted.apex termino con codigo $TIMEOUT_EXIT (revisar arriba)."
 
 if [ "$MODE" = "apply" ]; then
     echo ""
