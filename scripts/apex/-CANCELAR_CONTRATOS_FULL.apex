@@ -6,7 +6,7 @@
 // #endregion titulo
 
 // ---------------- CONFIG ----------------
-Boolean modoDryRun         = false;    // true = no llama a Chargebee ni actualiza nada, solo reporta qué haría
+Boolean modoDryRun         = true;    // true = no llama a Chargebee ni actualiza nada, solo reporta qué haría
 String  NAMED_CRED         = 'Chargebee_API';
 String  VOID_COMMENT       = 'CONTRACT CANCELLED';
 Set<String> ESTADOS_A_OMITIR_INVOICE = new Set<String>{ 'VOIDED', 'PAID' }; //, 'NOT_PAID' //  mismo criterio manual de siempre
@@ -56,6 +56,7 @@ public class CancelarContratosFullRunner {
 
     private final Set<String> ALLOWED_ACH_STATUSES = new Set<String>{
         'NOT_COLLECTED','Not_Collected','Not_collected',
+        'NOT COLLECTED','Not Collected','Not collected',
         'ACCEPTED','Accepted',
         'COLLECTED','COLECTED','Collected',
         'REJECTED'
@@ -673,8 +674,10 @@ CancelGroup GRUP01 = new CancelGroup(
     'Does not comply with payments',
     'Cliente no cumple con los pagos, Solicitado y Autorizado por ELba Mantilla',
     new Set<String>{
-        // ← lista de ContractNumber a procesar
-        '00317795'
+        // 21 "stuck": Chargebee/ACH ya resuelto, solo falta finalizar el Contract
+        '00317661','00317718','00317788','00317795','00317835','00317858','00317861',
+        '00317863','00317876','00317916','00317918','00317927','00317930','00317954',
+        '00317957','00317971','00317974','00318018','00318022','00318092','00318109'
     }
 );
 

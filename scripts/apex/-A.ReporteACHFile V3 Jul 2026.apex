@@ -38,8 +38,9 @@ System.debug('\u2192  ⚠ Trigger SM_PaymentTrigger DESACTIVADO temporalmente');
 Id ownerId         = '0051U000001MRFeQAO';
 Id logRecordTypeId = '0121U000000KY48QAG';
 String fileName    = 'Cargue Manual scr';
-Date dateValue     = System.today().addDays(-1);
-String dateStr     = dateValue.format(); //DateTime.newInstance(System.today(), Time.newInstance(18,0,0,0)).format('yyyy-MM-dd');
+Date dateValue     = System.today().addDays(-3);
+String dateStr     = dateValue.format(); 
+//DateTime.newInstance(System.today(), Time.newInstance(18,0,0,0)).format('yyyy-MM-dd');
 
 
 

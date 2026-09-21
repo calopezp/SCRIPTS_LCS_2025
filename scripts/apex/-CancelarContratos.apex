@@ -31,6 +31,7 @@ public class CancelarContratosPorNumberRunner {
 
     private final Set<String> ALLOWED_ACH_STATUSES = new Set<String>{
         'NOT_COLLECTED','Not_Collected','Not_collected',
+        'NOT COLLECTED','Not Collected','Not collected',
         'ACCEPTED','Accepted',
         'COLLECTED','COLECTED','Collected',
         'REJECTED'

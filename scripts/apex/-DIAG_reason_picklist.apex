@@ -10,7 +10,7 @@
 
 // ---------------- CONFIG ----------------
 Boolean modoDryRun = true;   // true = corre las DML pero hace rollback al final (no deja nada guardado)
-Id contractId = '800UU00000i83NjYAI'; // contrato 00317762
+Id contractId = '800UU00000iIp2lYAC'; // contrato 00317795
 // -----------------------------------------
 
 Savepoint sp = modoDryRun ? Database.setSavepoint() : null;
@@ -21,6 +21,12 @@ System.debug('ANTES -> Status=[' + c.Status + '] RecordType=[' + c.RecordType.Na
     + '] Reason=[' + c.SM_Reason_for_cancellation__c + ']');
 
 String reason = 'Does not comply with payments';
+
+// Intento 0: replica el paso 2.1 del script grande — un DML previo en
+// SM_Customer_Cancellation__c sobre este MISMO contrato, antes de tocar
+// Status/Reason. Es la única diferencia real que falta probar.
+Database.SaveResult sr0 = Database.update(new Contract(Id = contractId, SM_Customer_Cancellation__c = true), false);
+System.debug('INTENTO 0 (SM_Customer_Cancellation__c primero) -> ' + (sr0.isSuccess() ? 'OK' : 'ERROR: ' + sr0.getErrors()));
 
 // Intento 1: Status + Reason en la MISMA DML.
 Contract badAttempt = new Contract(
@@ -46,6 +52,20 @@ System.debug('INTENTO 2a (solo Status) -> ' + (sr2a.isSuccess() ? 'OK' : 'ERROR:
 if (sr2a.isSuccess()) {
     Database.SaveResult sr2b = Database.update(new Contract(Id = contractId, SM_Reason_for_cancellation__c = reason), false);
     System.debug('INTENTO 2b (Reason, ya con Status comprometido) -> ' + (sr2b.isSuccess() ? 'OK' : 'ERROR: ' + sr2b.getErrors()));
+}
+
+// Intento 3: EXACTAMENTE como lo hace el script grande — Status solo,
+// vía List<Contract> (bulk), no un solo SObject suelto.
+Database.SaveResult[] sr3a = Database.update(new List<Contract>{
+    new Contract(Id = contractId, Status = 'Cancelled')
+}, false);
+System.debug('INTENTO 3a (solo Status, vía LIST) -> ' + (sr3a[0].isSuccess() ? 'OK' : 'ERROR: ' + sr3a[0].getErrors()));
+
+if (sr3a[0].isSuccess()) {
+    Database.SaveResult[] sr3b = Database.update(new List<Contract>{
+        new Contract(Id = contractId, SM_Reason_for_cancellation__c = reason)
+    }, false);
+    System.debug('INTENTO 3b (Reason, vía LIST) -> ' + (sr3b[0].isSuccess() ? 'OK' : 'ERROR: ' + sr3b[0].getErrors()));
 }
 
 if (modoDryRun) {
