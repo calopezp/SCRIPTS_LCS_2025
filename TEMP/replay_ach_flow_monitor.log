@@ -1,0 +1,257 @@
+ »   Warning: @salesforce/cli update available from 2.149.9 to 2.150.6.
+Compiled successfully.
+Executed successfully.
+
+67.0 APEX_CODE,DEBUG;APEX_PROFILING,INFO
+Execute Anonymous: // SOLO LECTURA -- reproduce la misma logica de SM_ACH_Flow_Monitor.runDailyCheck()
+Execute Anonymous: // sin mandar correo, para ver que reportaria ahora mismo (y comparar con el correo real de hoy).
+Execute Anonymous: DateTime since = DateTime.now().addHours(-24);
+Execute Anonymous: 
+Execute Anonymous: List<Contract> activatedToday = [
+Execute Anonymous:     SELECT Id, ContractNumber, Status, SM_Payment_methods__c, CB_Subscription__c,
+Execute Anonymous:            SM_AC_collected__c, SM_Net_AC__c, SM_Net_Monthly_offer__c, StartDate,
+Execute Anonymous:            (SELECT Id, SM_Payment_Type__c FROM ACH_Orders__r WHERE SM_Payment_Type__c = 'Subscription')
+Execute Anonymous:     FROM Contract
+Execute Anonymous:     WHERE Status = 'Activated' AND StartDate = TODAY
+Execute Anonymous: ];
+Execute Anonymous: 
+Execute Anonymous: List<Contract> recentContracts = [
+Execute Anonymous:     SELECT Id, ContractNumber, Status, SM_Requires_AC_Payment__c, SM_Requires_RC_Payment__c,
+Execute Anonymous:            SM_AC_collected__c, SM_Payment_methods__c, CB_Subscription__c,
+Execute Anonymous:            Is_Test_Contract__c, Is_VIP_Contract__c, SM_Customer_Cancellation__c,
+Execute Anonymous:            Contract_Type__c, SM_Full_Payment__c, SM_Total_ac__c, SM_AC_start_date__c,
+Execute Anonymous:            SM_AC_Split_Date__c
+Execute Anonymous:     FROM Contract
+Execute Anonymous:     WHERE SM_Payment_methods__c = 'ACH'
+Execute Anonymous:       AND Status IN ('Payment Process', 'Activated')
+Execute Anonymous:       AND (LastModifiedDate >= :since OR CreatedDate >= :since)
+Execute Anonymous: ];
+Execute Anonymous: 
+Execute Anonymous: Set<Id> contractIds = new Set<Id>();
+Execute Anonymous: for (Contract c : recentContracts) { contractIds.add(c.Id); }
+Execute Anonymous: 
+Execute Anonymous: Integer newOrdersCount = [SELECT COUNT() FROM SM_ACH_Order__c WHERE CreatedDate >= :since];
+Execute Anonymous: 
+Execute Anonymous: List<SM_ACH_Order__c> activeOrders = contractIds.isEmpty() ? new List<SM_ACH_Order__c>() : [
+Execute Anonymous:     SELECT Id, SM_Contract__c, SM_Payment_Type__c
+Execute Anonymous:     FROM SM_ACH_Order__c
+Execute Anonymous:     WHERE SM_Contract__c IN :contractIds
+Execute Anonymous:     AND SM_Payment_Status__c NOT IN ('Completed', 'Canceled')
+Execute Anonymous: ];
+Execute Anonymous: 
+Execute Anonymous: List<String> anomalies = SM_ACH_Flow_Monitor.buildAnomalies(recentContracts, activeOrders);
+Execute Anonymous: for (Contract c : activatedToday) {
+Execute Anonymous:     if (c.SM_Payment_methods__c == 'ACH' && c.ACH_Orders__r.isEmpty()) {
+Execute Anonymous:         anomalies.add('ALERTA: Contrato ' + c.ContractNumber + ' se activo por ACH pero no tiene Subscription Order');
+Execute Anonymous:     }
+Execute Anonymous: }
+Execute Anonymous: 
+Execute Anonymous: System.debug('=======================================================');
+Execute Anonymous: System.debug('Contratos activados HOY (cualquier medio de pago): ' + activatedToday.size());
+Execute Anonymous: for (Contract c : activatedToday) {
+Execute Anonymous:     System.debug('  - ' + c.ContractNumber + ' (' + c.SM_Payment_methods__c + ')');
+Execute Anonymous: }
+Execute Anonymous: System.debug('Contratos ACH en Payment Process/Activated, tocados ult. 24h: ' + recentContracts.size());
+Execute Anonymous: System.debug('SM_ACH_Order__c nuevas ultimas 24h: ' + newOrdersCount);
+Execute Anonymous: System.debug('=======================================================');
+Execute Anonymous: System.debug('ANOMALIAS (' + anomalies.size() + '):');
+Execute Anonymous: for (String a : anomalies) {
+Execute Anonymous:     System.debug('  - ' + a);
+Execute Anonymous: }
+Execute Anonymous: System.debug('=======================================================');
+17:56:04.85 (85538971)|USER_INFO|[EXTERNAL]|0051U000007bbx5|clopez@legal-credit.com|(GMT+02:00) Central European Summer Time (Europe/Madrid)|GMT+02:00
+17:56:04.85 (85562632)|EXECUTION_STARTED
+17:56:04.85 (85579852)|CODE_UNIT_STARTED|[EXTERNAL]|execute_anonymous_apex
+17:56:04.85 (540630083)|USER_DEBUG|[44]|DEBUG|=======================================================
+17:56:04.85 (540669834)|USER_DEBUG|[45]|DEBUG|Contratos activados HOY (cualquier medio de pago): 24
+17:56:04.85 (540685514)|USER_DEBUG|[47]|DEBUG|  - 00318069 (ACH)
+17:56:04.85 (540691904)|USER_DEBUG|[47]|DEBUG|  - 00318145 (ACH)
+17:56:04.85 (540697754)|USER_DEBUG|[47]|DEBUG|  - 00318164 (ACH)
+17:56:04.85 (540703334)|USER_DEBUG|[47]|DEBUG|  - 00318224 (ACH)
+17:56:04.85 (540708664)|USER_DEBUG|[47]|DEBUG|  - 00318355 (ACH)
+17:56:04.85 (540714714)|USER_DEBUG|[47]|DEBUG|  - 00318369 (ACH)
+17:56:04.85 (540720274)|USER_DEBUG|[47]|DEBUG|  - 00318372 (ACH)
+17:56:04.85 (540726044)|USER_DEBUG|[47]|DEBUG|  - 00318374 (ACH)
+17:56:04.85 (540731944)|USER_DEBUG|[47]|DEBUG|  - 00318387 (ACH)
+17:56:04.85 (540737234)|USER_DEBUG|[47]|DEBUG|  - 00318388 (ACH)
+17:56:04.85 (540742765)|USER_DEBUG|[47]|DEBUG|  - 00318419 (ACH)
+17:56:04.85 (540747955)|USER_DEBUG|[47]|DEBUG|  - 00318430 (ACH)
+17:56:04.85 (540753045)|USER_DEBUG|[47]|DEBUG|  - 00318437 (ACH)
+17:56:04.85 (540758085)|USER_DEBUG|[47]|DEBUG|  - 00318432 (ACH)
+17:56:04.85 (540762975)|USER_DEBUG|[47]|DEBUG|  - 00318433 (ACH)
+17:56:04.85 (540767935)|USER_DEBUG|[47]|DEBUG|  - 00318436 (ACH)
+17:56:04.85 (540773475)|USER_DEBUG|[47]|DEBUG|  - 00318445 (ACH)
+17:56:04.85 (540778565)|USER_DEBUG|[47]|DEBUG|  - 00318463 (ACH)
+17:56:04.85 (540783925)|USER_DEBUG|[47]|DEBUG|  - 00318469 (ACH)
+17:56:04.85 (540789045)|USER_DEBUG|[47]|DEBUG|  - 00318473 (ACH)
+17:56:04.85 (540794225)|USER_DEBUG|[47]|DEBUG|  - 00318481 (ACH)
+17:56:04.85 (540799005)|USER_DEBUG|[47]|DEBUG|  - 00318494 (ACH)
+17:56:04.85 (540803845)|USER_DEBUG|[47]|DEBUG|  - 00318496 (ACH)
+17:56:04.85 (540808705)|USER_DEBUG|[47]|DEBUG|  - 00318629 (Credit Card)
+17:56:04.85 (540819415)|USER_DEBUG|[49]|DEBUG|Contratos ACH en Payment Process/Activated, tocados ult. 24h: 159
+17:56:04.85 (540830926)|USER_DEBUG|[50]|DEBUG|SM_ACH_Order__c nuevas ultimas 24h: 27
+17:56:04.85 (540834876)|USER_DEBUG|[51]|DEBUG|=======================================================
+17:56:04.85 (540846376)|USER_DEBUG|[52]|DEBUG|ANOMALIAS (141):
+17:56:04.85 (540857876)|USER_DEBUG|[54]|DEBUG|  - REVISAR: Contrato 00317077 (800UU00000eyiaIYAQ) parece elegible para orden AC pero no tiene ninguna activa
+17:56:04.85 (540862536)|USER_DEBUG|[54]|DEBUG|  - REVISAR: Contrato 00315643 (800UU00000Yv5FWYAZ) parece elegible para orden AC pero no tiene ninguna activa
+17:56:04.85 (540866786)|USER_DEBUG|[54]|DEBUG|  - REVISAR: Contrato 00317781 (800UU00000iCMbOYAW) parece elegible para orden AC pero no tiene ninguna activa
+17:56:04.85 (540870736)|USER_DEBUG|[54]|DEBUG|  - REVISAR: Contrato 00314867 (800UU00000QPskbYAD) parece elegible para orden AC pero no tiene ninguna activa
+17:56:04.85 (540874716)|USER_DEBUG|[54]|DEBUG|  - REVISAR: Contrato 00316732 (800UU00000dhl0UYAQ) parece elegible para orden AC pero no tiene ninguna activa
+17:56:04.85 (540878726)|USER_DEBUG|[54]|DEBUG|  - REVISAR: Contrato 00318065 (800UU00000je9CPYAY) parece elegible para orden AC pero no tiene ninguna activa
+17:56:04.85 (540882886)|USER_DEBUG|[54]|DEBUG|  - REVISAR: Contrato 00317933 (800UU00000iutQKYAY) parece elegible para orden AC pero no tiene ninguna activa
+17:56:04.85 (540886786)|USER_DEBUG|[54]|DEBUG|  - REVISAR: Contrato 00318387 (800UU00000kqE7hYAE) parece elegible para orden AC pero no tiene ninguna activa
+17:56:04.85 (540890666)|USER_DEBUG|[54]|DEBUG|  - REVISAR: Contrato 00318110 (800UU00000joXlMYAU) parece elegible para orden AC pero no tiene ninguna activa
+17:56:04.85 (540894606)|USER_DEBUG|[54]|DEBUG|  - REVISAR: Contrato 00317119 (800UU00000fEvQDYA0) parece elegible para orden AC pero no tiene ninguna activa
+17:56:04.85 (540898826)|USER_DEBUG|[54]|DEBUG|  - REVISAR: Contrato 00317763 (800UU00000i8TwRYAU) parece elegible para orden AC pero no tiene ninguna activa
+17:56:04.85 (540902716)|USER_DEBUG|[54]|DEBUG|  - REVISAR: Contrato 00318014 (800UU00000jNj5rYAC) parece elegible para orden AC pero no tiene ninguna activa
+17:56:04.85 (540906696)|USER_DEBUG|[54]|DEBUG|  - REVISAR: Contrato 00317941 (800UU00000j0NVvYAM) parece elegible para orden AC pero no tiene ninguna activa
+17:56:04.85 (540910766)|USER_DEBUG|[54]|DEBUG|  - REVISAR: Contrato 00316577 (800UU00000cs2S2YAI) parece elegible para orden AC pero no tiene ninguna activa
+17:56:04.85 (540914676)|USER_DEBUG|[54]|DEBUG|  - REVISAR: Contrato 00317952 (800UU00000j17TrYAI) parece elegible para orden AC pero no tiene ninguna activa
+17:56:04.85 (540918657)|USER_DEBUG|[54]|DEBUG|  - REVISAR: Contrato 00317991 (800UU00000jFaKcYAK) parece elegible para orden AC pero no tiene ninguna activa
+17:56:04.85 (540923017)|USER_DEBUG|[54]|DEBUG|  - REVISAR: Contrato 00318056 (800UU00000jboARYAY) parece elegible para orden AC pero no tiene ninguna activa
+17:56:04.85 (540926927)|USER_DEBUG|[54]|DEBUG|  - REVISAR: Contrato 00318112 (800UU00000jpjanYAA) parece elegible para orden AC pero no tiene ninguna activa
+17:56:04.85 (540930877)|USER_DEBUG|[54]|DEBUG|  - REVISAR: Contrato 00318388 (800UU00000kqfKmYAI) parece elegible para orden AC pero no tiene ninguna activa
+17:56:04.85 (540934937)|USER_DEBUG|[54]|DEBUG|  - REVISAR: Contrato 00318016 (800UU00000jNqsCYAS) parece elegible para orden AC pero no tiene ninguna activa
+17:56:04.85 (540938917)|USER_DEBUG|[54]|DEBUG|  - REVISAR: Contrato 00317574 (800UU00000hCLJGYA4) parece elegible para orden AC pero no tiene ninguna activa
+17:56:04.85 (540942917)|USER_DEBUG|[54]|DEBUG|  - REVISAR: Contrato 00316404 (800UU00000c7D9HYAU) parece elegible para orden AC pero no tiene ninguna activa
+17:56:04.85 (540946817)|USER_DEBUG|[54]|DEBUG|  - REVISAR: Contrato 00313768 (800UU00000H4PZ7YAN) parece elegible para orden AC pero no tiene ninguna activa
+17:56:04.85 (540950677)|USER_DEBUG|[54]|DEBUG|  - REVISAR: Contrato 00317482 (800UU00000gkWMdYAM) parece elegible para orden AC pero no tiene ninguna activa
+17:56:04.85 (540954637)|USER_DEBUG|[54]|DEBUG|  - REVISAR: Contrato 00318621 (800UU00000ljo2TYAQ) parece elegible para orden AC pero no tiene ninguna activa
+17:56:04.85 (540958697)|USER_DEBUG|[54]|DEBUG|  - REVISAR: Contrato 00318437 (800UU00000l0yikYAA) parece elegible para orden AC pero no tiene ninguna activa
+17:56:04.85 (540962547)|USER_DEBUG|[54]|DEBUG|  - REVISAR: Contrato 00317592 (800UU00000hH7pAYAS) parece elegible para orden AC pero no tiene ninguna activa
+17:56:04.85 (540966537)|USER_DEBUG|[54]|DEBUG|  - REVISAR: Contrato 00318085 (800UU00000jhd19YAA) parece elegible para orden AC pero no tiene ninguna activa
+17:56:04.85 (540970787)|USER_DEBUG|[54]|DEBUG|  - REVISAR: Contrato 00318419 (800UU00000kvWbtYAE) parece elegible para orden AC pero no tiene ninguna activa
+17:56:04.85 (540974687)|USER_DEBUG|[54]|DEBUG|  - REVISAR: Contrato 00318043 (800UU00000jWEu0YAG) parece elegible para orden AC pero no tiene ninguna activa
+17:56:04.85 (540978757)|USER_DEBUG|[54]|DEBUG|  - REVISAR: Contrato 00318164 (800UU00000k3krrYAA) parece elegible para orden AC pero no tiene ninguna activa
+17:56:04.85 (540982787)|USER_DEBUG|[54]|DEBUG|  - REVISAR: Contrato 00317840 (800UU00000iWC1VYAW) parece elegible para orden AC pero no tiene ninguna activa
+17:56:04.85 (540987037)|USER_DEBUG|[54]|DEBUG|  - REVISAR: Contrato 00315161 (800UU00000Tx0MfYAJ) parece elegible para orden AC pero no tiene ninguna activa
+17:56:04.85 (540990927)|USER_DEBUG|[54]|DEBUG|  - REVISAR: Contrato 00318047 (800UU00000jWoiwYAC) parece elegible para orden AC pero no tiene ninguna activa
+17:56:04.85 (540994927)|USER_DEBUG|[54]|DEBUG|  - REVISAR: Contrato 00318057 (800UU00000jbjKVYAY) parece elegible para orden AC pero no tiene ninguna activa
+17:56:04.85 (540998987)|USER_DEBUG|[54]|DEBUG|  - REVISAR: Contrato 00317860 (800UU00000ibGXXYA2) parece elegible para orden AC pero no tiene ninguna activa
+17:56:04.85 (541003047)|USER_DEBUG|[54]|DEBUG|  - REVISAR: Contrato 00316039 (800UU00000agLheYAE) parece elegible para orden AC pero no tiene ninguna activa
+17:56:04.85 (541007758)|USER_DEBUG|[54]|DEBUG|  - REVISAR: Contrato 00317859 (800UU00000iZaU4YAK) parece elegible para orden AC pero no tiene ninguna activa
+17:56:04.85 (541012118)|USER_DEBUG|[54]|DEBUG|  - REVISAR: Contrato 00318071 (800UU00000jem8vYAA) parece elegible para orden AC pero no tiene ninguna activa
+17:56:04.85 (541016548)|USER_DEBUG|[54]|DEBUG|  - REVISAR: Contrato 00318436 (800UU00000l1IfmYAE) parece elegible para orden AC pero no tiene ninguna activa
+17:56:04.85 (541020758)|USER_DEBUG|[54]|DEBUG|  - REVISAR: Contrato 00318496 (800UU00000lDXspYAG) parece elegible para orden AC pero no tiene ninguna activa
+17:56:04.85 (541024888)|USER_DEBUG|[54]|DEBUG|  - REVISAR: Contrato 00317137 (800UU00000fL9yNYAS) parece elegible para orden AC pero no tiene ninguna activa
+17:56:04.85 (541029018)|USER_DEBUG|[54]|DEBUG|  - REVISAR: Contrato 00318548 (800UU00000lT6wfYAC) parece elegible para orden AC pero no tiene ninguna activa
+17:56:04.85 (541033168)|USER_DEBUG|[54]|DEBUG|  - REVISAR: Contrato 00317670 (800UU00000hgAiHYAU) parece elegible para orden AC pero no tiene ninguna activa
+17:56:04.85 (541037338)|USER_DEBUG|[54]|DEBUG|  - REVISAR: Contrato 00317972 (800UU00000j9Y78YAE) parece elegible para orden AC pero no tiene ninguna activa
+17:56:04.85 (541041538)|USER_DEBUG|[54]|DEBUG|  - REVISAR: Contrato 00317862 (800UU00000ib7apYAA) parece elegible para orden AC pero no tiene ninguna activa
+17:56:04.85 (541054068)|USER_DEBUG|[54]|DEBUG|  - REVISAR: Contrato 00318061 (800UU00000jcCMWYA2) parece elegible para orden AC pero no tiene ninguna activa
+17:56:04.85 (541060518)|USER_DEBUG|[54]|DEBUG|  - REVISAR: Contrato 00258583 (8001U000000WqxkQAC) parece elegible para orden AC pero no tiene ninguna activa
+17:56:04.85 (541064818)|USER_DEBUG|[54]|DEBUG|  - REVISAR: Contrato 00318145 (800UU00000jzUXEYA2) parece elegible para orden AC pero no tiene ninguna activa
+17:56:04.85 (541068888)|USER_DEBUG|[54]|DEBUG|  - REVISAR: Contrato 00316814 (800UU00000dzoj3YAA) parece elegible para orden AC pero no tiene ninguna activa
+17:56:04.85 (541073068)|USER_DEBUG|[54]|DEBUG|  - REVISAR: Contrato 00318445 (800UU00000l25GhYAI) parece elegible para orden AC pero no tiene ninguna activa
+17:56:04.85 (541077348)|USER_DEBUG|[54]|DEBUG|  - REVISAR: Contrato 00318417 (800UU00000kvY46YAE) parece elegible para orden AC pero no tiene ninguna activa
+17:56:04.85 (541081368)|USER_DEBUG|[54]|DEBUG|  - REVISAR: Contrato 00317571 (800UU00000hBtRrYAK) parece elegible para orden AC pero no tiene ninguna activa
+17:56:04.85 (541085148)|USER_DEBUG|[54]|DEBUG|  - REVISAR: Contrato 00318374 (800UU00000kmL4bYAE) parece elegible para orden AC pero no tiene ninguna activa
+17:56:04.85 (541089168)|USER_DEBUG|[54]|DEBUG|  - REVISAR: Contrato 00318432 (800UU00000l16GQYAY) parece elegible para orden AC pero no tiene ninguna activa
+17:56:04.85 (541093069)|USER_DEBUG|[54]|DEBUG|  - REVISAR: Contrato 00316366 (800UU00000bzgbJYAQ) parece elegible para orden AC pero no tiene ninguna activa
+17:56:04.85 (541097089)|USER_DEBUG|[54]|DEBUG|  - REVISAR: Contrato 00318082 (800UU00000jhdx5YAA) parece elegible para orden AC pero no tiene ninguna activa
+17:56:04.85 (541101049)|USER_DEBUG|[54]|DEBUG|  - REVISAR: Contrato 00318433 (800UU00000l1CyYYAU) parece elegible para orden AC pero no tiene ninguna activa
+17:56:04.85 (541104849)|USER_DEBUG|[54]|DEBUG|  - REVISAR: Contrato 00318619 (800UU00000liV3lYAE) parece elegible para orden AC pero no tiene ninguna activa
+17:56:04.85 (541108619)|USER_DEBUG|[54]|DEBUG|  - REVISAR: Contrato 00318087 (800UU00000jhmXRYAY) parece elegible para orden AC pero no tiene ninguna activa
+17:56:04.85 (541112429)|USER_DEBUG|[54]|DEBUG|  - REVISAR: Contrato 00318084 (800UU00000jhQwdYAE) parece elegible para orden AC pero no tiene ninguna activa
+17:56:04.85 (541116309)|USER_DEBUG|[54]|DEBUG|  - REVISAR: Contrato 00314834 (800UU00000Q4dv8YAB) parece elegible para orden AC pero no tiene ninguna activa
+17:56:04.85 (541120389)|USER_DEBUG|[54]|DEBUG|  - REVISAR: Contrato 00313777 (800UU00000HAX4AYAX) parece elegible para orden AC pero no tiene ninguna activa
+17:56:04.85 (541124309)|USER_DEBUG|[54]|DEBUG|  - REVISAR: Contrato 00318025 (800UU00000jR5GHYA0) parece elegible para orden AC pero no tiene ninguna activa
+17:56:04.85 (541128129)|USER_DEBUG|[54]|DEBUG|  - REVISAR: Contrato 00316240 (800UU00000bOTRlYAO) parece elegible para orden AC pero no tiene ninguna activa
+17:56:04.85 (541131919)|USER_DEBUG|[54]|DEBUG|  - REVISAR: Contrato 00317996 (800UU00000jK1vmYAC) parece elegible para orden AC pero no tiene ninguna activa
+17:56:04.85 (541135989)|USER_DEBUG|[54]|DEBUG|  - REVISAR: Contrato 00318430 (800UU00000l0qhxYAA) parece elegible para orden AC pero no tiene ninguna activa
+17:56:04.85 (541139949)|USER_DEBUG|[54]|DEBUG|  - REVISAR: Contrato 00312122 (8008W0000053pU5QAI) parece elegible para orden AC pero no tiene ninguna activa
+17:56:04.85 (541143759)|USER_DEBUG|[54]|DEBUG|  - REVISAR: Contrato 00318494 (800UU00000lDGolYAG) parece elegible para orden AC pero no tiene ninguna activa
+17:56:04.85 (541147919)|USER_DEBUG|[54]|DEBUG|  - REVISAR: Contrato 00318290 (800UU00000kVaHkYAK) parece elegible para orden AC pero no tiene ninguna activa
+17:56:04.85 (541151819)|USER_DEBUG|[54]|DEBUG|  - REVISAR: Contrato 00317998 (800UU00000jK1z5YAC) parece elegible para orden AC pero no tiene ninguna activa
+17:56:04.85 (541155609)|USER_DEBUG|[54]|DEBUG|  - REVISAR: Contrato 00318455 (800UU00000l4Zx1YAE) parece elegible para orden AC pero no tiene ninguna activa
+17:56:04.85 (541159489)|USER_DEBUG|[54]|DEBUG|  - REVISAR: Contrato 00314465 (800UU00000MfkqIYAR) parece elegible para orden AC pero no tiene ninguna activa
+17:56:04.85 (541163439)|USER_DEBUG|[54]|DEBUG|  - REVISAR: Contrato 00317969 (800UU00000j7iQcYAI) parece elegible para orden AC pero no tiene ninguna activa
+17:56:04.85 (541167429)|USER_DEBUG|[54]|DEBUG|  - REVISAR: Contrato 00316097 (800UU00000aqOWKYA2) parece elegible para orden AC pero no tiene ninguna activa
+17:56:04.85 (541171399)|USER_DEBUG|[54]|DEBUG|  - REVISAR: Contrato 00317801 (800UU00000iO0QhYAK) parece elegible para orden AC pero no tiene ninguna activa
+17:56:04.85 (541175309)|USER_DEBUG|[54]|DEBUG|  - REVISAR: Contrato 00318104 (800UU00000jnFwsYAE) parece elegible para orden AC pero no tiene ninguna activa
+17:56:04.85 (541179510)|USER_DEBUG|[54]|DEBUG|  - REVISAR: Contrato 00309389 (8008W000002Ocp3QAC) parece elegible para orden AC pero no tiene ninguna activa
+17:56:04.85 (541183500)|USER_DEBUG|[54]|DEBUG|  - REVISAR: Contrato 00317663 (800UU00000he0tSYAQ) parece elegible para orden AC pero no tiene ninguna activa
+17:56:04.85 (541187420)|USER_DEBUG|[54]|DEBUG|  - REVISAR: Contrato 00318469 (800UU00000l7AkOYAU) parece elegible para orden AC pero no tiene ninguna activa
+17:56:04.85 (541191510)|USER_DEBUG|[54]|DEBUG|  - REVISAR: Contrato 00311627 (8008W0000028jF9QAI) parece elegible para orden AC pero no tiene ninguna activa
+17:56:04.85 (541195410)|USER_DEBUG|[54]|DEBUG|  - REVISAR: Contrato 00315237 (800UU00000V5UBiYAN) parece elegible para orden AC pero no tiene ninguna activa
+17:56:04.85 (541199280)|USER_DEBUG|[54]|DEBUG|  - REVISAR: Contrato 00316562 (800UU00000coqC6YAI) parece elegible para orden AC pero no tiene ninguna activa
+17:56:04.85 (541203530)|USER_DEBUG|[54]|DEBUG|  - REVISAR: Contrato 00317042 (800UU00000eq59UYAQ) parece elegible para orden AC pero no tiene ninguna activa
+17:56:04.85 (541207680)|USER_DEBUG|[54]|DEBUG|  - REVISAR: Contrato 00315329 (800UU00000W9rQrYAJ) parece elegible para orden AC pero no tiene ninguna activa
+17:56:04.85 (541211650)|USER_DEBUG|[54]|DEBUG|  - REVISAR: Contrato 00318463 (800UU00000l5T9fYAE) parece elegible para orden AC pero no tiene ninguna activa
+17:56:04.85 (541215880)|USER_DEBUG|[54]|DEBUG|  - REVISAR: Contrato 00317809 (800UU00000iRK9RYAW) parece elegible para orden AC pero no tiene ninguna activa
+17:56:04.85 (541219940)|USER_DEBUG|[54]|DEBUG|  - REVISAR: Contrato 00316771 (800UU00000dpZjhYAE) parece elegible para orden AC pero no tiene ninguna activa
+17:56:04.85 (541223830)|USER_DEBUG|[54]|DEBUG|  - REVISAR: Contrato 00312114 (8008W0000053VJ3QAM) parece elegible para orden AC pero no tiene ninguna activa
+17:56:04.85 (541227660)|USER_DEBUG|[54]|DEBUG|  - REVISAR: Contrato 00318473 (800UU00000l7K71YAE) parece elegible para orden AC pero no tiene ninguna activa
+17:56:04.85 (541231460)|USER_DEBUG|[54]|DEBUG|  - REVISAR: Contrato 00318096 (800UU00000jkcRrYAI) parece elegible para orden AC pero no tiene ninguna activa
+17:56:04.85 (541235500)|USER_DEBUG|[54]|DEBUG|  - REVISAR: Contrato 00316242 (800UU00000bOSdpYAG) parece elegible para orden AC pero no tiene ninguna activa
+17:56:04.85 (541239630)|USER_DEBUG|[54]|DEBUG|  - REVISAR: Contrato 00317951 (800UU00000j118JYAQ) parece elegible para orden AC pero no tiene ninguna activa
+17:56:04.85 (541243620)|USER_DEBUG|[54]|DEBUG|  - REVISAR: Contrato 00315146 (800UU00000TmruBYAR) parece elegible para orden AC pero no tiene ninguna activa
+17:56:04.85 (541247590)|USER_DEBUG|[54]|DEBUG|  - REVISAR: Contrato 00318481 (800UU00000l8iIfYAI) parece elegible para orden AC pero no tiene ninguna activa
+17:56:04.85 (541251410)|USER_DEBUG|[54]|DEBUG|  - REVISAR: Contrato 00246052 (8001U000000WnhbQAC) parece elegible para orden AC pero no tiene ninguna activa
+17:56:04.85 (541255850)|USER_DEBUG|[54]|DEBUG|  - REVISAR: Contrato 00318622 (800UU00000lkANtYAM) parece elegible para orden AC pero no tiene ninguna activa
+17:56:04.85 (541259820)|USER_DEBUG|[54]|DEBUG|  - REVISAR: Contrato 00318013 (800UU00000jNYaHYAW) parece elegible para orden AC pero no tiene ninguna activa
+17:56:04.85 (541263920)|USER_DEBUG|[54]|DEBUG|  - REVISAR: Contrato 00315423 (800UU00000Wtp5wYAB) parece elegible para orden AC pero no tiene ninguna activa
+17:56:04.85 (541268001)|USER_DEBUG|[54]|DEBUG|  - REVISAR: Contrato 00317617 (800UU00000hLoykYAC) parece elegible para orden AC pero no tiene ninguna activa
+17:56:04.85 (541271821)|USER_DEBUG|[54]|DEBUG|  - REVISAR: Contrato 00318624 (800UU00000lk5zMYAQ) parece elegible para orden AC pero no tiene ninguna activa
+17:56:04.85 (541275741)|USER_DEBUG|[54]|DEBUG|  - REVISAR: Contrato 00318075 (800UU00000jem4EYAQ) parece elegible para orden AC pero no tiene ninguna activa
+17:56:04.85 (541279731)|USER_DEBUG|[54]|DEBUG|  - REVISAR: Contrato 00318086 (800UU00000jhuOQYAY) parece elegible para orden AC pero no tiene ninguna activa
+17:56:04.85 (541283981)|USER_DEBUG|[54]|DEBUG|  - REVISAR: Contrato 00317805 (800UU00000iP4aFYAS) parece elegible para orden AC pero no tiene ninguna activa
+17:56:04.85 (541288041)|USER_DEBUG|[54]|DEBUG|  - REVISAR: Contrato 00318224 (800UU00000kGwX1YAK) parece elegible para orden AC pero no tiene ninguna activa
+17:56:04.85 (541291821)|USER_DEBUG|[54]|DEBUG|  - REVISAR: Contrato 00316962 (800UU00000eVggiYAC) parece elegible para orden AC pero no tiene ninguna activa
+17:56:04.85 (541295891)|USER_DEBUG|[54]|DEBUG|  - REVISAR: Contrato 00318005 (800UU00000jMkVQYA0) parece elegible para orden AC pero no tiene ninguna activa
+17:56:04.85 (541310541)|USER_DEBUG|[54]|DEBUG|  - REVISAR: Contrato 00316870 (800UU00000eC0bfYAC) parece elegible para orden AC pero no tiene ninguna activa
+17:56:04.85 (541314961)|USER_DEBUG|[54]|DEBUG|  - REVISAR: Contrato 00318069 (800UU00000jegGOYAY) parece elegible para orden AC pero no tiene ninguna activa
+17:56:04.85 (541318791)|USER_DEBUG|[54]|DEBUG|  - REVISAR: Contrato 00315051 (800UU00000SJonTYAT) parece elegible para orden AC pero no tiene ninguna activa
+17:56:04.85 (541323211)|USER_DEBUG|[54]|DEBUG|  - REVISAR: Contrato 00318369 (800UU00000kkekoYAA) parece elegible para orden AC pero no tiene ninguna activa
+17:56:04.85 (541327081)|USER_DEBUG|[54]|DEBUG|  - REVISAR: Contrato 00309018 (8008W000002NU45QAG) parece elegible para orden AC pero no tiene ninguna activa
+17:56:04.85 (541331171)|USER_DEBUG|[54]|DEBUG|  - REVISAR: Contrato 00316625 (800UU00000d5ciyYAA) parece elegible para orden AC pero no tiene ninguna activa
+17:56:04.85 (541335261)|USER_DEBUG|[54]|DEBUG|  - REVISAR: Contrato 00311941 (8008W000000GxHLQA0) parece elegible para orden AC pero no tiene ninguna activa
+17:56:04.85 (541339141)|USER_DEBUG|[54]|DEBUG|  - REVISAR: Contrato 00318543 (800UU00000lRXEcYAO) parece elegible para orden AC pero no tiene ninguna activa
+17:56:04.85 (541342911)|USER_DEBUG|[54]|DEBUG|  - REVISAR: Contrato 00317964 (800UU00000j6Lz9YAE) parece elegible para orden AC pero no tiene ninguna activa
+17:56:04.85 (541347371)|USER_DEBUG|[54]|DEBUG|  - REVISAR: Contrato 00311713 (8008W0000029MVIQA2) parece elegible para orden AC pero no tiene ninguna activa
+17:56:04.85 (541351691)|USER_DEBUG|[54]|DEBUG|  - REVISAR: Contrato 00317118 (800UU00000fEU0IYAW) parece elegible para orden AC pero no tiene ninguna activa
+17:56:04.85 (541413522)|USER_DEBUG|[54]|DEBUG|  - REVISAR: Contrato 00317186 (800UU00000fZU3hYAG) parece elegible para orden AC pero no tiene ninguna activa
+17:56:04.85 (541418142)|USER_DEBUG|[54]|DEBUG|  - REVISAR: Contrato 00315646 (800UU00000YxeXMYAZ) parece elegible para orden AC pero no tiene ninguna activa
+17:56:04.85 (541422272)|USER_DEBUG|[54]|DEBUG|  - REVISAR: Contrato 00318023 (800UU00000jQizdYAC) parece elegible para orden AC pero no tiene ninguna activa
+17:56:04.85 (541426362)|USER_DEBUG|[54]|DEBUG|  - REVISAR: Contrato 00301055 (8001U000000X21AQAS) parece elegible para orden AC pero no tiene ninguna activa
+17:56:04.85 (541430492)|USER_DEBUG|[54]|DEBUG|  - REVISAR: Contrato 00314155 (800UU00000JlRhmYAF) parece elegible para orden AC pero no tiene ninguna activa
+17:56:04.85 (541434782)|USER_DEBUG|[54]|DEBUG|  - REVISAR: Contrato 00318089 (800UU00000ji8fwYAA) parece elegible para orden AC pero no tiene ninguna activa
+17:56:04.85 (541439412)|USER_DEBUG|[54]|DEBUG|  - REVISAR: Contrato 00318355 (800UU00000kjGJ6YAM) parece elegible para orden AC pero no tiene ninguna activa
+17:56:04.85 (541443393)|USER_DEBUG|[54]|DEBUG|  - REVISAR: Contrato 00318130 (800UU00000jwcMPYAY) parece elegible para orden AC pero no tiene ninguna activa
+17:56:04.85 (541447553)|USER_DEBUG|[54]|DEBUG|  - REVISAR: Contrato 00316450 (800UU00000cMo3fYAC) parece elegible para orden AC pero no tiene ninguna activa
+17:56:04.85 (541451913)|USER_DEBUG|[54]|DEBUG|  - REVISAR: Contrato 00316666 (800UU00000dQB9aYAG) parece elegible para orden AC pero no tiene ninguna activa
+17:56:04.85 (541455963)|USER_DEBUG|[54]|DEBUG|  - REVISAR: Contrato 00317958 (800UU00000j3xMbYAI) parece elegible para orden AC pero no tiene ninguna activa
+17:56:04.85 (541459783)|USER_DEBUG|[54]|DEBUG|  - REVISAR: Contrato 00316575 (800UU00000crVcYYAU) parece elegible para orden AC pero no tiene ninguna activa
+17:56:04.85 (541463693)|USER_DEBUG|[54]|DEBUG|  - REVISAR: Contrato 00318372 (800UU00000km2DCYAY) parece elegible para orden AC pero no tiene ninguna activa
+17:56:04.85 (541467483)|USER_DEBUG|[54]|DEBUG|  - REVISAR: Contrato 00314997 (800UU00000RI5g7YAD) parece elegible para orden AC pero no tiene ninguna activa
+17:56:04.85 (541471323)|USER_DEBUG|[54]|DEBUG|  - REVISAR: Contrato 00318017 (800UU00000jNrTNYA0) parece elegible para orden AC pero no tiene ninguna activa
+17:56:04.85 (541475183)|USER_DEBUG|[54]|DEBUG|  - REVISAR: Contrato 00318074 (800UU00000jfG29YAE) parece elegible para orden AC pero no tiene ninguna activa
+17:56:04.85 (541479083)|USER_DEBUG|[54]|DEBUG|  - REVISAR: Contrato 00317820 (800UU00000iSdY9YAK) parece elegible para orden AC pero no tiene ninguna activa
+17:56:04.85 (541483173)|USER_DEBUG|[54]|DEBUG|  - REVISAR: Contrato 00313104 (800UU000006Rq2IYAS) parece elegible para orden AC pero no tiene ninguna activa
+17:56:04.85 (541487433)|USER_DEBUG|[54]|DEBUG|  - REVISAR: Contrato 00314459 (800UU00000Mc0P0YAJ) parece elegible para orden AC pero no tiene ninguna activa
+17:56:04.85 (541491363)|USER_DEBUG|[54]|DEBUG|  - REVISAR: Contrato 00316165 (800UU00000b3PmHYAU) parece elegible para orden AC pero no tiene ninguna activa
+17:56:04.85 (541495443)|USER_DEBUG|[54]|DEBUG|  - REVISAR: Contrato 00317914 (800UU00000iqIxGYAU) parece elegible para orden AC pero no tiene ninguna activa
+17:56:04.85 (541499783)|USER_DEBUG|[54]|DEBUG|  - REVISAR: Contrato 00313500 (800UU000009RxVAYA0) parece elegible para orden AC pero no tiene ninguna activa
+17:56:04.85 (541503903)|USER_DEBUG|[54]|DEBUG|  - REVISAR: Contrato 00318073 (800UU00000jekVNYAY) parece elegible para orden AC pero no tiene ninguna activa
+17:56:04.85 (541511003)|USER_DEBUG|[56]|DEBUG|=======================================================
+17:56:04.541 (541590394)|CUMULATIVE_LIMIT_USAGE
+17:56:04.541 (541590394)|LIMIT_USAGE_FOR_NS|(default)|
+  Number of SOQL queries: 4 out of 100
+  Number of query rows: 395 out of 50000
+  Number of SOSL queries: 0 out of 20
+  Number of DML statements: 0 out of 150
+  Number of Publish Immediate DML: 0 out of 150
+  Number of DML rows: 0 out of 10000
+  Maximum CPU time: 0 out of 10000
+  Maximum heap size: 0 out of 6000000
+  Number of callouts: 0 out of 100
+  Number of Email Invocations: 0 out of 10
+  Number of future calls: 0 out of 50
+  Number of queueable jobs added to the queue: 0 out of 50
+  Number of Mobile Apex push calls: 0 out of 10
+
+17:56:04.541 (541590394)|CUMULATIVE_LIMIT_USAGE_END
+
+17:56:04.85 (541665535)|CODE_UNIT_FINISHED|execute_anonymous_apex
+17:56:04.85 (541676915)|EXECUTION_FINISHED
+

@@ -1,0 +1,91 @@
+ »   Warning: @salesforce/cli update available from 2.149.9 to 2.150.6.
+Compiled successfully.
+Executed successfully.
+
+67.0 APEX_CODE,DEBUG;APEX_PROFILING,INFO
+Execute Anonymous: DateTime since = DateTime.now().addHours(-24);
+Execute Anonymous: 
+Execute Anonymous: List<Contract> activatedToday = [
+Execute Anonymous:     SELECT Id, ContractNumber, Status, SM_Payment_methods__c, CB_Subscription__c,
+Execute Anonymous:            SM_AC_collected__c, SM_Net_AC__c, SM_Net_Monthly_offer__c, StartDate,
+Execute Anonymous:            (SELECT Id, SM_Payment_Type__c FROM ACH_Orders__r WHERE SM_Payment_Type__c = 'Subscription')
+Execute Anonymous:     FROM Contract
+Execute Anonymous:     WHERE Status = 'Activated' AND StartDate = TODAY
+Execute Anonymous: ];
+Execute Anonymous: 
+Execute Anonymous: List<Contract> recentContracts = [
+Execute Anonymous:     SELECT Id, ContractNumber, Status, SM_Requires_AC_Payment__c, SM_Requires_RC_Payment__c,
+Execute Anonymous:            SM_AC_collected__c, SM_Payment_methods__c, CB_Subscription__c,
+Execute Anonymous:            Is_Test_Contract__c, Is_VIP_Contract__c, SM_Customer_Cancellation__c,
+Execute Anonymous:            Contract_Type__c, SM_Full_Payment__c, SM_Total_ac__c, SM_AC_start_date__c,
+Execute Anonymous:            SM_AC_Split_Date__c
+Execute Anonymous:     FROM Contract
+Execute Anonymous:     WHERE SM_Payment_methods__c = 'ACH'
+Execute Anonymous:       AND Status IN ('Payment Process', 'Activated')
+Execute Anonymous:       AND (LastModifiedDate >= :since OR CreatedDate >= :since)
+Execute Anonymous: ];
+Execute Anonymous: 
+Execute Anonymous: Set<Id> contractIds = new Set<Id>();
+Execute Anonymous: for (Contract c : recentContracts) { contractIds.add(c.Id); }
+Execute Anonymous: 
+Execute Anonymous: Integer newOrdersCount = [SELECT COUNT() FROM SM_ACH_Order__c WHERE CreatedDate >= :since];
+Execute Anonymous: 
+Execute Anonymous: List<SM_ACH_Order__c> activeOrders = contractIds.isEmpty() ? new List<SM_ACH_Order__c>() : [
+Execute Anonymous:     SELECT Id, SM_Contract__c, SM_Payment_Type__c
+Execute Anonymous:     FROM SM_ACH_Order__c
+Execute Anonymous:     WHERE SM_Contract__c IN :contractIds
+Execute Anonymous:     AND SM_Payment_Status__c NOT IN ('Completed', 'Canceled')
+Execute Anonymous: ];
+Execute Anonymous: 
+Execute Anonymous: Set<Id> contractsWithAnyAcOrder = new Set<Id>();
+Execute Anonymous: if (!contractIds.isEmpty()) {
+Execute Anonymous:     for (SM_ACH_Order__c o : [SELECT SM_Contract__c FROM SM_ACH_Order__c WHERE SM_Contract__c IN :contractIds AND SM_Payment_Type__c = 'AC']) {
+Execute Anonymous:         contractsWithAnyAcOrder.add(o.SM_Contract__c);
+Execute Anonymous:     }
+Execute Anonymous: }
+Execute Anonymous: 
+Execute Anonymous: List<String> anomalies = SM_ACH_Flow_Monitor.buildAnomalies(recentContracts, activeOrders, contractsWithAnyAcOrder);
+Execute Anonymous: for (Contract c : activatedToday) {
+Execute Anonymous:     if (c.SM_Payment_methods__c == 'ACH' && c.ACH_Orders__r.isEmpty()) {
+Execute Anonymous:         anomalies.add('ALERTA: Contrato ' + c.ContractNumber + ' se activo por ACH pero no tiene Subscription Order');
+Execute Anonymous:     }
+Execute Anonymous: }
+Execute Anonymous: 
+Execute Anonymous: System.debug('=======================================================');
+Execute Anonymous: System.debug('ANOMALIAS CON EL FIX (' + anomalies.size() + '):');
+Execute Anonymous: for (String a : anomalies) {
+Execute Anonymous:     System.debug('  - ' + a);
+Execute Anonymous: }
+Execute Anonymous: System.debug('=======================================================');
+18:04:18.120 (120649972)|USER_INFO|[EXTERNAL]|0051U000007bbx5|clopez@legal-credit.com|(GMT+02:00) Central European Summer Time (Europe/Madrid)|GMT+02:00
+18:04:18.120 (120682762)|EXECUTION_STARTED
+18:04:18.120 (120700872)|CODE_UNIT_STARTED|[EXTERNAL]|execute_anonymous_apex
+18:04:18.120 (282008574)|USER_DEBUG|[49]|DEBUG|=======================================================
+18:04:18.120 (282039384)|USER_DEBUG|[50]|DEBUG|ANOMALIAS CON EL FIX (5):
+18:04:18.120 (282056604)|USER_DEBUG|[52]|DEBUG|  - REVISAR: Contrato 00258583 (8001U000000WqxkQAC) parece elegible para orden AC pero no tiene ninguna activa
+18:04:18.120 (282062134)|USER_DEBUG|[52]|DEBUG|  - REVISAR: Contrato 00246052 (8001U000000WnhbQAC) parece elegible para orden AC pero no tiene ninguna activa
+18:04:18.120 (282066664)|USER_DEBUG|[52]|DEBUG|  - REVISAR: Contrato 00311941 (8008W000000GxHLQA0) parece elegible para orden AC pero no tiene ninguna activa
+18:04:18.120 (282070944)|USER_DEBUG|[52]|DEBUG|  - REVISAR: Contrato 00301055 (8001U000000X21AQAS) parece elegible para orden AC pero no tiene ninguna activa
+18:04:18.120 (282075414)|USER_DEBUG|[52]|DEBUG|  - REVISAR: Contrato 00314459 (800UU00000Mc0P0YAJ) parece elegible para orden AC pero no tiene ninguna activa
+18:04:18.120 (282080584)|USER_DEBUG|[54]|DEBUG|=======================================================
+18:04:18.282 (282152375)|CUMULATIVE_LIMIT_USAGE
+18:04:18.282 (282152375)|LIMIT_USAGE_FOR_NS|(default)|
+  Number of SOQL queries: 5 out of 100
+  Number of query rows: 547 out of 50000
+  Number of SOSL queries: 0 out of 20
+  Number of DML statements: 0 out of 150
+  Number of Publish Immediate DML: 0 out of 150
+  Number of DML rows: 0 out of 10000
+  Maximum CPU time: 0 out of 10000
+  Maximum heap size: 0 out of 6000000
+  Number of callouts: 0 out of 100
+  Number of Email Invocations: 0 out of 10
+  Number of future calls: 0 out of 50
+  Number of queueable jobs added to the queue: 0 out of 50
+  Number of Mobile Apex push calls: 0 out of 10
+
+18:04:18.282 (282152375)|CUMULATIVE_LIMIT_USAGE_END
+
+18:04:18.120 (282214545)|CODE_UNIT_FINISHED|execute_anonymous_apex
+18:04:18.120 (282225525)|EXECUTION_FINISHED
+

@@ -41,7 +41,7 @@ private class SM_ACH_Flow_MonitorTest {
         SM_ACH_Order__c order = new SM_ACH_Order__c(SM_Contract__c = fakeContractId, SM_Payment_Type__c = 'AC');
 
         List<String> anomalies = SM_ACH_Flow_Monitor.buildAnomalies(
-            new List<Contract>{ c }, new List<SM_ACH_Order__c>{ order }
+            new List<Contract>{ c }, new List<SM_ACH_Order__c>{ order }, new Set<Id>()
         );
         System.assertEquals(0, anomalies.size());
     }
@@ -52,10 +52,24 @@ private class SM_ACH_Flow_MonitorTest {
         Contract c = fakeContract(fakeContractId, '00000002', 100, null);
 
         List<String> anomalies = SM_ACH_Flow_Monitor.buildAnomalies(
-            new List<Contract>{ c }, new List<SM_ACH_Order__c>()
+            new List<Contract>{ c }, new List<SM_ACH_Order__c>(), new Set<Id>()
         );
         System.assert(anomalies.size() > 0);
         System.assert(anomalies[0].contains('REVISAR'));
+    }
+
+    // calp 2026-09-21 :: reproduce el falso positivo real del correo del 2026-09-21 -- un
+    // contrato cuya orden AC ya esta 'Completed' (por eso no aparece en activeOrders, que
+    // excluye Completed/Canceled a proposito) NO debe reportarse como "sin orden".
+    @isTest
+    static void testBuildAnomalies_completedOrderNotFalsePositive() {
+        Id fakeContractId = (Id) '800000000000007';
+        Contract c = fakeContract(fakeContractId, '00000007', 100, null);
+
+        List<String> anomalies = SM_ACH_Flow_Monitor.buildAnomalies(
+            new List<Contract>{ c }, new List<SM_ACH_Order__c>(), new Set<Id>{ fakeContractId }
+        );
+        System.assertEquals(0, anomalies.size());
     }
 
     // Truco estandar de Apex para poblar una subquery (relacion hija, ej. ACH_Orders__r) en un
@@ -125,7 +139,7 @@ private class SM_ACH_Flow_MonitorTest {
             new SM_ACH_Order__c(SM_Contract__c = fakeContractId, SM_Payment_Type__c = 'Subscription')
         };
 
-        List<String> anomalies = SM_ACH_Flow_Monitor.buildAnomalies(new List<Contract>{ c }, orders);
+        List<String> anomalies = SM_ACH_Flow_Monitor.buildAnomalies(new List<Contract>{ c }, orders, new Set<Id>());
         System.assertEquals(2, anomalies.size());
     }
 }

@@ -22,6 +22,10 @@ public class SM_ACH_Flow_Monitor implements Schedulable {
             WHERE Status = 'Activated' AND StartDate = TODAY
         ];
 
+        // calp 2026-09-21 :: el requerimiento real es "contratos CREADOS en las ultimas 24h", no
+        // "tocados" -- con LastModifiedDate cualquier proceso ajeno (un backfill, una automatizacion
+        // de otro tipo) que rozara un contrato viejo lo metia al chequeo sin que fuera relevante
+        // para validar la creacion de ordenes de contratos nuevos.
         List<Contract> recentContracts = [
             SELECT Id, ContractNumber, Status, SM_Requires_AC_Payment__c, SM_Requires_RC_Payment__c,
                    SM_AC_collected__c, SM_Payment_methods__c, CB_Subscription__c,
@@ -31,7 +35,7 @@ public class SM_ACH_Flow_Monitor implements Schedulable {
             FROM Contract
             WHERE SM_Payment_methods__c = 'ACH'
               AND Status IN ('Payment Process', 'Activated')
-              AND (LastModifiedDate >= :since OR CreatedDate >= :since)
+              AND CreatedDate >= :since
         ];
 
         Set<Id> contractIds = new Set<Id>();
@@ -50,7 +54,23 @@ public class SM_ACH_Flow_Monitor implements Schedulable {
             AND SM_Payment_Status__c NOT IN ('Completed', 'Canceled')
         ];
 
-        List<String> anomalies = buildAnomalies(recentContracts, activeOrders);
+        // calp 2026-09-21 :: 'Completed' es el estado final EXITOSO de una orden AC (el AC ya se
+        // cobro) -- no debe contar como "orden faltante" solo porque activeOrders la excluye a
+        // proposito (esa exclusion es correcta para el chequeo de duplicados, no para este). Sin
+        // esto, cualquier contrato con el AC ya cobrado y cerrado aparecia como falso positivo
+        // "elegible pero sin orden activa" -- 136 de 140 anomalias del correo del 2026-09-21 eran
+        // justo esto, 132 de ellas con SM_AC_collected__c=true confirmando que si se habia cobrado.
+        Set<Id> contractsWithAnyAcOrder = new Set<Id>();
+        if (!contractIds.isEmpty()) {
+            for (SM_ACH_Order__c o : [
+                    SELECT SM_Contract__c FROM SM_ACH_Order__c
+                    WHERE SM_Contract__c IN :contractIds AND SM_Payment_Type__c = 'AC'
+            ]) {
+                contractsWithAnyAcOrder.add(o.SM_Contract__c);
+            }
+        }
+
+        List<String> anomalies = buildAnomalies(recentContracts, activeOrders, contractsWithAnyAcOrder);
         // Un contrato ACH activado sin su Subscription Order es la misma clase de bug que se
         // corrigio 2026-09-12 (CONTRACT_Create_ACH_Subscription_Order) - si vuelve a pasar,
         // que se vea como anomalia y dispare el [REVISAR] del asunto, no que se pierda en la lista.
@@ -69,7 +89,7 @@ public class SM_ACH_Flow_Monitor implements Schedulable {
      * (el insert dispara SM_ACHOrderHandler, que en contexto de test choca con un
      * bug preexistente y no relacionado en SM_BypassManager/SM_Bypasser__c).
      */
-    public static List<String> buildAnomalies(List<Contract> recentContracts, List<SM_ACH_Order__c> activeOrders) {
+    public static List<String> buildAnomalies(List<Contract> recentContracts, List<SM_ACH_Order__c> activeOrders, Set<Id> contractsWithAnyAcOrder) {
         Map<Id, Integer> acCountByContract = new Map<Id, Integer>();
         Map<Id, Integer> subCountByContract = new Map<Id, Integer>();
         for (SM_ACH_Order__c o : activeOrders) {
@@ -101,7 +121,7 @@ public class SM_ACH_Flow_Monitor implements Schedulable {
                 && c.SM_Customer_Cancellation__c == false && c.SM_Full_Payment__c == false
                 && c.Contract_Type__c != 'Dependent' && c.CB_Subscription__c == null
                 && c.SM_Total_ac__c != null && c.SM_AC_start_date__c != null;
-            if (eligibleForAC && acCount == 0) {
+            if (eligibleForAC && acCount == 0 && !contractsWithAnyAcOrder.contains(c.Id)) {
                 anomalies.add('REVISAR: Contrato ' + c.ContractNumber + ' (' + c.Id + ') parece elegible para orden AC pero no tiene ninguna activa');
             }
         }

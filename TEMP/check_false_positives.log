@@ -1,0 +1,108 @@
+ »   Warning: @salesforce/cli update available from 2.149.9 to 2.150.6.
+Compiled successfully.
+Executed successfully.
+
+67.0 APEX_CODE,DEBUG;APEX_PROFILING,INFO
+Execute Anonymous: DateTime since = DateTime.now().addHours(-24);
+Execute Anonymous: List<Contract> recentContracts = [
+Execute Anonymous:     SELECT Id, ContractNumber, SM_Requires_AC_Payment__c, SM_AC_collected__c,
+Execute Anonymous:            Is_Test_Contract__c, Is_VIP_Contract__c, SM_Customer_Cancellation__c,
+Execute Anonymous:            Contract_Type__c, SM_Full_Payment__c, SM_Total_ac__c, SM_AC_start_date__c,
+Execute Anonymous:            SM_AC_Split_Date__c
+Execute Anonymous:     FROM Contract
+Execute Anonymous:     WHERE SM_Payment_methods__c = 'ACH'
+Execute Anonymous:       AND Status IN ('Payment Process', 'Activated')
+Execute Anonymous:       AND (LastModifiedDate >= :since OR CreatedDate >= :since)
+Execute Anonymous: ];
+Execute Anonymous: Set<Id> contractIds = new Set<Id>();
+Execute Anonymous: for (Contract c : recentContracts) { contractIds.add(c.Id); }
+Execute Anonymous: 
+Execute Anonymous: // TODAS las ordenes AC (cualquier estado), no solo las "activas"
+Execute Anonymous: Map<Id, List<String>> allAcOrdersByContract = new Map<Id, List<String>>();
+Execute Anonymous: for (SM_ACH_Order__c o : [SELECT SM_Contract__c, SM_Payment_Status__c FROM SM_ACH_Order__c
+Execute Anonymous:                           WHERE SM_Contract__c IN :contractIds AND SM_Payment_Type__c = 'AC']) {
+Execute Anonymous:     if (!allAcOrdersByContract.containsKey(o.SM_Contract__c)) {
+Execute Anonymous:         allAcOrdersByContract.put(o.SM_Contract__c, new List<String>());
+Execute Anonymous:     }
+Execute Anonymous:     allAcOrdersByContract.get(o.SM_Contract__c).add(o.SM_Payment_Status__c);
+Execute Anonymous: }
+Execute Anonymous: 
+Execute Anonymous: List<SM_ACH_Order__c> activeOrders = [
+Execute Anonymous:     SELECT Id, SM_Contract__c, SM_Payment_Type__c FROM SM_ACH_Order__c
+Execute Anonymous:     WHERE SM_Contract__c IN :contractIds AND SM_Payment_Status__c NOT IN ('Completed', 'Canceled')
+Execute Anonymous: ];
+Execute Anonymous: Map<Id, Integer> acCountByContract = new Map<Id, Integer>();
+Execute Anonymous: for (SM_ACH_Order__c o : activeOrders) {
+Execute Anonymous:     if (o.SM_Payment_Type__c == 'AC') {
+Execute Anonymous:         acCountByContract.put(o.SM_Contract__c, (acCountByContract.containsKey(o.SM_Contract__c) ? acCountByContract.get(o.SM_Contract__c) : 0) + 1);
+Execute Anonymous:     }
+Execute Anonymous: }
+Execute Anonymous: 
+Execute Anonymous: Integer falsoPositivoCompleted = 0;
+Execute Anonymous: Integer falsoPositivoCollectedTrue = 0;
+Execute Anonymous: Integer genuinamenteSinNinguna = 0;
+Execute Anonymous: Integer otro = 0;
+Execute Anonymous: 
+Execute Anonymous: for (Contract c : recentContracts) {
+Execute Anonymous:     Boolean eligibleForAC = c.SM_Requires_AC_Payment__c == true
+Execute Anonymous:         && c.Is_Test_Contract__c == false && c.Is_VIP_Contract__c == false
+Execute Anonymous:         && c.SM_Customer_Cancellation__c == false && c.SM_Full_Payment__c == false
+Execute Anonymous:         && c.Contract_Type__c != 'Dependent' && c.SM_Total_ac__c != null && c.SM_AC_start_date__c != null;
+Execute Anonymous:     Integer acCount = acCountByContract.containsKey(c.Id) ? acCountByContract.get(c.Id) : 0;
+Execute Anonymous:     if (eligibleForAC && acCount == 0) {
+Execute Anonymous:         List<String> allStatuses = allAcOrdersByContract.get(c.Id);
+Execute Anonymous:         if (allStatuses == null || allStatuses.isEmpty()) {
+Execute Anonymous:             genuinamenteSinNinguna++;
+Execute Anonymous:             System.debug('SIN NINGUNA ORDEN: ' + c.ContractNumber + ' (AC_collected=' + c.SM_AC_collected__c + ')');
+Execute Anonymous:         } else if (allStatuses.contains('Completed')) {
+Execute Anonymous:             falsoPositivoCompleted++;
+Execute Anonymous:         } else {
+Execute Anonymous:             otro++;
+Execute Anonymous:             System.debug('OTRO (ordenes: ' + allStatuses + '): ' + c.ContractNumber);
+Execute Anonymous:         }
+Execute Anonymous:         if (c.SM_AC_collected__c == true) {
+Execute Anonymous:             falsoPositivoCollectedTrue++;
+Execute Anonymous:         }
+Execute Anonymous:     }
+Execute Anonymous: }
+Execute Anonymous: 
+Execute Anonymous: System.debug('=======================================================');
+Execute Anonymous: System.debug('Falso positivo (tiene orden AC Completed): ' + falsoPositivoCompleted);
+Execute Anonymous: System.debug('De esos, SM_AC_collected__c=true (confirmado cobrado): ' + falsoPositivoCollectedTrue);
+Execute Anonymous: System.debug('Genuinamente SIN ninguna orden AC: ' + genuinamenteSinNinguna);
+Execute Anonymous: System.debug('Otro (solo Canceled u otro estado raro): ' + otro);
+17:57:09.38 (38261230)|USER_INFO|[EXTERNAL]|0051U000007bbx5|clopez@legal-credit.com|(GMT+02:00) Central European Summer Time (Europe/Madrid)|GMT+02:00
+17:57:09.38 (38277831)|EXECUTION_STARTED
+17:57:09.38 (38294401)|CODE_UNIT_STARTED|[EXTERNAL]|execute_anonymous_apex
+17:57:09.38 (113279203)|USER_DEBUG|[51]|DEBUG|SIN NINGUNA ORDEN: 00317804 (AC_collected=true)
+17:57:09.38 (113599987)|USER_DEBUG|[51]|DEBUG|SIN NINGUNA ORDEN: 00258583 (AC_collected=true)
+17:57:09.38 (114320365)|USER_DEBUG|[51]|DEBUG|SIN NINGUNA ORDEN: 00246052 (AC_collected=true)
+17:57:09.38 (114586838)|USER_DEBUG|[51]|DEBUG|SIN NINGUNA ORDEN: 00311941 (AC_collected=true)
+17:57:09.38 (114706819)|USER_DEBUG|[51]|DEBUG|SIN NINGUNA ORDEN: 00301055 (AC_collected=true)
+17:57:09.38 (114936432)|USER_DEBUG|[51]|DEBUG|SIN NINGUNA ORDEN: 00314459 (AC_collected=true)
+17:57:09.38 (115035613)|USER_DEBUG|[64]|DEBUG|=======================================================
+17:57:09.38 (115084603)|USER_DEBUG|[65]|DEBUG|Falso positivo (tiene orden AC Completed): 136
+17:57:09.38 (115093474)|USER_DEBUG|[66]|DEBUG|De esos, SM_AC_collected__c=true (confirmado cobrado): 132
+17:57:09.38 (115101254)|USER_DEBUG|[67]|DEBUG|Genuinamente SIN ninguna orden AC: 6
+17:57:09.38 (115121354)|USER_DEBUG|[68]|DEBUG|Otro (solo Canceled u otro estado raro): 0
+17:57:09.115 (115210435)|CUMULATIVE_LIMIT_USAGE
+17:57:09.115 (115210435)|LIMIT_USAGE_FOR_NS|(default)|
+  Number of SOQL queries: 3 out of 100
+  Number of query rows: 499 out of 50000
+  Number of SOSL queries: 0 out of 20
+  Number of DML statements: 0 out of 150
+  Number of Publish Immediate DML: 0 out of 150
+  Number of DML rows: 0 out of 10000
+  Maximum CPU time: 0 out of 10000
+  Maximum heap size: 0 out of 6000000
+  Number of callouts: 0 out of 100
+  Number of Email Invocations: 0 out of 10
+  Number of future calls: 0 out of 50
+  Number of queueable jobs added to the queue: 0 out of 50
+  Number of Mobile Apex push calls: 0 out of 10
+
+17:57:09.115 (115210435)|CUMULATIVE_LIMIT_USAGE_END
+
+17:57:09.38 (115284776)|CODE_UNIT_FINISHED|execute_anonymous_apex
+17:57:09.38 (115299516)|EXECUTION_FINISHED
+
