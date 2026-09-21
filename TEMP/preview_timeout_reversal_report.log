@@ -1,0 +1,91 @@
+ »   Warning: @salesforce/cli update available from 2.149.9 to 2.150.6.
+Compiled successfully.
+Executed successfully.
+
+67.0 APEX_CODE,DEBUG;APEX_PROFILING,INFO
+Execute Anonymous: List<SM_Payment__c> reversedPayments = [
+Execute Anonymous:     SELECT Id, Name, SM_Amount__c, CreatedDate,
+Execute Anonymous:            Payment_Status__c, SM_Check_Collection_Status__c, SM_Check_Collection_Date__c,
+Execute Anonymous:            SM_Return_code__c, SM_Historical_Collection_Status__c,
+Execute Anonymous:            SM_Transmission_Date_ACH_File__c,
+Execute Anonymous:            SM_Contract__c, SM_Contract__r.ContractNumber, SM_Contract__r.Status,
+Execute Anonymous:            SM_Contract__r.Is_Test_Contract__c, SM_Contract__r.Is_VIP_Contract__c
+Execute Anonymous:     FROM SM_Payment__c
+Execute Anonymous:     WHERE SM_Historical_Collection_Status__c LIKE '%D_SIN_REPORTE:%'
+Execute Anonymous:     AND (
+Execute Anonymous:         Payment_Status__c = 'REJECTED'
+Execute Anonymous:         OR SM_Check_Collection_Status__c IN ('RETURN', 'NOT_COLLECTED', 'NOT COLLECTED', 'PENDING')
+Execute Anonymous:     )
+Execute Anonymous:     ORDER BY SM_Contract__r.ContractNumber, SM_Check_Collection_Date__c
+Execute Anonymous: ];
+Execute Anonymous: List<SM_Payment__c> filteredPayments = new List<SM_Payment__c>();
+Execute Anonymous: for (SM_Payment__c p : reversedPayments) {
+Execute Anonymous:     if (p.SM_Contract__r != null
+Execute Anonymous:         && (p.SM_Contract__r.Is_Test_Contract__c == true || p.SM_Contract__r.Is_VIP_Contract__c == true)) {
+Execute Anonymous:         continue;
+Execute Anonymous:     }
+Execute Anonymous:     filteredPayments.add(p);
+Execute Anonymous: }
+Execute Anonymous: System.debug('TOTAL EN EL REPORTE: ' + filteredPayments.size());
+Execute Anonymous: String body = SM_ReturnCodeNotifier.buildTimeoutReversalReport(filteredPayments);
+Execute Anonymous: System.debug('===BODY START===');
+Execute Anonymous: System.debug(body);
+Execute Anonymous: System.debug('===BODY END===');
+18:30:05.122 (122966810)|USER_INFO|[EXTERNAL]|0051U000007bbx5|clopez@legal-credit.com|(GMT+02:00) Central European Summer Time (Europe/Madrid)|GMT+02:00
+18:30:05.122 (122994310)|EXECUTION_STARTED
+18:30:05.122 (123014961)|CODE_UNIT_STARTED|[EXTERNAL]|execute_anonymous_apex
+18:30:05.122 (669631327)|USER_DEBUG|[24]|DEBUG|TOTAL EN EL REPORTE: 7
+18:30:05.122 (677121116)|USER_DEBUG|[26]|DEBUG|===BODY START===
+18:30:05.122 (677138826)|USER_DEBUG|[27]|DEBUG|Pagos que se aceptaron automaticamente por no tener reporte del banco dentro del plazo, y que un reporte real de Returns/Collection llegado DESPUES demostro que en realidad habian sido rechazados -- evidencia de cuanto se esta demorando el banco en reportar.
+
+PY-01888987 - Transmitido el: 8/28/2026 - Contrato 00309340 (Activated)
+Cambio a Aceptado por dias, cumple 15 dias a partir de transmitido.
+Estado actual: REJECTED / PENDING (Reportado en Collections del: 9/14/2026) -> Return code: R11
+
+PY-01885207 - Transmitido el: 8/20/2026 - Contrato 00316444 (Activated)
+Cambio a Aceptado por dias, cumple 15 dias a partir de transmitido.
+Estado actual: REJECTED / NOT_COLLECTED (Reportado en Collections del: 9/8/2026) -> Return code: R10
+
+PY-01883327 - Transmitido el: 8/17/2026 - Contrato 00316623 (Cancelled)
+Cambio a Aceptado por dias, cumple 15 dias a partir de transmitido.
+Estado actual: REJECTED / RETURN (Reportado en Collections del: 8/18/2026) -> Return code: R11
+
+PY-01888808 - Transmitido el: 8/26/2026 - Contrato 00316863 (Activated)
+Cambio a Aceptado por dias, cumple 15 dias a partir de transmitido.
+Estado actual: REJECTED / PENDING (Reportado en Collections del: 9/15/2026) -> Return code: R11
+
+PY-01888831 - Transmitido el: 8/26/2026 - Contrato 00316863 (Activated)
+Cambio a Aceptado por dias, cumple 15 dias a partir de transmitido.
+Estado actual: REJECTED / PENDING (Reportado en Collections del: 9/15/2026) -> Return code: R11
+
+PY-01883331 - Transmitido el: 8/17/2026 - Contrato 00316864 (Activated)
+Cambio a Aceptado por dias, cumple 15 dias a partir de transmitido.
+Estado actual: REJECTED / NOT_COLLECTED (Reportado en Collections del: 8/18/2026) -> Return code: R10
+
+PY-01880307 - Transmitido el: 8/12/2026 - Contrato 00318220 (Activated)
+Cambio a Aceptado por dias, cumple 15 dias a partir de transmitido.
+Estado actual: REJECTED / RETURN (Reportado en Collections del: 8/13/2026) -> Return code: R11
+
+
+18:30:05.122 (677163396)|USER_DEBUG|[28]|DEBUG|===BODY END===
+18:30:05.677 (677236436)|CUMULATIVE_LIMIT_USAGE
+18:30:05.677 (677236436)|LIMIT_USAGE_FOR_NS|(default)|
+  Number of SOQL queries: 1 out of 100
+  Number of query rows: 7 out of 50000
+  Number of SOSL queries: 0 out of 20
+  Number of DML statements: 0 out of 150
+  Number of Publish Immediate DML: 0 out of 150
+  Number of DML rows: 0 out of 10000
+  Maximum CPU time: 0 out of 10000
+  Maximum heap size: 0 out of 6000000
+  Number of callouts: 0 out of 100
+  Number of Email Invocations: 0 out of 10
+  Number of future calls: 0 out of 50
+  Number of queueable jobs added to the queue: 0 out of 50
+  Number of Mobile Apex push calls: 0 out of 10
+
+18:30:05.677 (677236436)|CUMULATIVE_LIMIT_USAGE_END
+
+18:30:05.122 (677307927)|CODE_UNIT_FINISHED|execute_anonymous_apex
+18:30:05.122 (677319367)|EXECUTION_FINISHED
+

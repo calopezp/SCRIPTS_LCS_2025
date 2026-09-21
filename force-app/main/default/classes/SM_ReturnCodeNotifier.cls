@@ -64,12 +64,20 @@ public without sharing class SM_ReturnCodeNotifier {
      * report later contradicted that default (Payment_Status__c = REJECTED, or
      * SM_Check_Collection_Status__c = RETURN/NOT COLLECTED). Detected from
      * SM_Historical_Collection_Status__c still carrying a "D_SIN_REPORTE:" tag - see the class doc.
+     *
+     * calp 2026-09-21 :: tuneado para Comercial (formato en buildTimeoutReversalReport() cambio a
+     * texto simple con fecha de transmision, dias del umbral, y fecha del reporte real). Excluye
+     * Test/VIP (no le sirven a Comercial) pero deliberadamente NO excluye Cancelled/Finalized --
+     * un reverso en un contrato ya cerrado puede seguir generando costo adicional, instruccion
+     * explicita del usuario. Por ahora sigue mandando solo a NOTIFY_EMAIL (Carlos) hasta que se
+     * defina la lista real de Comercial.
      */
     public static void sendTimeoutReversalReport() {
         List<SM_Payment__c> reversedPayments = [
             SELECT Id, Name, SM_Amount__c, CreatedDate,
                    Payment_Status__c, SM_Check_Collection_Status__c, SM_Check_Collection_Date__c,
                    SM_Return_code__c, SM_Historical_Collection_Status__c,
+                   SM_Transmission_Date_ACH_File__c,
                    SM_Contract__c, SM_Contract__r.ContractNumber, SM_Contract__r.Status,
                    SM_Contract__r.Is_Test_Contract__c, SM_Contract__r.Is_VIP_Contract__c
             FROM SM_Payment__c
@@ -86,7 +94,18 @@ public without sharing class SM_ReturnCodeNotifier {
             ORDER BY SM_Contract__r.ContractNumber, SM_Check_Collection_Date__c
         ];
 
-        String body = buildTimeoutReversalReport(reversedPayments);
+        // Excluye Test/VIP (null-safe con == true, igual que sendReport()) -- deliberadamente NO
+        // excluye Cancelled/Finalized, esos siguen siendo relevantes para Comercial.
+        List<SM_Payment__c> filteredPayments = new List<SM_Payment__c>();
+        for (SM_Payment__c p : reversedPayments) {
+            if (p.SM_Contract__r != null
+                && (p.SM_Contract__r.Is_Test_Contract__c == true || p.SM_Contract__r.Is_VIP_Contract__c == true)) {
+                continue;
+            }
+            filteredPayments.add(p);
+        }
+
+        String body = buildTimeoutReversalReport(filteredPayments);
 
         Messaging.SingleEmailMessage mail = new Messaging.SingleEmailMessage();
         mail.setToAddresses(new String[]{ NOTIFY_EMAIL });
@@ -97,31 +116,95 @@ public without sharing class SM_ReturnCodeNotifier {
         }
     }
 
+    private static final Pattern TIMEOUT_DAYS_PATTERN = Pattern.compile('PRC_AUT_(\\d+)D_SIN_REPORTE');
+    private static final List<String> MONTH_ABBR_ES = new List<String>{
+        'ene', 'feb', 'mar', 'abr', 'may', 'jun', 'jul', 'ago', 'sep', 'oct', 'nov', 'dic'
+    };
+
+    /**
+     * @description "27 ago 2026" -- dia + mes abreviado en espanol + ano, para el formato de
+     * reporte de Comercial (Date.format() de Apex sale como "8/27/2026", numerico, menos legible).
+     */
+    private static String formatDiaMes(Date d) {
+        return String.valueOf(d.day()) + ' ' + MONTH_ABBR_ES[d.month() - 1] + ' ' + String.valueOf(d.year());
+    }
+
+    // calp 2026-09-21 :: significado corto de los codigos NACHA que de verdad aparecen en este
+    // reporte (Returns) -- Comercial no tiene por que saber de memoria que es un R11. Los 5 codigos
+    // que ya tienen su propio reporte (R02/R04/R07/R10/R13/R16) usan la misma idea, mas resumida.
+    private static final Map<String, String> RETURN_CODE_MEANINGS = new Map<String, String>{
+        'R01' => 'Fondos insuficientes (NSF)',
+        'R02' => 'Cuenta cerrada',
+        'R03' => 'Cuenta no encontrada / no existe',
+        'R04' => 'Numero de cuenta invalido',
+        'R07' => 'Autorizacion revocada por el cliente',
+        'R08' => 'Pago detenido por el cliente',
+        'R09' => 'Fondos no disponibles (uncollected funds)',
+        'R10' => 'El cliente le dijo al banco que no autoriza el cobro',
+        'R11' => 'El cliente indica que el cargo no cumple los terminos autorizados',
+        'R13' => 'Numero de ruta (routing) invalido',
+        'R16' => 'Cuenta congelada',
+        'R20' => 'Cuenta no transaccional',
+        'R29' => 'Cliente corporativo no autoriza el cobro'
+    };
+
     /**
      * @description Separated from sendTimeoutReversalReport() so the report text can be built/
-     * tested with in-memory data, same pattern as buildReport(). Unlike buildReport(), Test/VIP
-     * and closed contracts are NOT excluded here - a timeout-vs-reality mismatch on any contract,
-     * even a closed one, is still evidence the 15/20-day default is over-eager and worth seeing.
+     * tested with in-memory data, same pattern as buildReport().
+     *
+     * calp 2026-09-21 :: formato tuneado para Comercial, por pedido explicito del usuario -- texto
+     * simple en vez del bloque tecnico anterior (que mostraba el tag crudo de
+     * SM_Historical_Collection_Status__c). Cada pago: cuando se transmitio, cuantos dias tenia que
+     * cumplir para que el timeout lo aceptara (extraido del tag PRC_AUT_<N>D_SIN_REPORTE), y el
+     * estado real que un reporte de Returns/Collection reporto despues.
      */
     public static String buildTimeoutReversalReport(List<SM_Payment__c> reversedPayments) {
         if (reversedPayments.isEmpty()) {
             return 'Sin pagos aceptados por timeout que hayan sido revertidos por un reporte real de Returns/Collection.\n';
         }
 
-        String body = 'Pagos que mark_transmitted_accepted.apex marco ACCEPTED/COLLECTED por timeout '
-            + '(sin reporte del banco en 15/20 dias) y que un reporte real de Returns/Collection '
-            + 'llegado DESPUES contradijo -- revisar si el timeout esta siendo demasiado agresivo.\n\n';
+        String body = 'Pagos que se aceptaron automaticamente por no tener reporte del banco dentro del plazo, '
+            + 'y que un reporte real de Returns/Collection llegado DESPUES demostro que en realidad '
+            + 'habian sido rechazados -- evidencia de cuanto se esta demorando el banco en reportar.\n\n';
 
         for (SM_Payment__c p : reversedPayments) {
             String contractLabel = p.SM_Contract__r != null
                 ? p.SM_Contract__r.ContractNumber + ' (' + p.SM_Contract__r.Status + ')'
                 : '(sin contrato)';
-            body += '- ' + p.Name + ' - Contrato ' + contractLabel + '\n'
-                + '    Estado actual -> Payment_Status: ' + p.Payment_Status__c
-                + ' | Check_Collection_Status: ' + p.SM_Check_Collection_Status__c
-                + ' | Return_code: ' + (p.SM_Return_code__c == null ? '(ninguno)' : p.SM_Return_code__c)
-                + ' | Fecha reporte: ' + (p.SM_Check_Collection_Date__c == null ? '(ninguna)' : p.SM_Check_Collection_Date__c.format()) + '\n'
-                + '    Historial -> ' + p.SM_Historical_Collection_Status__c + '\n';
+            String transmittedLabel = p.SM_Transmission_Date_ACH_File__c == null
+                ? '(sin fecha)' : formatDiaMes(p.SM_Transmission_Date_ACH_File__c);
+            Integer daysThreshold = null;
+            if (String.isNotBlank(p.SM_Historical_Collection_Status__c)) {
+                Matcher m = TIMEOUT_DAYS_PATTERN.matcher(p.SM_Historical_Collection_Status__c);
+                if (m.find()) {
+                    daysThreshold = Integer.valueOf(m.group(1));
+                }
+            }
+            String daysLabel = daysThreshold == null ? '?' : String.valueOf(daysThreshold);
+            // calp 2026-09-21 :: la fecha real en que mark_transmitted_accepted.apex lo marco
+            // ACCEPTED no queda guardada en ningun campo -- SM_Check_Collection_Date__c la tenia,
+            // pero el reporte real que lo reversa la sobreescribe con SU propia fecha. Se calcula
+            // en vez de leerla: transmitido + los dias del umbral (mismo dato que ya se muestra en
+            // "cumple N dias a partir de transmitido", solo que como fecha en vez de numero).
+            String acceptedDateLabel = (daysThreshold != null && p.SM_Transmission_Date_ACH_File__c != null)
+                ? formatDiaMes(p.SM_Transmission_Date_ACH_File__c.addDays(daysThreshold))
+                : '(sin fecha)';
+            String reportDateLabel = p.SM_Check_Collection_Date__c == null
+                ? '(ninguna)' : formatDiaMes(p.SM_Check_Collection_Date__c);
+            String returnCodeLabel;
+            if (p.SM_Return_code__c == null) {
+                returnCodeLabel = '(ninguno)';
+            } else if (RETURN_CODE_MEANINGS.containsKey(p.SM_Return_code__c)) {
+                returnCodeLabel = p.SM_Return_code__c + ' (' + RETURN_CODE_MEANINGS.get(p.SM_Return_code__c) + ')';
+            } else {
+                returnCodeLabel = p.SM_Return_code__c;
+            }
+
+            body += p.Name + ' - Transmitido el: ' + transmittedLabel + ' - Contrato ' + contractLabel + '\n'
+                + 'Pago aceptado por dias el ' + acceptedDateLabel + ', cumple ' + daysLabel + ' dias a partir de transmitido.\n'
+                + 'Estado actual: ' + p.Payment_Status__c + ' / ' + p.SM_Check_Collection_Status__c
+                + ' (Reportado en Collections del: ' + reportDateLabel + ')'
+                + ' -> Return code: ' + returnCodeLabel + '\n\n';
         }
 
         return body;
