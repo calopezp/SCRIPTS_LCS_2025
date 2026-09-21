@@ -38,7 +38,7 @@
 
 // ============ CONFIGURACION ============
 Boolean DRY_RUN = true; // <-- cambiar a false para ejecutar el update real
-Integer DAYS_SINCE_TRANSMITTED = 20;
+Integer DAYS_SINCE_TRANSMITTED = 15; // Confirmado por Carlos 2026-09-21 -- valor validado por Comercial (2026-09-14), no 20
 // ========================================
 
 Date cutoff = Date.today().addDays(-DAYS_SINCE_TRANSMITTED);
