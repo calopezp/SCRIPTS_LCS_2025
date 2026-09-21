@@ -46,6 +46,12 @@ set -e
 
 SCRIPT_DIR="$(cd "$(dirname "${BASH_SOURCE[0]}")" && pwd)"
 
+# Carpeta temporal donde cada paso guarda su propio log (ademas de
+# imprimirlo en pantalla como siempre) -- al final daily_summary.py los lee
+# para armar el resumen corto, sin tener que releer todo el log completo.
+SUMMARY_DIR="$(mktemp -d)"
+trap 'rm -rf "$SUMMARY_DIR"' EXIT
+
 MODE="${1:-dryrun}"
 if [ -n "$1" ] && [ "$1" != "apply" ]; then
     echo "Uso: $0 [apply]"
@@ -84,8 +90,8 @@ else
         echo "-- Returns (archivos nuevos) --"
         cp "$RETURNS_DELTA_CSV" "$RETURNS_CSV_OUT"
         set +e
-        SKIP_SCAN=1 bash "$SCRIPT_DIR/RETURNS/run_import_return.sh" $APPLY_ARG
-        RETURNS_EXIT=$?
+        SKIP_SCAN=1 bash "$SCRIPT_DIR/RETURNS/run_import_return.sh" $APPLY_ARG 2>&1 | tee "$SUMMARY_DIR/returns.log"
+        RETURNS_EXIT=${PIPESTATUS[0]}
         set -e
         [ $RETURNS_EXIT -ne 0 ] && echo "AVISO: Returns termino con codigo $RETURNS_EXIT (revisar arriba)."
     else
@@ -97,8 +103,8 @@ else
         echo "-- Check Collection (archivos nuevos) --"
         cp "$COLLECTIONS_DELTA_CSV" "$COLLECTIONS_CSV_OUT"
         set +e
-        SKIP_SCAN=1 bash "$SCRIPT_DIR/COLLECTIONS/run_import_collection.sh" $APPLY_ARG
-        COLLECTIONS_EXIT=$?
+        SKIP_SCAN=1 bash "$SCRIPT_DIR/COLLECTIONS/run_import_collection.sh" $APPLY_ARG 2>&1 | tee "$SUMMARY_DIR/collections.log"
+        COLLECTIONS_EXIT=${PIPESTATUS[0]}
         set -e
         [ $COLLECTIONS_EXIT -ne 0 ] && echo "AVISO: Check Collection termino con codigo $COLLECTIONS_EXIT (revisar arriba)."
     else
@@ -111,8 +117,8 @@ echo "############################################################"
 echo "# 3/4 ACH Reportados (transmission)"
 echo "############################################################"
 set +e
-bash "$SCRIPT_DIR/ACH_REPORTADOS/run_transmission_import.sh" $APPLY_ARG
-TRANSMISSION_EXIT=$?
+bash "$SCRIPT_DIR/ACH_REPORTADOS/run_transmission_import.sh" $APPLY_ARG 2>&1 | tee "$SUMMARY_DIR/transmission.log"
+TRANSMISSION_EXIT=${PIPESTATUS[0]}
 set -e
 [ $TRANSMISSION_EXIT -ne 0 ] && echo "AVISO: ACH Reportados termino con codigo $TRANSMISSION_EXIT (revisar arriba)."
 
@@ -138,8 +144,8 @@ if [ "$MODE" = "apply" ]; then
     fi
 fi
 set +e
-sf apex run -o MONEE -f "$TMP_TIMEOUT_APEX"
-TIMEOUT_EXIT=$?
+sf apex run -o MONEE -f "$TMP_TIMEOUT_APEX" 2>&1 | tee "$SUMMARY_DIR/timeout.log"
+TIMEOUT_EXIT=${PIPESTATUS[0]}
 set -e
 rm -f "$TMP_TIMEOUT_APEX"
 [ $TIMEOUT_EXIT -ne 0 ] && echo "AVISO: mark_transmitted_accepted.apex termino con codigo $TIMEOUT_EXIT (revisar arriba)."
@@ -150,8 +156,8 @@ if [ "$MODE" = "apply" ]; then
     echo "# Notificacion: contratos con ACH Return R02 (cuenta cerrada)"
     echo "############################################################"
     set +e
-    sf apex run -o MONEE -f "$SCRIPT_DIR/notify_r02.apex"
-    R02_EXIT=$?
+    sf apex run -o MONEE -f "$SCRIPT_DIR/notify_r02.apex" 2>&1 | tee "$SUMMARY_DIR/r02.log"
+    R02_EXIT=${PIPESTATUS[0]}
     set -e
     [ $R02_EXIT -ne 0 ] && echo "AVISO: notify_r02.apex termino con codigo $R02_EXIT (revisar arriba)."
 
@@ -160,8 +166,8 @@ if [ "$MODE" = "apply" ]; then
     echo "# Notificacion: contratos con ACH Return R10 (cliente no autoriza)"
     echo "############################################################"
     set +e
-    sf apex run -o MONEE -f "$SCRIPT_DIR/notify_r10.apex"
-    R10_EXIT=$?
+    sf apex run -o MONEE -f "$SCRIPT_DIR/notify_r10.apex" 2>&1 | tee "$SUMMARY_DIR/r10.log"
+    R10_EXIT=${PIPESTATUS[0]}
     set -e
     [ $R10_EXIT -ne 0 ] && echo "AVISO: notify_r10.apex termino con codigo $R10_EXIT (revisar arriba)."
 
@@ -170,8 +176,8 @@ if [ "$MODE" = "apply" ]; then
     echo "# Notificacion: contratos con ACH Return R04/R13 (cuenta/routing invalido)"
     echo "############################################################"
     set +e
-    sf apex run -o MONEE -f "$SCRIPT_DIR/notify_invalid_account.apex"
-    INVALID_ACCT_EXIT=$?
+    sf apex run -o MONEE -f "$SCRIPT_DIR/notify_invalid_account.apex" 2>&1 | tee "$SUMMARY_DIR/invalid_account.log"
+    INVALID_ACCT_EXIT=${PIPESTATUS[0]}
     set -e
     [ $INVALID_ACCT_EXIT -ne 0 ] && echo "AVISO: notify_invalid_account.apex termino con codigo $INVALID_ACCT_EXIT (revisar arriba)."
 
@@ -180,8 +186,8 @@ if [ "$MODE" = "apply" ]; then
     echo "# Notificacion: contratos con ACH Return R07 (autorizacion revocada)"
     echo "############################################################"
     set +e
-    sf apex run -o MONEE -f "$SCRIPT_DIR/notify_r07.apex"
-    R07_EXIT=$?
+    sf apex run -o MONEE -f "$SCRIPT_DIR/notify_r07.apex" 2>&1 | tee "$SUMMARY_DIR/r07.log"
+    R07_EXIT=${PIPESTATUS[0]}
     set -e
     [ $R07_EXIT -ne 0 ] && echo "AVISO: notify_r07.apex termino con codigo $R07_EXIT (revisar arriba)."
 
@@ -190,8 +196,8 @@ if [ "$MODE" = "apply" ]; then
     echo "# Notificacion: contratos con ACH Return R16 (cuenta congelada)"
     echo "############################################################"
     set +e
-    sf apex run -o MONEE -f "$SCRIPT_DIR/notify_r16.apex"
-    R16_EXIT=$?
+    sf apex run -o MONEE -f "$SCRIPT_DIR/notify_r16.apex" 2>&1 | tee "$SUMMARY_DIR/r16.log"
+    R16_EXIT=${PIPESTATUS[0]}
     set -e
     [ $R16_EXIT -ne 0 ] && echo "AVISO: notify_r16.apex termino con codigo $R16_EXIT (revisar arriba)."
 
@@ -200,8 +206,8 @@ if [ "$MODE" = "apply" ]; then
     echo "# Notificacion: pagos aceptados por timeout y luego revertidos por reporte real"
     echo "############################################################"
     set +e
-    sf apex run -o MONEE -f "$SCRIPT_DIR/notify_timeout_reversal.apex"
-    TIMEOUT_REVERSAL_EXIT=$?
+    sf apex run -o MONEE -f "$SCRIPT_DIR/notify_timeout_reversal.apex" 2>&1 | tee "$SUMMARY_DIR/timeout_reversal.log"
+    TIMEOUT_REVERSAL_EXIT=${PIPESTATUS[0]}
     set -e
     [ $TIMEOUT_REVERSAL_EXIT -ne 0 ] && echo "AVISO: notify_timeout_reversal.apex termino con codigo $TIMEOUT_REVERSAL_EXIT (revisar arriba)."
 fi
@@ -216,6 +222,9 @@ if [ -s "$ARCHIVOS_VIEJOS_CSV" ]; then
     echo "!!!   COLLECTIONS/run_import_collection.sh \"<ruta al pdf>\" apply"
     echo "!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!"
 fi
+
+echo ""
+python3 "$SCRIPT_DIR/daily_summary.py" "$SUMMARY_DIR" "$MODE"
 
 echo ""
 echo "============================================================"
