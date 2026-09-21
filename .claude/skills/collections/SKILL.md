@@ -18,7 +18,7 @@ Org de Salesforce: siempre **MONEE** (producción) vía `sf` CLI (`sf data query
 | **ACH Reportados / Transmission** | `COLLECTIONS/ACH_REPORTADOS/` | CSV `ACH_YYYYMMDD*.csv` (OneDrive) + `ContentVersion` "ACH%" subidos a Salesforce | Qué payments fueron transmitidos al banco y cuándo (no si se cobraron) |
 
 Cada uno tiene su propio `build_index.py`/parser/`.apex`/`run_*.sh`. **Comandos de uso diario (ver `CLAUDE.md` sección 2 para el detalle completo y las reglas de negocio detrás):**
-- `./run_daily_new_files.sh apply` — uso diario normal, 4 pasos (Returns/Collection archivos nuevos → ACH Reportados → marcar ACCEPTED por timeout → 6 notificaciones de return codes/alertas), ver sección 4 abajo. El paso 3 (`UTILITARIOS/mark_transmitted_accepted.apex`) se automatizó aquí el 2026-09-18 — antes era manual (`UTILITARIOS/run_mark_transmitted_accepted.sh`, sigue existiendo para correrlo suelto si hace falta).
+- `./run_daily_new_files.sh apply` — uso diario normal, 4 pasos (Returns/Collection archivos nuevos → ACH Reportados → marcar ACCEPTED por timeout → 6 notificaciones de return codes/alertas), ver sección 4 abajo. El paso 3 (`UTILITARIOS/mark_transmitted_accepted.apex`) se automatizó aquí el 2026-09-18 — antes era manual (`UTILITARIOS/run_mark_transmitted_accepted.sh`, sigue existiendo para correrlo suelto si hace falta). Termina con un **RESUMEN DE LA CORRIDA** corto (`daily_summary.py`, nuevo 2026-09-21): totales leídos/aplicados/errores por paso y cuántos registros quedaron bloqueados para revisión manual — sin tener que releer el log completo para saber si algo falló.
 - `./run_daily_catchup.sh apply` (o `CONFIRM_OLD=1 ./run_daily_catchup.sh apply` para más de 2 meses atrás) — reprocesa a propósito histórico ya indexado.
 - `UTILITARIOS/deprecated/run_all_imports.sh` quedó **reemplazado** por los dos primeros — no usarlo más, se movió ahí (2026-09-18) solo por referencia histórica.
 
@@ -37,6 +37,7 @@ COLLECTIONS/
 ├── notify_r16.apex              # igual pero para R16 (cuenta congelada, usualmente orden legal) -- misma clase, ver sección 5
 ├── notify_timeout_reversal.apex # (nuevo 2026-09-18) correo cuando un pago aceptado por timeout (mark_transmitted_accepted.apex) resulta luego contradicho por un reporte real -- misma clase, ver sección 5
 ├── run_daily_new_files.sh      # COMANDO DIARIO -- 3 pipelines + UTILITARIOS/mark_transmitted_accepted.apex (automatizado 2026-09-18) + 6 notify_*.apex en modo apply, solo archivos nunca antes indexados (ver CLAUDE.md sección 2)
+├── daily_summary.py            # (nuevo 2026-09-21) resumen corto al final de run_daily_new_files.sh -- totales por paso + lo que necesita revision manual, sin releer el log completo
 ├── run_daily_catchup.sh        # reprocesa histórico ya indexado, día por día, con gate de 2 meses (CONFIRM_OLD=1)
 ├── index/
 │   ├── collections_index.csv          # histórico completo Check Collection
