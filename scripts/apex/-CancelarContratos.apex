@@ -1,4 +1,15 @@
 // ============================================================
+//  SUPERADO (2026-09-21) por CancelarContratosRunner.cls (desplegada en
+//  MONEE) + scripts/apex/-CANCELAR_CONTRATOS_FULL.apex, que cubren esta
+//  misma rama ACH y además Chargebee (void invoices + cancel
+//  subscription vía API) en un solo lugar, con el fix del picklist
+//  dependiente SM_Reason_for_cancellation__c y el manejo de
+//  'NOT COLLECTED'/'NOT_COLLECTED'. Ver
+//  .claude/skills/cancelar-contratos/SKILL.md. Se deja este archivo
+//  sin borrar como referencia histórica -- no usar para corridas nuevas.
+// ============================================================
+
+// ============================================================
 //  DTOs
 // ============================================================
 public class CancelGroup {
