@@ -34,6 +34,7 @@ import re
 import shutil
 import subprocess
 import sys
+from datetime import date, datetime
 from pathlib import Path
 
 import build_index
@@ -55,6 +56,12 @@ SOQL_FIELDS = [
 
 RETURN_STATUSES = {"RETURN"}
 COLLECTION_STATUSES = {"COLLECTED", "PENDING", "NOT COLLECTED"}
+
+# calp 2026-09-22 :: avisos informativos -- solo texto, no tocan nada en Salesforce. Mismos
+# umbrales que mark_transmitted_accepted.apex (15 dias) y la convencion manual de "X DIAS (26
+# CAL,)" que ya usaba el equipo para pasar PENDING -> NOT_COLLECTED (ver BITACORA_HALLAZGOS_TECNICOS.md).
+DAYS_PENDING_ACCEPT = 15
+DAYS_PENDING_NOT_COLLECTED = 26
 
 SF_BIN = shutil.which("sf") or "sf"
 
@@ -93,6 +100,17 @@ def search_index(csv_path: Path, payment_name: str):
         return []
     with csv_path.open(newline="", encoding="utf-8") as f:
         return [row for row in csv.DictReader(f) if row.get("Payment_Name") == payment_name]
+
+
+def days_since(date_str: str):
+    """'2026-08-12' -> dias transcurridos hasta hoy, o None si no se puede parsear."""
+    if not date_str:
+        return None
+    try:
+        d = date.fromisoformat(date_str[:10])
+    except ValueError:
+        return None
+    return (date.today() - d).days
 
 
 def classify(status: str) -> str:
@@ -138,6 +156,19 @@ def print_result(payment_name: str):
             print(f"    CreatedDate                          : {rec.get('CreatedDate')}")
             print(f"    SM_Date_ACH_Transmitted__c           : {rec.get('SM_Date_ACH_Transmitted__c')}")
             print(f"    SM_Transmission_Date_ACH_File__c     : {rec.get('SM_Transmission_Date_ACH_File__c')}")
+
+            # Avisos informativos -- solo texto, no cambian nada en Salesforce.
+            payment_status = (rec.get("Payment_Status__c") or "").strip()
+            if payment_status == "ACH TRANSMITTED":
+                n = days_since(rec.get("SM_Transmission_Date_ACH_File__c"))
+                if n is not None and n >= DAYS_PENDING_ACCEPT:
+                    print(f"    >>> AVISO: Payment pendiente por Aceptar por dias -- transmitido hace {n} dias"
+                          f" (umbral {DAYS_PENDING_ACCEPT}, falta correr mark_transmitted_accepted.apex)")
+            if status.upper() == "PENDING":
+                n = days_since(rec.get("SM_Check_Collection_Date__c"))
+                if n is not None and n >= DAYS_PENDING_NOT_COLLECTED:
+                    print(f"    >>> AVISO: Payment Pendiente por NOT_COLLECTED, pasaron {n} dias"
+                          f" (umbral {DAYS_PENDING_NOT_COLLECTED})")
 
 
 
