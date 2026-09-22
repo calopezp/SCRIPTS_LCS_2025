@@ -134,6 +134,8 @@ public without sharing class SM_ReturnCodeNotifierTest {
         SM_Payment__c reversed = new SM_Payment__c(
             SM_Contract__c = ct.Id, SM_Amount__c = 55, Payment_Status__c = 'REJECTED',
             SM_Check_Collection_Status__c = 'RETURN', SM_Return_code__c = 'R01',
+            SM_Check_Collection_Date__c = Date.newInstance(2026, 8, 13),
+            SM_Transmission_Date_ACH_File__c = Date.newInstance(2026, 7, 29),
             SM_Historical_Collection_Status__c = 'PRC_AUT: RETURN //PRC_AUT_15D_SIN_REPORTE: ACCEPTED //'
         );
         reversed.SM_Contract__r = ct;
@@ -144,6 +146,12 @@ public without sharing class SM_ReturnCodeNotifierTest {
 
         System.assert(report.contains(ct.ContractNumber), 'The report should list the contract whose timeout-acceptance got reversed.');
         System.assert(report.contains('RETURN'), 'The report should show the current status that contradicted the timeout default.');
+        System.assert(report.contains('Transmitido el: 29 jul 2026'), 'The report should show the ACH transmission date as dd mmm yyyy.');
+        System.assert(report.contains('cumple 15 dias'), 'The report should extract the timeout-day threshold from the historical tag.');
+        // Transmitido 2026-07-29 + 15 dias = 2026-08-13 -> "13 ago 2026"
+        System.assert(report.contains('Pago aceptado por dias el 13 ago 2026'), 'The report should compute the accepted-on date from transmission date + threshold days.');
+        System.assert(report.contains('Reportado en Collections del: 13 ago 2026'), 'The report date should also use dd mmm yyyy.');
+        System.assert(report.contains('R01 (Fondos insuficientes (NSF))'), 'The report should show the return code meaning.');
     }
 
     @IsTest
