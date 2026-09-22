@@ -51,7 +51,8 @@ SOQL_FIELDS = [
     "SM_Contract__r.ContractNumber",
     "SM_Check_Collection__c", "SM_Check_Collection_Status__c",
     "SM_Check_Collection_Date__c", "SM_Return_code__c",
-    "SM_Return_Change__c", "LastModifiedDate", "CreatedDate", "SM_Date_ACH_Transmitted__c", "SM_Transmission_Date_ACH_File__c"
+    "SM_Return_Change__c", "LastModifiedDate", "CreatedDate", "SM_Date_ACH_Transmitted__c", "SM_Transmission_Date_ACH_File__c",
+    "SM_Historical_Collection_Status__c"
 ]
 
 RETURN_STATUSES = {"RETURN"}
@@ -130,6 +131,7 @@ def print_result(payment_name: str):
     print(f"Payment: {payment_name}")
     print("=" * 70)
 
+    historical_status = None
     records, error = query_salesforce(payment_name)
     if error:
         print(f"  [Salesforce] ERROR consultando la org: {error}")
@@ -137,6 +139,7 @@ def print_result(payment_name: str):
         print("  [Salesforce] No existe ningun SM_Payment__c con ese Name.")
     else:
         for rec in records:
+            historical_status = rec.get("SM_Historical_Collection_Status__c")
             status = (rec.get("SM_Check_Collection_Status__c") or "").strip()
             reported = rec.get("SM_Check_Collection__c")
             contract = (rec.get("SM_Contract__r") or {}).get("ContractNumber")
@@ -204,6 +207,8 @@ def print_result(payment_name: str):
                   f"  |  Fuente: {row.get('Source_File')}")
     else:
         print("\n  [Indice historico ACH REPORTADOS (Transmission)] no aparece en ningun archivo indexado")
+
+    print(f"\n  Historical Collection Status: {historical_status or '(vacio)'}")
 
     print()
 
