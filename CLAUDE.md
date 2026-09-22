@@ -17,12 +17,13 @@ Este archivo es la **fuente de verdad compartida entre las dos máquinas** del u
 3. [Chargent — migración en curso (NO TOCAR)](#3-chargent--migración-en-curso-no-tocar)
 4. [Winter '27 Release Readiness](#4-winter-27-release-readiness--análisis-puntual-2026-09-06) (análisis puntual, revisar después del 10-oct-2026)
 5. [Trigger Panel (SM_Trigger_Panel__mdt) — estado esperado y monitoreo](#5-trigger-panel-sm_trigger_panelmdt--estado-esperado-y-monitoreo)
-6. **[Bitácora de hallazgos técnicos](BITACORA_HALLAZGOS_TECNICOS.md)** — tabla acumulativa (Fecha /
+6. [Cancelar Contratos](#6-cancelar-contratos) — cancelación masiva ACH + Chargebee, recurrente
+7. **[Bitácora de hallazgos técnicos](BITACORA_HALLAZGOS_TECNICOS.md)** — tabla acumulativa (Fecha /
    FIX-ERROR / Consecuencias / Solución / Estado) de bugs reales encontrados en MONEE/PREPROD a lo
    largo de las sesiones, para consulta rápida y copiar/pegar directo a un reporte gerencial.
    **Agregar una fila cada vez que aparezca un hallazgo técnico nuevo** (no un ajuste de datos
    puntual) — no es este archivo, es un archivo aparte en la raíz del repo.
-7. **[Tareas pendientes](TAREAS_PENDIENTES.md)** — lista acumulativa de temas abiertos/en espera/
+8. **[Tareas pendientes](TAREAS_PENDIENTES.md)** — lista acumulativa de temas abiertos/en espera/
    pausados, de cualquier hilo de trabajo. **Si el usuario pregunta "¿qué tenemos pendiente?" en
    cualquier sesión, leer este archivo primero** antes de reconstruir la respuesta desde cero —
    y mantenerlo actualizado (mover a "Cerrado recientemente" lo que se resuelva, agregar fila nueva
@@ -276,3 +277,25 @@ solo. **Si el correo reporta una anomalía en cualquiera de los 4 registros de C
 de arriba, no reactivar/corregir sin confirmar con el usuario primero** (sección 3, "no tocar").
 Al agregar o quitar un trigger real del framework `SM_TriggerHandler`, actualizar
 `EXPECTED_BASELINE` en la clase Y esta tabla en el mismo cambio.
+
+---
+
+## 6. Cancelar Contratos
+
+Cancelación masiva de contratos (ACH y Chargebee) — trabajo **recurrente y manual controlado**:
+el usuario agrega contratos nuevos al lote cada cierto tiempo, corre siempre primero en dry-run, y
+decide cuándo pasar a real. Para el detalle técnico completo (gotchas de picklist/callout, mapa de
+archivos, flujo paso a paso) usar el **Skill `/cancelar-contratos`**
+(`.claude/skills/cancelar-contratos/SKILL.md`) — se carga automáticamente al hablar de cancelar
+contratos o de `CancelarContratosRunner`.
+
+- Lógica desplegada en MONEE: `CancelarContratosRunner.cls` (+ test) —
+  **es una clase pasiva, sin trigger/Schedulable/Flow enganchado; no ejecuta nada por sí sola**,
+  solo corre cuando el script `scripts/apex/-CANCELAR_CONTRATOS_FULL.apex` la llama a mano.
+- Estado actual de cada contrato (qué ya quedó Cancelled, qué sigue bloqueado y por qué): siempre
+  recalculado en vivo, nunca a mano — correr
+  `COLLECTIONS/CANCELACIONES/run_check_estado.sh` y leer
+  `COLLECTIONS/CANCELACIONES/Contratos_para_Cancelar_ESTADO.csv` (se sobreescribe completo en cada
+  corrida, es la fuente de verdad compartida entre ANTIGUA y NUEVA vía git).
+- Lista maestra de contratos a cancelar: `COLLECTIONS/CANCELACIONES/Contratos_para_Cancelar_LOG.csv`
+  (un `ContractNumber` por línea) — para agregar contratos nuevos, agregar líneas ahí.
