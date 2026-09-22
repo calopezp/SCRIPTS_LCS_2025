@@ -15,6 +15,12 @@ Uso:
     python generate_run_batch.py 00317661 00317795
     python generate_run_batch.py --categoria STUCK_CONTRACT_STATUS
     python generate_run_batch.py --categoria STUCK_CONTRACT_STATUS --limite 30
+
+    # Contrato puntual que NO está en Contratos_para_Cancelar_LOG.csv --
+    # se usan --motivo/--fecha en vez de saltarlo. No lo agrega al CSV
+    # (queda solo en esta corrida) -- si es algo recurrente, mejor
+    # agregarlo al CSV directamente para que quede en el historial.
+    python generate_run_batch.py 00319999 --motivo "Does not comply with Payments" --fecha "22 sep 2026"
 """
 
 import argparse
@@ -66,7 +72,21 @@ def main():
     parser.add_argument("contratos", nargs="*", help="ContractNumber puntuales")
     parser.add_argument("--categoria", help="Tomar todos los de esta categoria de Contratos_para_Cancelar_ESTADO.csv")
     parser.add_argument("--limite", type=int, default=50, help="Maximo de contratos en el batch (default 50, ver nota de tamano arriba)")
+    parser.add_argument("--motivo", help="Motivo a usar para contratos puntuales que NO estan en el CSV (en vez de saltarlos)")
+    parser.add_argument("--fecha", help="Fecha 'd mmm yyyy' a usar junto con --motivo para esos mismos contratos")
     args = parser.parse_args()
+
+    if bool(args.motivo) != bool(args.fecha):
+        print("ERROR: --motivo y --fecha van juntos (los dos, o ninguno).", file=sys.stderr)
+        sys.exit(1)
+    fallback = None
+    if args.motivo:
+        try:
+            parse_fecha_es(args.fecha)  # solo para validar el formato temprano
+        except ValueError as e:
+            print(f"ERROR en --fecha: {e}", file=sys.stderr)
+            sys.exit(1)
+        fallback = (args.fecha.strip(), args.motivo.strip())
 
     if args.categoria:
         numeros = load_estado_by_category(args.categoria)
@@ -82,31 +102,37 @@ def main():
         numeros = numeros[: args.limite]
 
     log = load_log()
-    lines = ["List<CancelarContratosRunner.CancelRequest> requests = new List<CancelarContratosRunner.CancelRequest>{"]
+    entries = []  # una entrada por contrato incluido -- la coma se decide
+                  # al unir, nunca por posicion en `numeros` (si un contrato
+                  # en el medio se salta, la coma del anterior quedaria mal)
     faltantes = []
-    for i, num in enumerate(numeros):
+    for num in numeros:
         if num not in log:
-            faltantes.append(num)
-            continue
-        fecha_raw, motivo = log[num]
+            if fallback is None:
+                faltantes.append(num)
+                continue
+            fecha_raw, motivo = fallback
+        else:
+            fecha_raw, motivo = log[num]
         try:
             anio, mes, dia = parse_fecha_es(fecha_raw)
         except ValueError as e:
             print(f"ERROR parseando fecha de {num}: {e}", file=sys.stderr)
             sys.exit(1)
         motivo_escaped = motivo.replace("'", "\\'")
-        coma = "," if i < len(numeros) - 1 else ""
-        lines.append(
+        entries.append(
             f"    new CancelarContratosRunner.CancelRequest('{num}', '{motivo_escaped}', "
-            f"Date.newInstance({anio}, {mes}, {dia})){coma}"
+            f"Date.newInstance({anio}, {mes}, {dia}))"
         )
-    lines.append("};")
 
     if faltantes:
         print(f"-> AVISO: {len(faltantes)} contrato(s) no estan en {LOG_CSV.name}, se omiten: {faltantes}", file=sys.stderr)
 
+    lines = ["List<CancelarContratosRunner.CancelRequest> requests = new List<CancelarContratosRunner.CancelRequest>{"]
+    lines.append(",\n".join(entries))
+    lines.append("};")
     print("\n".join(lines))
-    print(f"\n-> {len(numeros) - len(faltantes)} contrato(s) en el batch.", file=sys.stderr)
+    print(f"\n-> {len(entries)} contrato(s) en el batch.", file=sys.stderr)
 
 
 if __name__ == "__main__":
