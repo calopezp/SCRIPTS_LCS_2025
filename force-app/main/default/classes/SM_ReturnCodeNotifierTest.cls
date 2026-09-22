@@ -167,4 +167,65 @@ public without sharing class SM_ReturnCodeNotifierTest {
         Test.stopTest();
         System.assert(true, 'sendTimeoutReversalReport should run end-to-end (live SOQL) without throwing.');
     }
+
+    // calp 2026-09-22 :: compilado semanal para Comercial, agrupado por accion en vez de codigo.
+    @IsTest
+    static void weeklyDigestGroupsNewVsBacklogByAction() {
+        Contract ct = [SELECT Id, ContractNumber, Status, SM_Customer_Cancellation__c, Is_Test_Contract__c, Is_VIP_Contract__c FROM Contract LIMIT 1];
+
+        SM_Payment__c nuevoR02 = new SM_Payment__c(
+            SM_Contract__c = ct.Id, SM_Amount__c = 75, Payment_Status__c = 'REJECTED',
+            SM_Return_code__c = 'R02', CreatedDate = DateTime.now()
+        );
+        nuevoR02.SM_Contract__r = ct;
+
+        SM_Payment__c backlogR10 = new SM_Payment__c(
+            SM_Contract__c = ct.Id, SM_Amount__c = 99, Payment_Status__c = 'REJECTED',
+            SM_Return_code__c = 'R10', CreatedDate = DateTime.now().addDays(-30)
+        );
+        backlogR10.SM_Contract__r = ct;
+
+        Test.startTest();
+            String report = SM_ReturnCodeNotifier.buildWeeklyComercialDigest(
+                new List<SM_Payment__c>{ nuevoR02, backlogR10 }, new List<SM_Payment__c>(), Date.today().addDays(-7)
+            );
+        Test.stopTest();
+
+        System.assert(report.contains('ACTUALIZAR METODO DE PAGO'), 'R02 should land in the update-payment-method section.');
+        System.assert(report.contains('DISPUTA O REVOCACION DEL CLIENTE'), 'R10 should land in the dispute section.');
+        System.assert(report.contains('NUEVO ESTA SEMANA'), 'The R02 payment from today should be flagged as new this week.');
+        System.assert(report.contains('BACKLOG ACUMULADO'), 'The R10 payment from 30 days ago should be flagged as backlog.');
+    }
+
+    @IsTest
+    static void weeklyDigestFlagsResolvedContractsSeparately() {
+        Contract ct = [SELECT Id, ContractNumber, Status, SM_Customer_Cancellation__c, Is_Test_Contract__c, Is_VIP_Contract__c FROM Contract LIMIT 1];
+
+        SM_Payment__c oldR16 = new SM_Payment__c(
+            SM_Contract__c = ct.Id, SM_Amount__c = 139, Payment_Status__c = 'REJECTED',
+            SM_Return_code__c = 'R16', CreatedDate = DateTime.now().addDays(-20)
+        );
+        oldR16.SM_Contract__r = ct;
+
+        SM_Payment__c laterAccepted = new SM_Payment__c(
+            SM_Contract__c = ct.Id, CreatedDate = DateTime.now().addDays(-5)
+        );
+
+        Test.startTest();
+            String report = SM_ReturnCodeNotifier.buildWeeklyComercialDigest(
+                new List<SM_Payment__c>{ oldR16 }, new List<SM_Payment__c>{ laterAccepted }, Date.today().addDays(-7)
+            );
+        Test.stopTest();
+
+        System.assert(report.contains('Ya resueltos'), 'A contract accepted after its last return code should be listed as resolved.');
+        System.assert(!report.contains('BACKLOG ACUMULADO'), 'A resolved contract should not also appear in the backlog list.');
+    }
+
+    @IsTest
+    static void sendsWeeklyComercialDigestWithoutError() {
+        Test.startTest();
+            SM_ReturnCodeNotifier.sendWeeklyComercialDigest();
+        Test.stopTest();
+        System.assert(true, 'sendWeeklyComercialDigest should run end-to-end (live SOQL) without throwing.');
+    }
 }

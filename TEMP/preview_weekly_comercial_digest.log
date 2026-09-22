@@ -1,0 +1,433 @@
+ »   Warning: @salesforce/cli update available from 2.149.9 to 2.150.6.
+Compiled successfully.
+Executed successfully.
+
+67.0 APEX_CODE,DEBUG;APEX_PROFILING,INFO
+Execute Anonymous: // SOLO LECTURA -- borrador del compilado semanal para Comercial, agrupado por accion en vez
+Execute Anonymous: // de por codigo NACHA. No envia nada, solo imprime el cuerpo para revisar el diseno.
+Execute Anonymous: 
+Execute Anonymous: Set<String> CLOSED = new Set<String>{ 'Cancelled', 'Canceled', 'Finalized' };
+Execute Anonymous: 
+Execute Anonymous: class Pad {
+Execute Anonymous:     String rep(String ch, Integer n) {
+Execute Anonymous:         String s = '';
+Execute Anonymous:         for (Integer i = 0; i < n; i++) { s += ch; }
+Execute Anonymous:         return s;
+Execute Anonymous:     }
+Execute Anonymous: }
+Execute Anonymous: Pad pad = new Pad();
+Execute Anonymous: 
+Execute Anonymous: class Grupo {
+Execute Anonymous:     String titulo;
+Execute Anonymous:     String accion;
+Execute Anonymous:     Set<String> codigos;
+Execute Anonymous:     List<SM_Payment__c> payments = new List<SM_Payment__c>();
+Execute Anonymous: }
+Execute Anonymous: 
+Execute Anonymous: Map<String, Grupo> grupos = new Map<String, Grupo>();
+Execute Anonymous: 
+Execute Anonymous: Grupo g1 = new Grupo();
+Execute Anonymous: g1.titulo = 'ACTUALIZAR METODO DE PAGO';
+Execute Anonymous: g1.accion = 'el dato bancario del cliente esta mal o ya no existe -- hay que contactarlo para actualizarlo, reintentar con el mismo dato no va a funcionar.';
+Execute Anonymous: g1.codigos = new Set<String>{ 'R02', 'R04', 'R13' };
+Execute Anonymous: grupos.put('metodo', g1);
+Execute Anonymous: 
+Execute Anonymous: Grupo g2 = new Grupo();
+Execute Anonymous: g2.titulo = 'DISPUTA O REVOCACION DEL CLIENTE';
+Execute Anonymous: g2.accion = 'el cliente le dijo al banco que no autoriza o revoco el cobro -- hablar con el cliente antes de reintentar, para no generar otra disputa.';
+Execute Anonymous: g2.codigos = new Set<String>{ 'R10', 'R07' };
+Execute Anonymous: grupos.put('disputa', g2);
+Execute Anonymous: 
+Execute Anonymous: Grupo g3 = new Grupo();
+Execute Anonymous: g3.titulo = 'CUENTA CONGELADA';
+Execute Anonymous: g3.accion = 'usualmente por una orden legal/judicial, fuera del control del cliente -- dar seguimiento aparte antes de reintentar.';
+Execute Anonymous: g3.codigos = new Set<String>{ 'R16' };
+Execute Anonymous: grupos.put('congelada', g3);
+Execute Anonymous: 
+Execute Anonymous: Set<String> allCodes = new Set<String>{ 'R02', 'R04', 'R13', 'R10', 'R07', 'R16' };
+Execute Anonymous: List<SM_Payment__c> allPayments = [
+Execute Anonymous:     SELECT Id, Name, SM_Amount__c, CreatedDate, SM_Return_code__c,
+Execute Anonymous:            SM_Contract__c, SM_Contract__r.ContractNumber, SM_Contract__r.Status,
+Execute Anonymous:            SM_Contract__r.SM_Customer_Cancellation__c,
+Execute Anonymous:            SM_Contract__r.Is_Test_Contract__c, SM_Contract__r.Is_VIP_Contract__c
+Execute Anonymous:     FROM SM_Payment__c
+Execute Anonymous:     WHERE SM_Return_code__c IN :allCodes
+Execute Anonymous:     ORDER BY SM_Contract__r.ContractNumber, CreatedDate
+Execute Anonymous: ];
+Execute Anonymous: 
+Execute Anonymous: Set<Id> contractIds = new Set<Id>();
+Execute Anonymous: for (SM_Payment__c p : allPayments) {
+Execute Anonymous:     if (p.SM_Contract__c == null || p.SM_Contract__r == null) continue;
+Execute Anonymous:     if (CLOSED.contains(p.SM_Contract__r.Status) || p.SM_Contract__r.SM_Customer_Cancellation__c == true
+Execute Anonymous:         || p.SM_Contract__r.Is_Test_Contract__c == true || p.SM_Contract__r.Is_VIP_Contract__c == true) continue;
+Execute Anonymous:     contractIds.add(p.SM_Contract__c);
+Execute Anonymous:     for (Grupo g : grupos.values()) {
+Execute Anonymous:         if (g.codigos.contains(p.SM_Return_code__c)) {
+Execute Anonymous:             g.payments.add(p);
+Execute Anonymous:         }
+Execute Anonymous:     }
+Execute Anonymous: }
+Execute Anonymous: 
+Execute Anonymous: Map<Id, List<Date>> acceptedDatesByContract = new Map<Id, List<Date>>();
+Execute Anonymous: if (!contractIds.isEmpty()) {
+Execute Anonymous:     for (SM_Payment__c p : [SELECT SM_Contract__c, CreatedDate FROM SM_Payment__c
+Execute Anonymous:                              WHERE SM_Contract__c IN :contractIds AND Payment_Status__c = 'ACCEPTED']) {
+Execute Anonymous:         if (!acceptedDatesByContract.containsKey(p.SM_Contract__c)) {
+Execute Anonymous:             acceptedDatesByContract.put(p.SM_Contract__c, new List<Date>());
+Execute Anonymous:         }
+Execute Anonymous:         acceptedDatesByContract.get(p.SM_Contract__c).add(p.CreatedDate.date());
+Execute Anonymous:     }
+Execute Anonymous: }
+Execute Anonymous: 
+Execute Anonymous: class ContratoResumen {
+Execute Anonymous:     String contractNumber;
+Execute Anonymous:     String status;
+Execute Anonymous:     Decimal total = 0;
+Execute Anonymous:     List<SM_Payment__c> pays = new List<SM_Payment__c>();
+Execute Anonymous:     Boolean resuelto = false;
+Execute Anonymous: }
+Execute Anonymous: 
+Execute Anonymous: String resumenLine = '';
+Execute Anonymous: String bodyDetalle = '';
+Execute Anonymous: Decimal granTotal = 0;
+Execute Anonymous: Integer granContratos = 0;
+Execute Anonymous: 
+Execute Anonymous: for (String key : new List<String>{ 'metodo', 'disputa', 'congelada' }) {
+Execute Anonymous:     Grupo g = grupos.get(key);
+Execute Anonymous:     Map<Id, ContratoResumen> porContrato = new Map<Id, ContratoResumen>();
+Execute Anonymous:     for (SM_Payment__c p : g.payments) {
+Execute Anonymous:         if (!porContrato.containsKey(p.SM_Contract__c)) {
+Execute Anonymous:             ContratoResumen cr = new ContratoResumen();
+Execute Anonymous:             cr.contractNumber = p.SM_Contract__r.ContractNumber;
+Execute Anonymous:             cr.status = p.SM_Contract__r.Status;
+Execute Anonymous:             porContrato.put(p.SM_Contract__c, cr);
+Execute Anonymous:         }
+Execute Anonymous:         ContratoResumen cr = porContrato.get(p.SM_Contract__c);
+Execute Anonymous:         cr.pays.add(p);
+Execute Anonymous:         cr.total += (p.SM_Amount__c != null ? p.SM_Amount__c : 0);
+Execute Anonymous:     }
+Execute Anonymous:     for (Id cId : porContrato.keySet()) {
+Execute Anonymous:         ContratoResumen cr = porContrato.get(cId);
+Execute Anonymous:         Date latest = cr.pays[0].CreatedDate.date();
+Execute Anonymous:         for (SM_Payment__c p : cr.pays) { if (p.CreatedDate.date() > latest) latest = p.CreatedDate.date(); }
+Execute Anonymous:         for (Date d : acceptedDatesByContract.containsKey(cId) ? acceptedDatesByContract.get(cId) : new List<Date>()) {
+Execute Anonymous:             if (d > latest) cr.resuelto = true;
+Execute Anonymous:         }
+Execute Anonymous:     }
+Execute Anonymous: 
+Execute Anonymous:     List<ContratoResumen> nuevos = new List<ContratoResumen>();
+Execute Anonymous:     List<ContratoResumen> resueltos = new List<ContratoResumen>();
+Execute Anonymous:     Decimal groupTotal = 0;
+Execute Anonymous:     for (ContratoResumen cr : porContrato.values()) {
+Execute Anonymous:         if (cr.resuelto) { resueltos.add(cr); } else { nuevos.add(cr); groupTotal += cr.total; }
+Execute Anonymous:     }
+Execute Anonymous: 
+Execute Anonymous:     resumenLine += '  ' + g.titulo + pad.rep(' ', Math.max(1, 35 - g.titulo.length()))
+Execute Anonymous:         + nuevos.size() + ' contrato(s)   $' + groupTotal.format() + '\n';
+Execute Anonymous:     granTotal += groupTotal;
+Execute Anonymous:     granContratos += nuevos.size();
+Execute Anonymous: 
+Execute Anonymous:     bodyDetalle += '========================================================================\n';
+Execute Anonymous:     bodyDetalle += g.titulo + '\n';
+Execute Anonymous:     bodyDetalle += g.accion + '\n\n';
+Execute Anonymous: 
+Execute Anonymous:     if (nuevos.isEmpty()) {
+Execute Anonymous:         bodyDetalle += '  Sin contratos pendientes en esta categoria.\n\n';
+Execute Anonymous:     } else {
+Execute Anonymous:         // ordenar por monto desc (bubble simple, listas cortas)
+Execute Anonymous:         for (Integer i = 0; i < nuevos.size(); i++) {
+Execute Anonymous:             for (Integer j = i + 1; j < nuevos.size(); j++) {
+Execute Anonymous:                 if (nuevos[j].total > nuevos[i].total) {
+Execute Anonymous:                     ContratoResumen tmp = nuevos[i]; nuevos[i] = nuevos[j]; nuevos[j] = tmp;
+Execute Anonymous:                 }
+Execute Anonymous:             }
+Execute Anonymous:         }
+Execute Anonymous:         for (ContratoResumen cr : nuevos) {
+Execute Anonymous:             bodyDetalle += '- Contrato ' + cr.contractNumber + ' (' + cr.status + ') - $' + cr.total.format() + '\n';
+Execute Anonymous:             for (SM_Payment__c p : cr.pays) {
+Execute Anonymous:                 bodyDetalle += '    ' + p.Name + ' - $' + (p.SM_Amount__c != null ? p.SM_Amount__c.format() : '?')
+Execute Anonymous:                     + ' - ' + p.CreatedDate.date().format() + ' - ' + p.SM_Return_code__c + '\n';
+Execute Anonymous:             }
+Execute Anonymous:         }
+Execute Anonymous:         bodyDetalle += '\n';
+Execute Anonymous:     }
+Execute Anonymous: 
+Execute Anonymous:     if (!resueltos.isEmpty()) {
+Execute Anonymous:         bodyDetalle += '  Ya resueltos (' + resueltos.size() + ', pago aceptado despues del ultimo rechazo -- no requieren accion):\n';
+Execute Anonymous:         for (ContratoResumen cr : resueltos) {
+Execute Anonymous:             bodyDetalle += '    Contrato ' + cr.contractNumber + '\n';
+Execute Anonymous:         }
+Execute Anonymous:         bodyDetalle += '\n';
+Execute Anonymous:     }
+Execute Anonymous: }
+Execute Anonymous: 
+Execute Anonymous: String header = 'NOVEDADES ACH PARA COMERCIAL - Semana del ' + Date.today().format() + '\n'
+Execute Anonymous:     + '========================================================================\n\n'
+Execute Anonymous:     + 'RESUMEN\n' + resumenLine
+Execute Anonymous:     + '  ' + pad.rep('-', 50) + '\n'
+Execute Anonymous:     + '  TOTAL' + pad.rep(' ', 31) + granContratos + ' contrato(s)   $' + granTotal.format() + '\n\n';
+Execute Anonymous: 
+Execute Anonymous: String fullBody = header + bodyDetalle;
+Execute Anonymous: System.debug('===BODY START===');
+Execute Anonymous: System.debug(fullBody);
+Execute Anonymous: System.debug('===BODY END===');
+Execute Anonymous: System.debug('LENGTH: ' + fullBody.length());
+16:12:38.46 (46618864)|USER_INFO|[EXTERNAL]|0051U000007bbx5|clopez@legal-credit.com|(GMT+02:00) Central European Summer Time (Europe/Madrid)|GMT+02:00
+16:12:38.46 (46640964)|EXECUTION_STARTED
+16:12:38.46 (46661255)|CODE_UNIT_STARTED|[EXTERNAL]|execute_anonymous_apex
+16:12:40.397 (2397086730)|USER_DEBUG|[166]|DEBUG|===BODY START===
+16:12:40.397 (2397114850)|USER_DEBUG|[167]|DEBUG|NOVEDADES ACH PARA COMERCIAL - Semana del 9/22/2026
+========================================================================
+
+RESUMEN
+  ACTUALIZAR METODO DE PAGO          30 contrato(s)   $10,662.01
+  DISPUTA O REVOCACION DEL CLIENTE   16 contrato(s)   $2,822.58
+  CUENTA CONGELADA                   1 contrato(s)   $583
+  --------------------------------------------------
+  TOTAL                               47 contrato(s)   $14,067.59
+
+========================================================================
+ACTUALIZAR METODO DE PAGO
+el dato bancario del cliente esta mal o ya no existe -- hay que contactarlo para actualizarlo, reintentar con el mismo dato no va a funcionar.
+
+- Contrato 00316708 (Activated) - $1,439
+    PY-01838211 - $79 - 5/21/2026 - R02
+    PY-01847656 - $104 - 6/5/2026 - R02
+    PY-01847644 - $104 - 6/5/2026 - R02
+    PY-01847638 - $104 - 6/5/2026 - R02
+    PY-01856300 - $79 - 6/23/2026 - R02
+    PY-01868517 - $104 - 7/20/2026 - R02
+    PY-01868527 - $104 - 7/20/2026 - R02
+    PY-01868521 - $104 - 7/20/2026 - R02
+    PY-01868540 - $104 - 7/20/2026 - R02
+    PY-01869470 - $79 - 7/23/2026 - R02
+    PY-01872278 - $79 - 7/30/2026 - R02
+    PY-01885976 - $79 - 8/21/2026 - R02
+    PY-01887667 - $79 - 8/24/2026 - R02
+    PY-01888276 - $79 - 8/25/2026 - R02
+    PY-01888806 - $79 - 8/26/2026 - R02
+    PY-01888829 - $79 - 8/26/2026 - R02
+- Contrato 00314584 (Activated) - $1,225
+    PY-01804515 - $75 - 3/12/2026 - R02
+    PY-01817974 - $75 - 4/14/2026 - R02
+    PY-01824973 - $100 - 4/29/2026 - R02
+    PY-01824894 - $100 - 4/29/2026 - R02
+    PY-01834080 - $75 - 5/14/2026 - R02
+    PY-01852563 - $75 - 6/15/2026 - R02
+    PY-01866293 - $75 - 7/14/2026 - R02
+    PY-01880943 - $75 - 8/13/2026 - R02
+    PY-01884584 - $100 - 8/19/2026 - R02
+    PY-01884688 - $100 - 8/19/2026 - R02
+    PY-01884608 - $100 - 8/19/2026 - R02
+    PY-01884643 - $100 - 8/19/2026 - R02
+    PY-01899205 - $100 - 9/8/2026 - R02
+    PY-01902602 - $75 - 9/14/2026 - R02
+- Contrato 00314023 (Activated) - $1,126.39
+    PY-01824754 - $99 - 4/29/2026 - R02
+    PY-01824927 - $124 - 4/29/2026 - R02
+    PY-01842192 - $99 - 5/28/2026 - R02
+    PY-01859582 - $99 - 6/29/2026 - R02
+    PY-01872889 - $99 - 7/30/2026 - R02
+    PY-01880388 - $110.39 - 8/12/2026 - R02
+    PY-01884627 - $124 - 8/19/2026 - R02
+    PY-01884662 - $124 - 8/19/2026 - R02
+    PY-01884593 - $124 - 8/19/2026 - R02
+    PY-01899176 - $124 - 9/8/2026 - R02
+- Contrato 00316478 (Activated) - $1,115
+    PY-01828923 - $99 - 5/5/2026 - R02
+    PY-01829097 - $124 - 5/5/2026 - R02
+    PY-01847633 - $99 - 6/5/2026 - R02
+    PY-01861601 - $99 - 7/2/2026 - R02
+    PY-01876639 - $99 - 8/5/2026 - R02
+    PY-01884601 - $124 - 8/19/2026 - R02
+    PY-01884631 - $124 - 8/19/2026 - R02
+    PY-01884679 - $124 - 8/19/2026 - R02
+    PY-01895380 - $99 - 9/3/2026 - R02
+    PY-01899189 - $124 - 9/8/2026 - R02
+- Contrato 00314018 (Activated) - $836
+    PY-01824744 - $79 - 4/29/2026 - R02
+    PY-01824928 - $104 - 4/29/2026 - R02
+    PY-01842176 - $79 - 5/28/2026 - R02
+    PY-01859566 - $79 - 6/29/2026 - R02
+    PY-01872873 - $79 - 7/30/2026 - R02
+    PY-01884669 - $104 - 8/19/2026 - R02
+    PY-01884630 - $104 - 8/19/2026 - R02
+    PY-01884594 - $104 - 8/19/2026 - R02
+    PY-01899175 - $104 - 9/8/2026 - R02
+- Contrato 00315538 (Activated) - $645
+    PY-01859626 - $119 - 6/29/2026 - R02
+    PY-01872929 - $119 - 7/30/2026 - R02
+    PY-01889087 - $119 - 8/27/2026 - R02
+    PY-01899140 - $144 - 9/8/2026 - R02
+    PY-01899180 - $144 - 9/8/2026 - R02
+- Contrato 00317797 (Activated) - $520
+    PY-01867096 - $99 - 7/15/2026 - R04
+    PY-01880417 - $99 - 8/12/2026 - R04
+    PY-01881042 - $99 - 8/13/2026 - R04
+    PY-01890516 - $124 - 8/29/2026 - R04
+    PY-01902672 - $99 - 9/14/2026 - R04
+- Contrato 00317690 (Activated) - $347
+    PY-01899247 - $124 - 9/8/2026 - R02
+    PY-01899211 - $124 - 9/8/2026 - R02
+    PY-01902662 - $99 - 9/14/2026 - R02
+- Contrato 00316619 (Activated) - $347
+    PY-01872166 - $99 - 7/30/2026 - R02
+    PY-01884661 - $124 - 8/19/2026 - R02
+    PY-01884707 - $124 - 8/19/2026 - R02
+- Contrato 00314246 (Activated) - $317
+    PY-01889050 - $89 - 8/27/2026 - R02
+    PY-01899163 - $114 - 9/8/2026 - R02
+    PY-01899215 - $114 - 9/8/2026 - R02
+- Contrato 00241600 (Activated) - $304.54
+    PY-01872793 - $79 - 7/30/2026 - R02
+    PY-01880311 - $121.54 - 8/12/2026 - R02
+    PY-01899174 - $104 - 9/8/2026 - R02
+- Contrato 00317679 (Activated) - $297
+    PY-01880407 - $99 - 8/12/2026 - R13
+    PY-01881040 - $99 - 8/13/2026 - R13
+    PY-01902670 - $99 - 9/14/2026 - R13
+- Contrato 00317489 (Activated) - $278
+    PY-01881015 - $139 - 8/13/2026 - R02
+    PY-01902660 - $139 - 9/14/2026 - R02
+- Contrato 00318103 (Payment Process) - $139
+    PY-01899218 - $139 - 9/8/2026 - R04
+- Contrato 00318169 (Payment Process) - $139
+    PY-01877994 - $139 - 8/7/2026 - R13
+- Contrato 00318233 (Payment Process) - $139
+    PY-01885230 - $139 - 8/20/2026 - R04
+- Contrato 00318318 (Payment Process) - $139
+    PY-01899250 - $139 - 9/8/2026 - R04
+- Contrato 00318442 (Payment Process) - $139
+    PY-01895415 - $139 - 9/3/2026 - R04
+- Contrato 00314379 (Activated) - $132.69
+    PY-01880390 - $132.69 - 8/12/2026 - R02
+- Contrato 00317509 (Activated) - $124
+    PY-01899230 - $124 - 9/8/2026 - R02
+- Contrato 00313416 (Activated) - $110.39
+    PY-01880386 - $110.39 - 8/12/2026 - R04
+- Contrato 00316941 (Activated) - $99
+    PY-01889156 - $99 - 8/27/2026 - R02
+- Contrato 00318310 (Payment Process) - $99
+    PY-01890558 - $99 - 8/29/2026 - R04
+- Contrato 00318115 (Payment Process) - $99
+    PY-01885225 - $99 - 8/20/2026 - R04
+- Contrato 00318427 (Payment Process) - $99
+    PY-01894042 - $99 - 9/1/2026 - R04
+- Contrato 00317995 (Payment Process) - $99
+    PY-01899197 - $99 - 9/8/2026 - R04
+- Contrato 00317944 (Activated) - $79
+    PY-01890541 - $79 - 8/29/2026 - R02
+- Contrato 00315278 (Activated) - $79
+    PY-01889077 - $79 - 8/27/2026 - R02
+- Contrato 00317714 (Activated) - $75
+    PY-01889211 - $75 - 8/27/2026 - R02
+- Contrato 00317934 (Activated) - $75
+    PY-01903633 - $75 - 9/15/2026 - R04
+
+  Ya resueltos (10, pago aceptado despues del ultimo rechazo -- no requieren accion):
+    Contrato 00301055
+    Contrato 00311773
+    Contrato 00314444
+    Contrato 00316237
+    Contrato 00316240
+    Contrato 00316242
+    Contrato 00317037
+    Contrato 00317314
+    Contrato 00317655
+    Contrato 00317976
+
+========================================================================
+DISPUTA O REVOCACION DEL CLIENTE
+el cliente le dijo al banco que no autoriza o revoco el cobro -- hablar con el cliente antes de reintentar, para no generar otra disputa.
+
+- Contrato 00316097 (Activated) - $322
+    PY-01880967 - $99 - 8/13/2026 - R07
+    PY-01899201 - $124 - 9/8/2026 - R07
+    PY-01902621 - $99 - 9/14/2026 - R07
+- Contrato 00317264 (Activated) - $317
+    PY-01872202 - $89 - 7/30/2026 - R07
+    PY-01884704 - $114 - 8/19/2026 - R07
+    PY-01884664 - $114 - 8/19/2026 - R07
+- Contrato 00310862 (Activated) - $257
+    PY-01817952 - $69 - 4/14/2026 - R10
+    PY-01884692 - $94 - 8/19/2026 - R10
+    PY-01884645 - $94 - 8/19/2026 - R10
+- Contrato 00314671 (Activated) - $225
+    PY-01859586 - $75 - 6/29/2026 - R10
+    PY-01872893 - $75 - 7/30/2026 - R07
+    PY-01889059 - $75 - 8/27/2026 - R10
+- Contrato 00316444 (Activated) - $198
+    PY-01868816 - $99 - 7/21/2026 - R10
+    PY-01885207 - $99 - 8/20/2026 - R10
+- Contrato 00317434 (Activated) - $198
+    PY-01859726 - $99 - 6/29/2026 - R10
+    PY-01872218 - $99 - 7/30/2026 - R10
+- Contrato 00304787 (Activated) - $188.44
+    PY-01880378 - $188.44 - 8/12/2026 - R10
+- Contrato 00274687 (Activated) - $166.14
+    PY-01880352 - $166.14 - 8/12/2026 - R10
+- Contrato 00312743 (Activated) - $158
+    PY-01804502 - $79 - 3/12/2026 - R10
+    PY-01817964 - $79 - 4/14/2026 - R10
+- Contrato 00315994 (Activated) - $158
+    PY-01872953 - $79 - 7/30/2026 - R07
+    PY-01889111 - $79 - 8/27/2026 - R10
+- Contrato 00317867 (Activated) - $139
+    PY-01880427 - $139 - 8/12/2026 - R10
+- Contrato 00316755 (Activated) - $124
+    PY-01884599 - $124 - 8/19/2026 - R10
+- Contrato 00317116 (Activated) - $99
+    PY-01843592 - $99 - 5/29/2026 - R07
+- Contrato 00317509 (Activated) - $99
+    PY-01894616 - $99 - 9/2/2026 - R10
+- Contrato 00316376 (Activated) - $99
+    PY-01894597 - $99 - 9/2/2026 - R07
+- Contrato 00316864 (Activated) - $75
+    PY-01883331 - $75 - 8/17/2026 - R10
+
+  Ya resueltos (4, pago aceptado despues del ultimo rechazo -- no requieren accion):
+    Contrato 00312242
+    Contrato 00314997
+    Contrato 00315916
+    Contrato 00316977
+
+========================================================================
+CUENTA CONGELADA
+usualmente por una orden legal/judicial, fuera del control del cliente -- dar seguimiento aparte antes de reintentar.
+
+- Contrato 00311265 (Activated) - $583
+    PY-01740246 - $69 - 10/9/2025 - R16
+    PY-01751748 - $69 - 11/10/2025 - R16
+    PY-01752569 - $94 - 11/13/2025 - R16
+    PY-01769229 - $94 - 12/24/2025 - R16
+    PY-01769222 - $94 - 12/24/2025 - R16
+    PY-01849466 - $69 - 6/10/2026 - R16
+    PY-01899143 - $94 - 9/8/2026 - R16
+
+  Ya resueltos (1, pago aceptado despues del ultimo rechazo -- no requieren accion):
+    Contrato 00315109
+
+
+16:12:40.397 (2397153141)|USER_DEBUG|[168]|DEBUG|===BODY END===
+16:12:40.397 (2397164461)|USER_DEBUG|[169]|DEBUG|LENGTH: 9202
+16:12:40.397 (2397240742)|CUMULATIVE_LIMIT_USAGE
+16:12:40.397 (2397240742)|LIMIT_USAGE_FOR_NS|(default)|
+  Number of SOQL queries: 2 out of 100
+  Number of query rows: 3723 out of 50000
+  Number of SOSL queries: 0 out of 20
+  Number of DML statements: 0 out of 150
+  Number of Publish Immediate DML: 0 out of 150
+  Number of DML rows: 0 out of 10000
+  Maximum CPU time: 0 out of 10000
+  Maximum heap size: 0 out of 6000000
+  Number of callouts: 0 out of 100
+  Number of Email Invocations: 0 out of 10
+  Number of future calls: 0 out of 50
+  Number of queueable jobs added to the queue: 0 out of 50
+  Number of Mobile Apex push calls: 0 out of 10
+
+16:12:40.397 (2397240742)|CUMULATIVE_LIMIT_USAGE_END
+
+16:12:40.397 (2397320433)|CODE_UNIT_FINISHED|execute_anonymous_apex
+16:12:40.397 (2397331743)|EXECUTION_FINISHED
+
