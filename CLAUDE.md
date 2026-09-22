@@ -99,7 +99,7 @@ Este es **distinto** — es para cuando hay que reprocesar a propósito un rango
 
 `run_all_imports.sh` quedó **reemplazado** por estos dos — no usarlo más.
 
-### 2.2 Dos reglas explícitas del usuario (2026-09-09) — no revertir sin su confirmación
+### 2.2 Reglas explícitas del usuario — no revertir sin su confirmación
 
 **Rule 1 — procesar todo lo que traiga un archivo que se está trabajando, sin importar su fecha interna.** El campo `SM_Check_Collection_Date__c` (fecha del cheque/transacción) suele ser mucho más viejo que la fecha en que el banco realmente publicó el reporte que lo contiene — el atraso de Banco Popular es variable, no un fijo de 2-3 días. Cualquier payment que aparezca en un archivo de RETURN o COLLECTION que se esté procesando se debe aplicar, sin importar qué tan vieja sea esa fecha interna.
 
@@ -117,25 +117,15 @@ Este es **distinto** — es para cuando hay que reprocesar a propósito un rango
 
 **Cómo aplicar esto a futuro:** cualquier cambio a estos scripts (o uno nuevo que cubra lo mismo) debe preservar ambas reglas juntas — no volver a un corte de recencia silencioso (viola Rule 1), y no quitar el gate de confirmación de datos viejos ni aplicarlo al preview de dry-run (sería sobre-restrictivo) ni auto-confirmarlo (viola Rule 2). Si se pide correr un catch-up real de más de 2 meses atrás, pedir confirmación explícita del usuario antes de poner `CONFIRM_OLD=1` — no inferirlo de un lenguaje tipo "procesa todo", que fue exactamente el error que disparó la Rule 2.
 
+**Rule 3 — `PENDING` o `RETURN` con más de 26 días desde la transmisión pasa a `NOT_COLLECTED`** (confirmado por el usuario 2026-09-22, ampliada el mismo día). Si un pago queda en `SM_Check_Collection_Status__c = 'PENDING'` (Check Collection, todavía en proceso de reingreso tras un NSF) **o en `'RETURN'`** (ACH Return, sin re-presentar) y ya pasaron **más de 26 días desde `SM_Transmission_Date_ACH_File__c`** (la fecha en que se transmitió al banco, no la fecha del cheque ni la del reporte), el resultado real es `NOT_COLLECTED` — el banco ya no lo va a cobrar por esa vía, aunque ningún reporte posterior lo diga explícitamente así. Aplica a los dos estados "todavía sin resolver" del pipeline (Check Collection y ACH Returns), no solo a `PENDING`.
+
+**Ningún script de este repo implementa la Rule 3 todavía** (no es lo mismo que `UTILITARIOS/mark_transmitted_accepted.apex`, que es un timeout de 15 días para `ACH TRANSMITTED` sin ningún reporte → `ACCEPTED`; esta regla es al revés — un reporte SÍ existió, dijo `PENDING`/`RETURN`, pero ya venció el margen para que se resuelva solo). Por ahora es una regla de **interpretación manual** para validaciones/backfills puntuales, no una automatización desplegada — confirmar con el usuario antes de convertirla en un script recurrente tipo `mark_transmitted_accepted.apex`.
+
+**Validado con datos reales 2026-09-22:** los 18 payments de contratos Cancelled que quedaron excluidos de un fix de validación puntual (Tier 3/4, ver `BITACORA_HALLAZGOS_TECNICOS.md`/`TAREAS_PENDIENTES.md`) tenían todos `SM_Transmission_Date_ACH_File__c` de 300+ días atrás y ya estaban en vivo como `NOT_COLLECTED` — exactamente lo que predice la Rule 3. Confirma que revertirlos a `PENDING` (lo que sugería literalmente el reporte histórico usado en ese análisis) hubiera sido un error.
+
 ### 2.3 Asunto de migración conocido — no investigar salvo que se pida
 
 **84 contratos ACH legacy (2019-2025) sin `SM_ACH_Order__c` tipo AC.** Encontrado 2026-09-09 al diagnosticar/backfillear un bug real (`CONTRACT_10_After_Save_Orchestrator` v5 atascado en Draft desde 2026-08-26, por lo que la orden AC nunca se creó para contratos ACH llegando a Payment Process/Activated). Después de corregir ese hueco real (8 órdenes AC + 25 Subscription creadas), una query sin acotar mostró que estos ~84 contratos más viejos (`ContractNumber` aprox. 00241xxx-00316xxx, `CreatedDate` 2019-02-27 a 2025-12-24) tampoco tienen ninguna orden AC. El usuario confirmó que es un asunto de migración separado y preexistente, no relacionado con el bug — **no tocar/backfillear proactivamente**, solo si se pide explícitamente. Si una validación futura (`Contract` WHERE `SM_Payment_methods__c='ACH'` AND `Status IN ('Payment Process','Activated')` AND sin orden AC) vuelve a mostrar esta misma cola de 84, es esperado. Contratos **nuevos** (`CreatedDate` reciente) que aparezcan en esa misma query sí son un caso distinto y deben investigarse normalmente.
-
-### 2.4 Regla de negocio — `PENDING` o `RETURN` con más de 26 días desde la transmisión pasa a `NOT_COLLECTED`
-
-Instrucción explícita del usuario (2026-09-22, ampliada el mismo día): si un pago queda en
-`SM_Check_Collection_Status__c = 'PENDING'` (Check Collection, todavía en proceso de reingreso tras
-un NSF) **o en `'RETURN'`** (ACH Return, sin re-presentar) y ya pasaron **más de 26 días desde
-`SM_Transmission_Date_ACH_File__c`** (la fecha en que se transmitió al banco, no la fecha del cheque
-ni la del reporte), el resultado real es `NOT_COLLECTED` — el banco ya no lo va a cobrar por esa vía,
-aunque ningún reporte posterior lo diga explícitamente así. Aplica a los dos estados "todavía sin
-resolver" del pipeline (Check Collection y ACH Returns), no solo a `PENDING`. **Ningún script de este
-repo implementa esta transición todavía** (no es lo mismo que `UTILITARIOS/mark_transmitted_accepted.apex`,
-que es un timeout de 15 días para `ACH TRANSMITTED` sin ningún reporte → `ACCEPTED`; esta regla es al
-revés — un reporte SÍ existió, dijo `PENDING`/`RETURN`, pero ya venció el margen para que se resuelva
-solo). Por ahora es una regla de **interpretación manual** para validaciones/backfills puntuales, no
-una automatización desplegada — confirmar con el usuario antes de convertirla en un script recurrente
-tipo `mark_transmitted_accepted.apex`.
 
 **Validado con datos reales 2026-09-22:** los 18 payments de contratos Cancelled que quedaron
 excluidos del fix de Tier 3/4 (ver `TAREAS_PENDIENTES.md`, ahora cerrado) tenían todos
