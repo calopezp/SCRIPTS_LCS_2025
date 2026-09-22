@@ -1,10 +1,13 @@
 /**
  * @description Coverage for CancelarContratosRunner - see that class for the business rules
- * and the 2 gotchas (callout/DML ordering, dependent picklist) this exercises.
+ * and the gotchas (callout/DML ordering, dependent picklist, per-contract request date) this
+ * exercises.
  * @author Carlos Alberto Lopez Prada
  */
 @IsTest
 public without sharing class CancelarContratosRunnerTest {
+
+    private static final Date REQUEST_DATE = Date.newInstance(2026, 6, 10);
 
     @TestSetup
     static void makeData() {
@@ -81,6 +84,10 @@ public without sharing class CancelarContratosRunnerTest {
         );
     }
 
+    private static CancelarContratosRunner.CancelRequest requestFor(String contractNumber, String reason) {
+        return new CancelarContratosRunner.CancelRequest(contractNumber, reason, REQUEST_DATE);
+    }
+
     // Mocks a fixed status code for every callout in the transaction - good enough here
     // because a failing void() always short-circuits before cancel_for_items is attempted.
     private class ChargebeeMock implements HttpCalloutMock {
@@ -105,29 +112,31 @@ public without sharing class CancelarContratosRunnerTest {
         order.SM_Payment_Status__c = 'Pending';
         update order;
 
-        CancelarContratosRunner.CancelGroup g = new CancelarContratosRunner.CancelGroup(
-            'Does not comply with payments', 'Task desc', new Set<String>{ ct.ContractNumber });
+        CancelarContratosRunner.CancelRequest req = requestFor(ct.ContractNumber, 'Does not comply with payments');
 
         Test.startTest();
         List<CancelarContratosRunner.ResultRow> outcome =
-            CancelarContratosRunner.run(new List<CancelarContratosRunner.CancelGroup>{ g }, false);
+            CancelarContratosRunner.run(new List<CancelarContratosRunner.CancelRequest>{ req }, false);
         Test.stopTest();
 
         System.assertEquals(1, outcome.size(), 'One result row for the one ACH contract.');
         System.assertEquals(true, outcome[0].success, 'Should succeed with no blocking payments.');
         System.assertEquals('CANCELLED', outcome[0].action, 'Action should report CANCELLED.');
 
-        Contract updated = [SELECT Status, SM_Reason_for_cancellation__c, SM_Customer_Cancellation__c FROM Contract WHERE Id = :ct.Id];
+        Contract updated = [SELECT Status, SM_Reason_for_cancellation__c, SM_Customer_Cancellation__c, SM_Cancellation_Date__c FROM Contract WHERE Id = :ct.Id];
         System.assertEquals('Cancelled', updated.Status, 'Contract should be Cancelled.');
         System.assertEquals('Does not comply with payments', updated.SM_Reason_for_cancellation__c,
             'Reason should be set via the 2-phase DML fix (Status then Reason).');
         System.assertEquals(true, updated.SM_Customer_Cancellation__c, 'Customer cancellation flag should be set.');
+        System.assertEquals(REQUEST_DATE, updated.SM_Cancellation_Date__c,
+            'SM_Cancellation_Date__c must be the requested date from the CSV, not Date.today().');
 
         SM_ACH_Order__c updatedOrder = [SELECT SM_Payment_Status__c FROM SM_ACH_Order__c WHERE Id = :order.Id];
         System.assertEquals('Canceled', updatedOrder.SM_Payment_Status__c, 'ACH order should be Canceled.');
 
-        Task t = [SELECT Subject FROM Task WHERE WhatId = :ct.Id];
+        Task t = [SELECT Subject, Description FROM Task WHERE WhatId = :ct.Id];
         System.assertEquals('Customer Service-Effective Cancellation', t.Subject, 'Task should be created.');
+        System.assert(t.Description.contains('ELba Mantilla'), 'Known reason should map to its historical Task text.');
     }
 
     @IsTest
@@ -135,12 +144,11 @@ public without sharing class CancelarContratosRunnerTest {
         Contract ct = newAchContract();
         insert newAchPayment(ct.Id, 'REJECTED', 'PENDING');
 
-        CancelarContratosRunner.CancelGroup g = new CancelarContratosRunner.CancelGroup(
-            'Does not comply with payments', 'Task desc', new Set<String>{ ct.ContractNumber });
+        CancelarContratosRunner.CancelRequest req = requestFor(ct.ContractNumber, 'Does not comply with payments');
 
         Test.startTest();
         List<CancelarContratosRunner.ResultRow> outcome =
-            CancelarContratosRunner.run(new List<CancelarContratosRunner.CancelGroup>{ g }, false);
+            CancelarContratosRunner.run(new List<CancelarContratosRunner.CancelRequest>{ req }, false);
         Test.stopTest();
 
         System.assertEquals(false, outcome[0].success, 'Should be blocked by the unresolved payment.');
@@ -158,12 +166,11 @@ public without sharing class CancelarContratosRunnerTest {
         Contract ct = newAchContract();
         insert newAchPayment(ct.Id, 'REJECTED', 'NOT COLLECTED');
 
-        CancelarContratosRunner.CancelGroup g = new CancelarContratosRunner.CancelGroup(
-            'Does not comply with payments', 'Task desc', new Set<String>{ ct.ContractNumber });
+        CancelarContratosRunner.CancelRequest req = requestFor(ct.ContractNumber, 'Does not comply with payments');
 
         Test.startTest();
         List<CancelarContratosRunner.ResultRow> outcome =
-            CancelarContratosRunner.run(new List<CancelarContratosRunner.CancelGroup>{ g }, false);
+            CancelarContratosRunner.run(new List<CancelarContratosRunner.CancelRequest>{ req }, false);
         Test.stopTest();
 
         System.assertEquals(true, outcome[0].success, '"NOT COLLECTED" (with space) must be treated as resolved.');
@@ -179,20 +186,21 @@ public without sharing class CancelarContratosRunnerTest {
 
         Test.setMock(HttpCalloutMock.class, new ChargebeeMock(200));
 
-        CancelarContratosRunner.CancelGroup g = new CancelarContratosRunner.CancelGroup(
-            'Does not comply with payments', 'Task desc', new Set<String>{ ct.ContractNumber });
+        CancelarContratosRunner.CancelRequest req = requestFor(ct.ContractNumber, 'Does not comply with payments');
 
         Test.startTest();
         List<CancelarContratosRunner.ResultRow> outcome =
-            CancelarContratosRunner.run(new List<CancelarContratosRunner.CancelGroup>{ g }, false);
+            CancelarContratosRunner.run(new List<CancelarContratosRunner.CancelRequest>{ req }, false);
         Test.stopTest();
 
         System.assertEquals(true, outcome[0].success, 'Should succeed when Chargebee accepts both callouts.');
         System.assertEquals('CHARGEBEE_CANCELLED', outcome[0].action, 'Action should report CHARGEBEE_CANCELLED.');
 
-        Contract updated = [SELECT Status, SM_Reason_for_cancellation__c FROM Contract WHERE Id = :ct.Id];
+        Contract updated = [SELECT Status, SM_Reason_for_cancellation__c, SM_Cancellation_Date__c FROM Contract WHERE Id = :ct.Id];
         System.assertEquals('Cancelled', updated.Status, 'Contract should be Cancelled.');
         System.assertEquals('Does not comply with payments', updated.SM_Reason_for_cancellation__c, 'Reason should be set.');
+        System.assertEquals(REQUEST_DATE, updated.SM_Cancellation_Date__c,
+            'SM_Cancellation_Date__c must be the requested date from the CSV, not Date.today().');
 
         chargebeeapps__CB_Invoice__c inv = [SELECT chargebeeapps__Status__c FROM chargebeeapps__CB_Invoice__c WHERE Contract__c = :ct.Id];
         System.assertEquals('VOIDED', inv.chargebeeapps__Status__c, 'Invoice should be marked VOIDED locally.');
@@ -205,12 +213,11 @@ public without sharing class CancelarContratosRunnerTest {
 
         Test.setMock(HttpCalloutMock.class, new ChargebeeMock(400));
 
-        CancelarContratosRunner.CancelGroup g = new CancelarContratosRunner.CancelGroup(
-            'Does not comply with payments', 'Task desc', new Set<String>{ ct.ContractNumber });
+        CancelarContratosRunner.CancelRequest req = requestFor(ct.ContractNumber, 'Does not comply with payments');
 
         Test.startTest();
         List<CancelarContratosRunner.ResultRow> outcome =
-            CancelarContratosRunner.run(new List<CancelarContratosRunner.CancelGroup>{ g }, false);
+            CancelarContratosRunner.run(new List<CancelarContratosRunner.CancelRequest>{ req }, false);
         Test.stopTest();
 
         System.assertEquals(false, outcome[0].success, 'Should NOT succeed when Chargebee rejects the void call.');
@@ -222,18 +229,33 @@ public without sharing class CancelarContratosRunnerTest {
     }
 
     @IsTest
+    static void unknownReasonFallsBackToGenericTaskText() {
+        Contract ct = newAchContract();
+
+        CancelarContratosRunner.CancelRequest req = requestFor(ct.ContractNumber, 'Some brand new reason');
+
+        Test.startTest();
+        CancelarContratosRunner.run(new List<CancelarContratosRunner.CancelRequest>{ req }, false);
+        Test.stopTest();
+
+        Task t = [SELECT Description FROM Task WHERE WhatId = :ct.Id];
+        System.assertEquals('Cancelación solicitada — Some brand new reason', t.Description,
+            'An unmapped reason should fall back to the generic Task text instead of failing.');
+    }
+
+    @IsTest
     static void dryRunMakesNoCalloutsOrChanges() {
         Contract achCt = newAchContract();
         Contract cbCt = newChargebeeContract('ACTIVE');
         insert newInvoice(cbCt.Id, 'INV0003', 'PAYMENT_DUE');
 
-        CancelarContratosRunner.CancelGroup g = new CancelarContratosRunner.CancelGroup(
-            'Does not comply with payments', 'Task desc',
-            new Set<String>{ achCt.ContractNumber, cbCt.ContractNumber });
+        List<CancelarContratosRunner.CancelRequest> requests = new List<CancelarContratosRunner.CancelRequest>{
+            requestFor(achCt.ContractNumber, 'Does not comply with payments'),
+            requestFor(cbCt.ContractNumber, 'Does not comply with payments')
+        };
 
         Test.startTest();
-        List<CancelarContratosRunner.ResultRow> outcome =
-            CancelarContratosRunner.run(new List<CancelarContratosRunner.CancelGroup>{ g }, true);
+        List<CancelarContratosRunner.ResultRow> outcome = CancelarContratosRunner.run(requests, true);
         System.assertEquals(0, Limits.getCallouts(), 'Dry run must never call out to Chargebee.');
         Test.stopTest();
 
@@ -251,12 +273,11 @@ public without sharing class CancelarContratosRunnerTest {
 
     @IsTest
     static void reportsNotFoundForUnknownContractNumber() {
-        CancelarContratosRunner.CancelGroup g = new CancelarContratosRunner.CancelGroup(
-            'Does not comply with payments', 'Task desc', new Set<String>{ '00000000' });
+        CancelarContratosRunner.CancelRequest req = requestFor('00000000', 'Does not comply with payments');
 
         Test.startTest();
         List<CancelarContratosRunner.ResultRow> outcome =
-            CancelarContratosRunner.run(new List<CancelarContratosRunner.CancelGroup>{ g }, true);
+            CancelarContratosRunner.run(new List<CancelarContratosRunner.CancelRequest>{ req }, true);
         Test.stopTest();
 
         System.assertEquals(1, outcome.size(), 'One row reporting the missing contract.');

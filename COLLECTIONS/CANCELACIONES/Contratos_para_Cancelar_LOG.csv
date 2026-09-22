@@ -1,523 +1,459 @@
-00241829
-00259558
-00264042
-00269200
-00274381
-00276428
-00286155
-00289937
-00300131
-00302396
-00304403
-00307629
-00308741
-00308911
-00309104
-00309329
-00309408
-00309545
-00309564
-00310241
-00310489
-00310666
-00310747
-00310961
-00311156
-00311391
-00311669
-00311797
-00311887
-00311944
-00311956
-00312102
-00312116
-00312182
-00312251
-00312270
-00312290
-00312296
-00312542
-00312669
-00312713
-00312717
-00312728
-00312732
-00312747
-00312814
-00312868
-00312894
-00312940
-00312996
-00313051
-00313052
-00313053
-00313109
-00313112
-00313120
-00313121
-00313166
-00313173
-00313178
-00313203
-00313224
-00313225
-00313229
-00313233
-00313274
-00313283
-00313315
-00313321
-00313326
-00313346
-00313400
-00313404
-00313425
-00313430
-00313441
-00313476
-00313485
-00313496
-00313513
-00313521
-00313535
-00313562
-00313565
-00313619
-00313654
-00313658
-00313731
-00313775
-00313828
-00313840
-00313841
-00313842
-00313857
-00313876
-00313892
-00313908
-00313920
-00313948
-00313963
-00314008
-00314010
-00314020
-00314052
-00314055
-00314062
-00314064
-00314074
-00314086
-00314091
-00314111
-00314161
-00314178
-00314179
-00314193
-00314205
-00314206
-00314217
-00314241
-00314265
-00314267
-00314281
-00314289
-00314302
-00314314
-00314324
-00314327
-00314329
-00314333
-00314335
-00314343
-00314346
-00314356
-00314360
-00314361
-00314371
-00314373
-00314378
-00314389
-00314403
-00314405
-00314406
-00314409
-00314413
-00314418
-00314421
-00314423
-00314435
-00314438
-00314451
-00314477
-00314479
-00314484
-00314485
-00314488
-00314497
-00314499
-00314501
-00314515
-00314517
-00314540
-00314544
-00314554
-00314555
-00314559
-00314585
-00314599
-00314601
-00314602
-00314609
-00314616
-00314617
-00314621
-00314628
-00314635
-00314637
-00314642
-00314646
-00314651
-00314657
-00314679
-00314685
-00314687
-00314703
-00314708
-00314709
-00314710
-00314714
-00314716
-00314721
-00314727
-00314728
-00314731
-00314751
-00314758
-00314759
-00314764
-00314776
-00314777
-00314784
-00314788
-00314791
-00314805
-00314808
-00314811
-00314812
-00314831
-00314843
-00314880
-00314881
-00314886
-00314888
-00314896
-00314899
-00314903
-00314904
-00314907
-00314913
-00314914
-00314924
-00314931
-00314938
-00314939
-00314950
-00314979
-00314981
-00314982
-00314987
-00314993
-00314998
-00315002
-00315006
-00315020
-00315021
-00315023
-00315024
-00315025
-00315033
-00315047
-00315049
-00315060
-00315065
-00315066
-00315070
-00315073
-00315084
-00315085
-00315089
-00315094
-00315096
-00315103
-00315106
-00315110
-00315140
-00315142
-00315145
-00315148
-00315157
-00315165
-00315173
-00315176
-00315177
-00315183
-00315194
-00315195
-00315223
-00315234
-00315247
-00315250
-00315262
-00315264
-00315284
-00315285
-00315295
-00315297
-00315303
-00315317
-00315322
-00315338
-00315344
-00315345
-00315346
-00315379
-00315386
-00315409
-00315426
-00315430
-00315450
-00315452
-00315494
-00315499
-00315547
-00315556
-00315558
-00315571
-00315574
-00315581
-00315587
-00315612
-00315624
-00315638
-00315639
-00315702
-00315703
-00315725
-00315738
-00315743
-00315751
-00315754
-00315764
-00315788
-00315789
-00315791
-00315795
-00315796
-00315797
-00315803
-00315805
-00315820
-00315825
-00315830
-00315847
-00315852
-00315856
-00315859
-00315862
-00315867
-00315870
-00315871
-00315882
-00315886
-00315908
-00315926
-00315934
-00315935
-00315948
-00315976
-00315978
-00315985
-00315990
-00315995
-00315996
-00315999
-00316006
-00316010
-00316014
-00316032
-00316034
-00316035
-00316036
-00316037
-00316038
-00316055
-00316058
-00316060
-00316071
-00316074
-00316078
-00316079
-00316098
-00316124
-00316144
-00316147
-00316171
-00316186
-00316202
-00316204
-00316206
-00316212
-00316264
-00316265
-00316273
-00316287
-00316293
-00316307
-00316308
-00316313
-00316320
-00316321
-00316330
-00316338
-00316343
-00316344
-00316357
-00316364
-00316380
-00316389
-00316391
-00316393
-00316406
-00316429
-00316430
-00316438
-00316446
-00316464
-00316465
-00316485
-00316495
-00316537
-00316538
-00316580
-00316581
-00316616
-00316651
-00316670
-00316722
-00316735
-00316777
-00316868
-00316967
-00317022
-00317083
-00317088
-00317096
-00317103
-00317106
-00317179
-00317197
-00317199
-00317203
-00317211
-00317233
-00317272
-00317281
-00317286
-00317293
-00317296
-00317304
-00317312
-00317313
-00317315
-00317316
-00317332
-00317334
-00317338
-00317344
-00317346
-00317350
-00317357
-00317358
-00317361
-00317369
-00317380
-00317387
-00317391
-00317402
-00317408
-00317416
-00317438
-00317443
-00317453
-00317457
-00317465
-00317467
-00317468
-00317478
-00317480
-00317484
-00317491
-00317536
-00317553
-00317556
-00317557
-00317558
-00317573
-00317585
-00317598
-00317614
-00317634
-00317674
-00317683
-00317700
-00317701
-00317730
-00317731
-00317733
-00317771
-00317800
-00317923
-00317661
-00317665
-00317703
-00317717
-00317718
-00317745
-00317762
-00317772
-00317788
-00317795
-00317803
-00317807
-00317816
-00317822
-00317823
-00317830
-00317835
-00317851
-00317858
-00317861
-00317863
-00317870
-00317876
-00317881
-00317915
-00317916
-00317918
-00317927
-00317928
-00317930
-00317942
-00317948
-00317954
-00317957
-00317970
-00317971
-00317974
-00318000
-00318018
-00318022
-00318036
-00318054
-00318092
-00318109
+00289937	19 dic 2025	Does not comply with the obligations of the Contract
+00309564	19 dic 2025	Does not comply with the obligations of the Contract
+00311797	19 dic 2025	Does not comply with the obligations of the Contract
+00311887	19 dic 2025	Does not comply with the obligations of the Contract
+00312251	19 dic 2025	Does not comply with the obligations of the Contract
+00312270	19 dic 2025	Does not comply with the obligations of the Contract
+00312669	19 dic 2025	Does not comply with the obligations of the Contract
+00312713	19 dic 2025	Does not comply with the obligations of the Contract
+00312868	19 dic 2025	Does not comply with the obligations of the Contract
+00313112	19 dic 2025	Does not comply with the obligations of the Contract
+00313178	19 dic 2025	Does not comply with the obligations of the Contract
+00313229	19 dic 2025	Does not comply with the obligations of the Contract
+00313496	19 dic 2025	Does not comply with the obligations of the Contract
+00313513	19 dic 2025	Does not comply with the obligations of the Contract
+00313658	19 dic 2025	Does not comply with the obligations of the Contract
+00313857	19 dic 2025	Does not comply with the obligations of the Contract
+00313892	19 dic 2025	Does not comply with the obligations of the Contract
+00314055	19 dic 2025	Does not comply with the obligations of the Contract
+00314074	19 dic 2025	Does not comply with the obligations of the Contract
+00314241	19 dic 2025	Does not comply with the obligations of the Contract
+00314281	19 dic 2025	Does not comply with the obligations of the Contract
+00314289	19 dic 2025	Does not comply with the obligations of the Contract
+00314302	19 dic 2025	Does not comply with the obligations of the Contract
+00314324	19 dic 2025	Does not comply with the obligations of the Contract
+00314329	19 dic 2025	Does not comply with the obligations of the Contract
+00314333	19 dic 2025	Does not comply with the obligations of the Contract
+00314343	19 dic 2025	Does not comply with the obligations of the Contract
+00314346	19 dic 2025	Does not comply with the obligations of the Contract
+00314356	19 dic 2025	Does not comply with the obligations of the Contract
+00314378	19 dic 2025	Does not comply with the obligations of the Contract
+00314405	19 dic 2025	Does not comply with the obligations of the Contract
+00314409	19 dic 2025	Does not comply with the obligations of the Contract
+00314421	19 dic 2025	Does not comply with the obligations of the Contract
+00314423	19 dic 2025	Does not comply with the obligations of the Contract
+00314477	19 dic 2025	Does not comply with the obligations of the Contract
+00314488	19 dic 2025	Does not comply with the obligations of the Contract
+00314515	19 dic 2025	Does not comply with the obligations of the Contract
+00314517	19 dic 2025	Does not comply with the obligations of the Contract
+00314540	19 dic 2025	Does not comply with the obligations of the Contract
+00314544	19 dic 2025	Does not comply with the obligations of the Contract
+00314602	19 dic 2025	Does not comply with the obligations of the Contract
+00314609	19 dic 2025	Does not comply with the obligations of the Contract
+00314637	19 dic 2025	Does not comply with the obligations of the Contract
+00314657	19 dic 2025	Does not comply with the obligations of the Contract
+00314685	19 dic 2025	Does not comply with the obligations of the Contract
+00314708	19 dic 2025	Does not comply with the obligations of the Contract
+00314709	19 dic 2025	Does not comply with the obligations of the Contract
+00314710	19 dic 2025	Does not comply with the obligations of the Contract
+00314716	19 dic 2025	Does not comply with the obligations of the Contract
+00314721	19 dic 2025	Does not comply with the obligations of the Contract
+00314728	19 dic 2025	Does not comply with the obligations of the Contract
+00314731	19 dic 2025	Does not comply with the obligations of the Contract
+00314777	19 dic 2025	Does not comply with the obligations of the Contract
+00314788	19 dic 2025	Does not comply with the obligations of the Contract
+00314805	19 dic 2025	Does not comply with the obligations of the Contract
+00314811	19 dic 2025	Does not comply with the obligations of the Contract
+00314886	19 dic 2025	Does not comply with the obligations of the Contract
+00314913	19 dic 2025	Does not comply with the obligations of the Contract
+00314914	19 dic 2025	Does not comply with the obligations of the Contract
+00314924	19 dic 2025	Does not comply with the obligations of the Contract
+00314939	19 dic 2025	Does not comply with the obligations of the Contract
+00314987	19 dic 2025	Does not comply with the obligations of the Contract
+00315020	19 dic 2025	Does not comply with the obligations of the Contract
+00313053	13 ene 2026	Does not comply with the obligations of the Contract
+00313565	13 ene 2026	Does not comply with the obligations of the Contract
+00313876	13 ene 2026	Does not comply with the obligations of the Contract
+00313948	13 ene 2026	Does not comply with the obligations of the Contract
+00314178	13 ene 2026	Does not comply with the obligations of the Contract
+00314179	13 ene 2026	Does not comply with the obligations of the Contract
+00314206	13 ene 2026	Does not comply with the obligations of the Contract
+00314265	13 ene 2026	Does not comply with the obligations of the Contract
+00314485	13 ene 2026	Does not comply with the obligations of the Contract
+00307629	03 feb 2026	Does not comply with the obligations of the Contract
+00310961	03 feb 2026	Does not comply with the obligations of the Contract
+00311669	03 feb 2026	Does not comply with the obligations of the Contract
+00312542	03 feb 2026	Does not comply with the obligations of the Contract
+00312940	03 feb 2026	Does not comply with the obligations of the Contract
+00313052	03 feb 2026	Does not comply with the obligations of the Contract
+00313109	03 feb 2026	Does not comply with the obligations of the Contract
+00313166	03 feb 2026	Does not comply with the obligations of the Contract
+00313321	03 feb 2026	Does not comply with the obligations of the Contract
+00313400	03 feb 2026	Does not comply with the obligations of the Contract
+00313521	03 feb 2026	Does not comply with the obligations of the Contract
+00313654	03 feb 2026	Does not comply with the obligations of the Contract
+00314193	03 feb 2026	Does not comply with the obligations of the Contract
+00314435	03 feb 2026	Does not comply with the obligations of the Contract
+00314791	03 feb 2026	Does not comply with the obligations of the Contract
+00314904	03 feb 2026	Does not comply with the obligations of the Contract
+00314931	03 feb 2026	Does not comply with the obligations of the Contract
+00314993	03 feb 2026	Does not comply with the obligations of the Contract
+00315023	03 feb 2026	Does not comply with the obligations of the Contract
+00315024	03 feb 2026	Does not comply with the obligations of the Contract
+00315025	03 feb 2026	Does not comply with the obligations of the Contract
+00315085	03 feb 2026	Does not comply with the obligations of the Contract
+00315094	03 feb 2026	Does not comply with the obligations of the Contract
+00315145	03 feb 2026	Does not comply with the obligations of the Contract
+00315285	03 feb 2026	Does not comply with the obligations of the Contract
+00241829	09 feb 2026	Does not comply with the obligations of the Contract
+00274381	09 feb 2026	Does not comply with the obligations of the Contract
+00309408	09 feb 2026	Does not comply with the obligations of the Contract
+00309545	09 feb 2026	Does not comply with the obligations of the Contract
+00310241	09 feb 2026	Does not comply with the obligations of the Contract
+00310489	09 feb 2026	Does not comply with the obligations of the Contract
+00311391	09 feb 2026	Does not comply with the obligations of the Contract
+00311956	09 feb 2026	Does not comply with the obligations of the Contract
+00312116	09 feb 2026	Does not comply with the obligations of the Contract
+00312182	09 feb 2026	Does not comply with the obligations of the Contract
+00312290	09 feb 2026	Does not comply with the obligations of the Contract
+00313121	09 feb 2026	Does not comply with the obligations of the Contract
+00313173	09 feb 2026	Does not comply with the obligations of the Contract
+00313203	09 feb 2026	Does not comply with the obligations of the Contract
+00313224	09 feb 2026	Does not comply with the obligations of the Contract
+00313225	09 feb 2026	Does not comply with the obligations of the Contract
+00313274	09 feb 2026	Does not comply with the obligations of the Contract
+00313283	09 feb 2026	Does not comply with the obligations of the Contract
+00313326	09 feb 2026	Does not comply with the obligations of the Contract
+00313425	09 feb 2026	Does not comply with the obligations of the Contract
+00313430	09 feb 2026	Does not comply with the obligations of the Contract
+00313535	09 feb 2026	Does not comply with the obligations of the Contract
+00313619	09 feb 2026	Does not comply with the obligations of the Contract
+00313828	09 feb 2026	Does not comply with the obligations of the Contract
+00313908	09 feb 2026	Does not comply with the obligations of the Contract
+00314020	09 feb 2026	Does not comply with the obligations of the Contract
+00314052	09 feb 2026	Does not comply with the obligations of the Contract
+00314064	09 feb 2026	Does not comply with the obligations of the Contract
+00314091	09 feb 2026	Does not comply with the obligations of the Contract
+00314111	09 feb 2026	Does not comply with the obligations of the Contract
+00314161	09 feb 2026	Does not comply with the obligations of the Contract
+00314205	09 feb 2026	Does not comply with the obligations of the Contract
+00314217	09 feb 2026	Does not comply with the obligations of the Contract
+00314327	09 feb 2026	Does not comply with the obligations of the Contract
+00314373	09 feb 2026	Does not comply with the obligations of the Contract
+00314389	09 feb 2026	Does not comply with the obligations of the Contract
+00314403	09 feb 2026	Does not comply with the obligations of the Contract
+00314413	09 feb 2026	Does not comply with the obligations of the Contract
+00314438	09 feb 2026	Does not comply with the obligations of the Contract
+00314451	09 feb 2026	Does not comply with the obligations of the Contract
+00314479	09 feb 2026	Does not comply with the obligations of the Contract
+00314497	09 feb 2026	Does not comply with the obligations of the Contract
+00314499	09 feb 2026	Does not comply with the obligations of the Contract
+00314616	09 feb 2026	Does not comply with the obligations of the Contract
+00314617	09 feb 2026	Does not comply with the obligations of the Contract
+00314628	09 feb 2026	Does not comply with the obligations of the Contract
+00314651	09 feb 2026	Does not comply with the obligations of the Contract
+00314679	09 feb 2026	Does not comply with the obligations of the Contract
+00314687	09 feb 2026	Does not comply with the obligations of the Contract
+00314703	09 feb 2026	Does not comply with the obligations of the Contract
+00314714	09 feb 2026	Does not comply with the obligations of the Contract
+00314727	09 feb 2026	Does not comply with the obligations of the Contract
+00314751	09 feb 2026	Does not comply with the obligations of the Contract
+00314758	09 feb 2026	Does not comply with the obligations of the Contract
+00314759	09 feb 2026	Does not comply with the obligations of the Contract
+00314764	09 feb 2026	Does not comply with the obligations of the Contract
+00314812	09 feb 2026	Does not comply with the obligations of the Contract
+00314831	09 feb 2026	Does not comply with the obligations of the Contract
+00314881	09 feb 2026	Does not comply with the obligations of the Contract
+00314896	09 feb 2026	Does not comply with the obligations of the Contract
+00314899	09 feb 2026	Does not comply with the obligations of the Contract
+00314907	09 feb 2026	Does not comply with the obligations of the Contract
+00314938	09 feb 2026	Does not comply with the obligations of the Contract
+00314979	09 feb 2026	Does not comply with the obligations of the Contract
+00315002	09 feb 2026	Does not comply with the obligations of the Contract
+00315021	09 feb 2026	Does not comply with the obligations of the Contract
+00315047	09 feb 2026	Does not comply with the obligations of the Contract
+00315049	09 feb 2026	Does not comply with the obligations of the Contract
+00315060	09 feb 2026	Does not comply with the obligations of the Contract
+00315084	09 feb 2026	Does not comply with the obligations of the Contract
+00315089	09 feb 2026	Does not comply with the obligations of the Contract
+00315096	09 feb 2026	Does not comply with the obligations of the Contract
+00315157	09 feb 2026	Does not comply with the obligations of the Contract
+00315173	09 feb 2026	Does not comply with the obligations of the Contract
+00315194	09 feb 2026	Does not comply with the obligations of the Contract
+00315195	09 feb 2026	Does not comply with the obligations of the Contract
+00315223	09 feb 2026	Does not comply with the obligations of the Contract
+00315247	09 feb 2026	Does not comply with the obligations of the Contract
+00315262	09 feb 2026	Does not comply with the obligations of the Contract
+00315284	09 feb 2026	Does not comply with the obligations of the Contract
+00315297	09 feb 2026	Does not comply with the obligations of the Contract
+00315322	09 feb 2026	Does not comply with the obligations of the Contract
+00315338	09 feb 2026	Does not comply with the obligations of the Contract
+00259558	06 mar 2026	Does not comply with the obligations of the Contract
+00302396	06 mar 2026	Does not comply with the obligations of the Contract
+00309104	06 mar 2026	Does not comply with the obligations of the Contract
+00309329	06 mar 2026	Does not comply with the obligations of the Contract
+00310666	06 mar 2026	Does not comply with the obligations of the Contract
+00312728	06 mar 2026	Does not comply with the obligations of the Contract
+00312732	06 mar 2026	Does not comply with the obligations of the Contract
+00312814	06 mar 2026	Does not comply with the obligations of the Contract
+00312894	06 mar 2026	Does not comply with the obligations of the Contract
+00313120	06 mar 2026	Does not comply with the obligations of the Contract
+00313233	06 mar 2026	Does not comply with the obligations of the Contract
+00313346	06 mar 2026	Does not comply with the obligations of the Contract
+00313485	06 mar 2026	Does not comply with the obligations of the Contract
+00313731	06 mar 2026	Does not comply with the obligations of the Contract
+00313775	06 mar 2026	Does not comply with the obligations of the Contract
+00313842	06 mar 2026	Does not comply with the obligations of the Contract
+00314314	06 mar 2026	Does not comply with the obligations of the Contract
+00314360	06 mar 2026	Does not comply with the obligations of the Contract
+00314361	06 mar 2026	Does not comply with the obligations of the Contract
+00314484	06 mar 2026	Does not comply with the obligations of the Contract
+00314585	06 mar 2026	Does not comply with the obligations of the Contract
+00314843	06 mar 2026	Does not comply with the obligations of the Contract
+00314880	06 mar 2026	Does not comply with the obligations of the Contract
+00315065	06 mar 2026	Does not comply with the obligations of the Contract
+00315110	06 mar 2026	Does not comply with the obligations of the Contract
+00315295	06 mar 2026	Does not comply with the obligations of the Contract
+00315317	06 mar 2026	Does not comply with the obligations of the Contract
+00315344	06 mar 2026	Does not comply with the obligations of the Contract
+00315346	06 mar 2026	Does not comply with the obligations of the Contract
+00315379	06 mar 2026	Does not comply with the obligations of the Contract
+00315409	06 mar 2026	Does not comply with the obligations of the Contract
+00315430	06 mar 2026	Does not comply with the obligations of the Contract
+00315450	06 mar 2026	Does not comply with the obligations of the Contract
+00315547	06 mar 2026	Does not comply with the obligations of the Contract
+00315556	06 mar 2026	Does not comply with the obligations of the Contract
+00315558	06 mar 2026	Does not comply with the obligations of the Contract
+00315581	06 mar 2026	Does not comply with the obligations of the Contract
+00315587	06 mar 2026	Does not comply with the obligations of the Contract
+00315612	06 mar 2026	Does not comply with the obligations of the Contract
+00315624	06 mar 2026	Does not comply with the obligations of the Contract
+00315639	06 mar 2026	Does not comply with the obligations of the Contract
+00315738	06 mar 2026	Does not comply with the obligations of the Contract
+00315788	06 mar 2026	Does not comply with the obligations of the Contract
+00315789	06 mar 2026	Does not comply with the obligations of the Contract
+00315791	06 mar 2026	Does not comply with the obligations of the Contract
+00315795	06 mar 2026	Does not comply with the obligations of the Contract
+00315805	06 mar 2026	Does not comply with the obligations of the Contract
+00315825	06 mar 2026	Does not comply with the obligations of the Contract
+00315830	06 mar 2026	Does not comply with the obligations of the Contract
+00315847	06 mar 2026	Does not comply with the obligations of the Contract
+00315852	06 mar 2026	Does not comply with the obligations of the Contract
+00315856	06 mar 2026	Does not comply with the obligations of the Contract
+00315862	06 mar 2026	Does not comply with the obligations of the Contract
+00315908	06 mar 2026	Does not comply with the obligations of the Contract
+00315926	06 mar 2026	Does not comply with the obligations of the Contract
+00315935	06 mar 2026	Does not comply with the obligations of the Contract
+00315948	06 mar 2026	Does not comply with the obligations of the Contract
+00315985	06 mar 2026	Does not comply with the obligations of the Contract
+00315995	06 mar 2026	Does not comply with the obligations of the Contract
+00316014	06 mar 2026	Does not comply with the obligations of the Contract
+00316037	06 mar 2026	Does not comply with the obligations of the Contract
+00316038	06 mar 2026	Does not comply with the obligations of the Contract
+00316098	06 mar 2026	Does not comply with the obligations of the Contract
+00316147	06 mar 2026	Does not comply with the obligations of the Contract
+00316171	06 mar 2026	Does not comply with the obligations of the Contract
+00316212	06 mar 2026	Does not comply with the obligations of the Contract
+00315978	23 mar 2026	Does not comply with the obligations of the Contract
+00316034	23 mar 2026	Does not comply with the obligations of the Contract
+00316035	23 mar 2026	Does not comply with the obligations of the Contract
+00316264	23 mar 2026	Does not comply with the obligations of the Contract
+00316265	23 mar 2026	Does not comply with the obligations of the Contract
+00316287	23 mar 2026	Does not comply with the obligations of the Contract
+00316308	23 mar 2026	Does not comply with the obligations of the Contract
+00316321	23 mar 2026	Does not comply with the obligations of the Contract
+00316330	23 mar 2026	Does not comply with the obligations of the Contract
+00316343	23 mar 2026	Does not comply with the obligations of the Contract
+00316344	23 mar 2026	Does not comply with the obligations of the Contract
+00316357	23 mar 2026	Does not comply with the obligations of the Contract
+00316380	23 mar 2026	Does not comply with the obligations of the Contract
+00316389	23 mar 2026	Does not comply with the obligations of the Contract
+00316429	23 mar 2026	Does not comply with the obligations of the Contract
+00316430	23 mar 2026	Does not comply with the obligations of the Contract
+00316438	23 mar 2026	Does not comply with the obligations of the Contract
+00316465	23 mar 2026	Does not comply with the obligations of the Contract
+00316495	23 mar 2026	Does not comply with the obligations of the Contract
+00315386	28 may 2026	Does not comply with the obligations of the Contract
+00315743	28 may 2026	Does not comply with the obligations of the Contract
+00315764	28 may 2026	Does not comply with the obligations of the Contract
+00315859	28 may 2026	Does not comply with the obligations of the Contract
+00315882	28 may 2026	Does not comply with the obligations of the Contract
+00315976	28 may 2026	Does not comply with the obligations of the Contract
+00315996	28 may 2026	Does not comply with the obligations of the Contract
+00315999	28 may 2026	Does not comply with the obligations of the Contract
+00316006	28 may 2026	Does not comply with the obligations of the Contract
+00316058	28 may 2026	Does not comply with the obligations of the Contract
+00316071	28 may 2026	Does not comply with the obligations of the Contract
+00316144	28 may 2026	Does not comply with the obligations of the Contract
+00316186	28 may 2026	Does not comply with the obligations of the Contract
+00316273	28 may 2026	Does not comply with the obligations of the Contract
+00316293	28 may 2026	Does not comply with the obligations of the Contract
+00316320	28 may 2026	Does not comply with the obligations of the Contract
+00316364	28 may 2026	Does not comply with the obligations of the Contract
+00316538	28 may 2026	Does not comply with the obligations of the Contract
+00269200	10 jun 2026	Does not comply with Payments
+00276428	10 jun 2026	Does not comply with Payments
+00286155	10 jun 2026	Does not comply with Payments
+00311944	10 jun 2026	Does not comply with Payments
+00312296	10 jun 2026	Does not comply with Payments
+00312717	10 jun 2026	Does not comply with Payments
+00313404	10 jun 2026	Does not comply with Payments
+00313476	10 jun 2026	Does not comply with Payments
+00314010	10 jun 2026	Does not comply with Payments
+00314086	10 jun 2026	Does not comply with Payments
+00314371	10 jun 2026	Does not comply with Payments
+00314418	10 jun 2026	Does not comply with Payments
+00314599	10 jun 2026	Does not comply with Payments
+00314601	10 jun 2026	Does not comply with Payments
+00314642	10 jun 2026	Does not comply with Payments
+00314646	10 jun 2026	Does not comply with Payments
+00314776	10 jun 2026	Does not comply with Payments
+00314808	10 jun 2026	Does not comply with Payments
+00314903	10 jun 2026	Does not comply with Payments
+00314981	10 jun 2026	Does not comply with Payments
+00314982	10 jun 2026	Does not comply with Payments
+00314998	10 jun 2026	Does not comply with Payments
+00315006	10 jun 2026	Does not comply with Payments
+00315033	10 jun 2026	Does not comply with Payments
+00315066	10 jun 2026	Does not comply with Payments
+00315070	10 jun 2026	Does not comply with Payments
+00315103	10 jun 2026	Does not comply with Payments
+00315106	10 jun 2026	Does not comply with Payments
+00315165	10 jun 2026	Does not comply with Payments
+00315176	10 jun 2026	Does not comply with Payments
+00315177	10 jun 2026	Does not comply with Payments
+00315234	10 jun 2026	Does not comply with Payments
+00315250	10 jun 2026	Does not comply with Payments
+00315303	10 jun 2026	Does not comply with Payments
+00315345	10 jun 2026	Does not comply with Payments
+00315494	10 jun 2026	Does not comply with Payments
+00315702	10 jun 2026	Does not comply with Payments
+00315703	10 jun 2026	Does not comply with Payments
+00315751	10 jun 2026	Does not comply with Payments
+00315754	10 jun 2026	Does not comply with Payments
+00315803	10 jun 2026	Does not comply with Payments
+00315990	10 jun 2026	Does not comply with Payments
+00316010	10 jun 2026	Does not comply with Payments
+00316124	10 jun 2026	Does not comply with Payments
+00316074	15 jun 2026	Does not comply with the obligations of the Contract
+00316078	15 jun 2026	Does not comply with the obligations of the Contract
+00316202	15 jun 2026	Does not comply with the obligations of the Contract
+00316204	15 jun 2026	Does not comply with the obligations of the Contract
+00316313	15 jun 2026	Does not comply with the obligations of the Contract
+00316406	15 jun 2026	Does not comply with the obligations of the Contract
+00316464	15 jun 2026	Does not comply with the obligations of the Contract
+00316537	15 jun 2026	Does not comply with the obligations of the Contract
+00316580	15 jun 2026	Does not comply with the obligations of the Contract
+00316670	15 jun 2026	Does not comply with the obligations of the Contract
+00316868	19 jun 2026	Does not comply with Payments
+00317022	19 jun 2026	Does not comply with Payments
+00317083	19 jun 2026	Does not comply with Payments
+00317088	19 jun 2026	Does not comply with Payments
+00317096	19 jun 2026	Does not comply with Payments
+00317103	19 jun 2026	Does not comply with Payments
+00317197	19 jun 2026	Does not comply with Payments
+00317199	19 jun 2026	Does not comply with Payments
+00317203	19 jun 2026	Does not comply with Payments
+00317211	19 jun 2026	Does not comply with Payments
+00317272	19 jun 2026	Does not comply with Payments
+00317281	19 jun 2026	Does not comply with Payments
+00317296	19 jun 2026	Does not comply with Payments
+00317316	19 jun 2026	Does not comply with Payments
+00317334	19 jun 2026	Does not comply with Payments
+00317338	19 jun 2026	Does not comply with Payments
+00317344	19 jun 2026	Does not comply with Payments
+00317350	19 jun 2026	Does not comply with Payments
+00317357	19 jun 2026	Does not comply with Payments
+00317358	19 jun 2026	Does not comply with Payments
+00317361	19 jun 2026	Does not comply with Payments
+00317369	19 jun 2026	Does not comply with Payments
+00317380	19 jun 2026	Does not comply with Payments
+00317402	19 jun 2026	Does not comply with Payments
+00317416	19 jun 2026	Does not comply with Payments
+00317443	19 jun 2026	Does not comply with Payments
+00317453	19 jun 2026	Does not comply with Payments
+00317457	19 jun 2026	Does not comply with Payments
+00317465	19 jun 2026	Does not comply with Payments
+00317491	19 jun 2026	Does not comply with Payments
+00310747	13 ago 2026	Does not comply with the obligations of the Contract
+00314635	13 ago 2026	Does not comply with the obligations of the Contract
+00316616	13 ago 2026	Does not comply with the obligations of the Contract
+00317730	13 ago 2026	Does not comply with the obligations of the Contract
+00317923	13 ago 2026	Does not comply with the obligations of the Contract
+00316055	18 ago 2026	Does not comply with the obligations of the Contract
+00316393	18 ago 2026	Does not comply with the obligations of the Contract
+00316446	18 ago 2026	Does not comply with the obligations of the Contract
+00316581	18 ago 2026	Does not comply with the obligations of the Contract
+00316777	18 ago 2026	Does not comply with the obligations of the Contract
+00317286	18 ago 2026	Does not comply with the obligations of the Contract
+00317573	18 ago 2026	Does not comply with the obligations of the Contract
+00317106	26 ago 2026	Does not comply with Payments
+00317179	26 ago 2026	Does not comply with Payments
+00317233	26 ago 2026	Does not comply with Payments
+00317293	26 ago 2026	Does not comply with Payments
+00317304	26 ago 2026	Does not comply with Payments
+00317312	26 ago 2026	Does not comply with Payments
+00317313	26 ago 2026	Does not comply with Payments
+00317315	26 ago 2026	Does not comply with Payments
+00317332	26 ago 2026	Does not comply with Payments
+00317346	26 ago 2026	Does not comply with Payments
+00317387	26 ago 2026	Does not comply with Payments
+00317391	26 ago 2026	Does not comply with Payments
+00317408	26 ago 2026	Does not comply with Payments
+00317438	26 ago 2026	Does not comply with Payments
+00317467	26 ago 2026	Does not comply with Payments
+00317468	26 ago 2026	Does not comply with Payments
+00317478	26 ago 2026	Does not comply with Payments
+00317480	26 ago 2026	Does not comply with Payments
+00317484	26 ago 2026	Does not comply with Payments
+00317536	26 ago 2026	Does not comply with Payments
+00317553	26 ago 2026	Does not comply with Payments
+00317556	26 ago 2026	Does not comply with Payments
+00317557	26 ago 2026	Does not comply with Payments
+00317558	26 ago 2026	Does not comply with Payments
+00317585	26 ago 2026	Does not comply with Payments
+00317598	26 ago 2026	Does not comply with Payments
+00317614	26 ago 2026	Does not comply with Payments
+00317634	26 ago 2026	Does not comply with Payments
+00317674	26 ago 2026	Does not comply with Payments
+00317683	26 ago 2026	Does not comply with Payments
+00317700	26 ago 2026	Does not comply with Payments
+00317701	26 ago 2026	Does not comply with Payments
+00317731	26 ago 2026	Does not comply with Payments
+00317733	26 ago 2026	Does not comply with Payments
+00317771	26 ago 2026	Does not comply with Payments
+00317800	26 ago 2026	Does not comply with Payments
+00317661	11 sep 2026	Does not comply with Payments
+00317665	11 sep 2026	Does not comply with Payments
+00317703	11 sep 2026	Does not comply with Payments
+00317717	11 sep 2026	Does not comply with Payments
+00317718	11 sep 2026	Does not comply with Payments
+00317745	11 sep 2026	Does not comply with Payments
+00317762	11 sep 2026	Does not comply with Payments
+00317772	11 sep 2026	Does not comply with Payments
+00317788	11 sep 2026	Does not comply with Payments
+00317795	11 sep 2026	Does not comply with Payments
+00317803	11 sep 2026	Does not comply with Payments
+00317807	11 sep 2026	Does not comply with Payments
+00317816	11 sep 2026	Does not comply with Payments
+00317822	11 sep 2026	Does not comply with Payments
+00317823	11 sep 2026	Does not comply with Payments
+00317830	11 sep 2026	Does not comply with Payments
+00317835	11 sep 2026	Does not comply with Payments
+00317851	11 sep 2026	Does not comply with Payments
+00317858	11 sep 2026	Does not comply with Payments
+00317861	11 sep 2026	Does not comply with Payments
+00317863	11 sep 2026	Does not comply with Payments
+00317870	11 sep 2026	Does not comply with Payments
+00317876	11 sep 2026	Does not comply with Payments
+00317881	11 sep 2026	Does not comply with Payments
+00317915	11 sep 2026	Does not comply with Payments
+00317916	11 sep 2026	Does not comply with Payments
+00317918	11 sep 2026	Does not comply with Payments
+00317927	11 sep 2026	Does not comply with Payments
+00317928	11 sep 2026	Does not comply with Payments
+00317930	11 sep 2026	Does not comply with Payments
+00317942	11 sep 2026	Does not comply with Payments
+00317948	11 sep 2026	Does not comply with Payments
+00317954	11 sep 2026	Does not comply with Payments
+00317957	11 sep 2026	Does not comply with Payments
+00317970	11 sep 2026	Does not comply with Payments
+00317971	11 sep 2026	Does not comply with Payments
+00317974	11 sep 2026	Does not comply with Payments
+00318000	11 sep 2026	Does not comply with Payments
+00318018	11 sep 2026	Does not comply with Payments
+00318022	11 sep 2026	Does not comply with Payments
+00318036	11 sep 2026	Does not comply with Payments
+00318054	11 sep 2026	Does not comply with Payments
+00318092	11 sep 2026	Does not comply with Payments
+00318109	11 sep 2026	Does not comply with Payments

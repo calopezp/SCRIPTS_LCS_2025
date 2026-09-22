@@ -65,15 +65,30 @@ public without sharing class CancelarContratosRunner {
         'Pending','Iniciated','Stopped','Recurring','X CANCELED'
     };
 
+    // Texto de Task histórico por motivo (mismos 2 que ya se usaban antes de
+    // que el motivo viniera del CSV). Si aparece un motivo nuevo que no
+    // matchea ninguno de estos, se cae al fallback genérico en
+    // taskDescriptionFor() — no falla, pero conviene revisar si vale la
+    // pena agregarlo acá.
+    private static final Map<String, String> TASK_DESC_BY_REASON = new Map<String, String>{
+        'does not comply with payments' => 'Cliente no cumple con los pagos, Solicitado y Autorizado por ELba Mantilla',
+        'does not comply with the obligations of the contract' => 'Cliente no ha entregado evidencias/documentación para poderle trabajar, Solicitado Rosaura'
+    };
+
     // ============================================================
     //  DTOs
     // ============================================================
-    public class CancelGroup {
-        public String      reason;
-        public String      taskDescription;
-        public Set<String> contractNumbers;
-        public CancelGroup(String r, String td, Set<String> nums) {
-            reason = r; taskDescription = td; contractNumbers = nums;
+    // Una fila por contrato -- Motivo y Fecha de solicitud (-> Contract.
+    // SM_Cancellation_Date__c) vienen del CSV, ya NO se asume Date.today()
+    // ni un motivo único para todo un lote (ver
+    // COLLECTIONS/CANCELACIONES/Contratos_para_Cancelar_LOG.csv, 3
+    // columnas: ContractNumber, Fecha, Motivo).
+    public class CancelRequest {
+        public String contractNumber;
+        public String reason;
+        public Date   requestDate;
+        public CancelRequest(String num, String r, Date d) {
+            contractNumber = num; reason = r; requestDate = d;
         }
     }
 
@@ -102,8 +117,14 @@ public without sharing class CancelarContratosRunner {
     // ============================================================
     //  API pública
     // ============================================================
-    public static List<ResultRow> run(List<CancelGroup> grupos, Boolean modoDryRun) {
-        return new CancelarContratosRunner(modoDryRun).runAll(grupos);
+    public static List<ResultRow> run(List<CancelRequest> requests, Boolean modoDryRun) {
+        return new CancelarContratosRunner(modoDryRun).runAll(requests);
+    }
+
+    private static String taskDescriptionFor(String reason) {
+        String key = reason == null ? '' : reason.trim().toLowerCase();
+        if (TASK_DESC_BY_REASON.containsKey(key)) return TASK_DESC_BY_REASON.get(key);
+        return 'Cancelación solicitada — ' + reason;
     }
 
     // ============================================================
@@ -115,16 +136,16 @@ public without sharing class CancelarContratosRunner {
         modoDryRun = dryRun;
     }
 
-    private List<ResultRow> runAll(List<CancelGroup> grupos) {
+    private List<ResultRow> runAll(List<CancelRequest> requests) {
         List<ResultRow> allResults = new List<ResultRow>();
 
-        Map<String, String> numberToReason   = new Map<String, String>();
-        Map<String, String> numberToTaskDesc = new Map<String, String>();
-        for (CancelGroup g : grupos) {
-            for (String num : g.contractNumbers) {
-                numberToReason.put(num, g.reason);
-                numberToTaskDesc.put(num, g.taskDescription);
-            }
+        Map<String, String> numberToReason      = new Map<String, String>();
+        Map<String, String> numberToTaskDesc    = new Map<String, String>();
+        Map<String, Date>   numberToRequestDate = new Map<String, Date>();
+        for (CancelRequest req : requests) {
+            numberToReason.put(req.contractNumber, req.reason);
+            numberToTaskDesc.put(req.contractNumber, taskDescriptionFor(req.reason));
+            numberToRequestDate.put(req.contractNumber, req.requestDate);
         }
         Set<String> allNumbers = numberToReason.keySet();
 
@@ -188,7 +209,7 @@ public without sharing class CancelarContratosRunner {
 
         if (!cbOutcomes.isEmpty()) {
             allResults.addAll(finalizeChargebee(
-                cbOutcomes, numberToReason, numberToTaskDesc, existingTaskDescByContract));
+                cbOutcomes, numberToReason, numberToTaskDesc, numberToRequestDate, existingTaskDescByContract));
         }
 
         // RAMA ACH
@@ -302,7 +323,7 @@ public without sharing class CancelarContratosRunner {
                 Id                             = cid,
                 SM_Reason_for_cancellation__c  = numberToReason.get(c.ContractNumber),
                 CANCELAR_CONTRATO__c           = numberToReason.get(c.ContractNumber),
-                SM_Cancellation_Date__c        = Date.today()
+                SM_Cancellation_Date__c        = numberToRequestDate.get(c.ContractNumber)
             ));
         }
         Map<Id, String> reasonErrors = modoDryRun
@@ -488,6 +509,7 @@ public without sharing class CancelarContratosRunner {
         List<ChargebeeOutcome> outcomes,
         Map<String, String> numberToReason,
         Map<String, String> numberToTaskDesc,
+        Map<String, Date> numberToRequestDate,
         Map<Id, Set<String>> existingTaskDescByContract
     ) {
         List<ResultRow> results = new List<ResultRow>();
@@ -558,7 +580,7 @@ public without sharing class CancelarContratosRunner {
             reasonUpdates.add(new Contract(
                 Id                             = cid,
                 SM_Reason_for_cancellation__c  = numberToReason.get(contractNumber),
-                SM_Cancellation_Date__c        = Date.today()
+                SM_Cancellation_Date__c        = numberToRequestDate.get(contractNumber)
             ));
             reasonUpdateIds.add(cid);
         }

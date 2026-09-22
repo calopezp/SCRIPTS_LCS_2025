@@ -96,10 +96,12 @@ def sf_query_in(select_and_from: str, in_field: str, values, extra_where: str = 
 
 
 def load_contract_numbers(argv):
+    """Solo la 1ra columna (ContractNumber) -- este script no necesita
+    Fecha/Motivo, esos los usa generate_run_batch.py al armar una corrida."""
     if argv:
         return [n.zfill(8) for n in argv]
     with open(LOG_CSV, encoding="utf-8") as f:
-        return [line.strip() for line in f if line.strip()]
+        return [line.split("\t")[0].strip() for line in f if line.strip()]
 
 
 def main():

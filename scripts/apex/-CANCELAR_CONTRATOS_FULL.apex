@@ -1,26 +1,30 @@
 // ============================================================
-//  Corre CancelarContratosRunner.cls (desplegada en MONEE) contra
-//  un lote de contratos. Ver .claude/skills/cancelar-contratos/SKILL.md
-//  para el flujo completo (cómo agregar contratos nuevos, cómo validar
-//  estado, gotchas conocidos).
+//  Corre CancelarContratosRunner.cls (desplegada en MONEE) contra un
+//  lote de contratos. Ver .claude/skills/cancelar-contratos/SKILL.md
+//  para el flujo completo.
 //
-//  SIEMPRE correr primero con modoDryRun = true, revisar el reporte,
-//  y solo después pasar a false.
+//  El bloque "requests" de abajo NO se escribe a mano — se genera con:
+//
+//    cd COLLECTIONS/CANCELACIONES
+//    python generate_run_batch.py --categoria STUCK_CONTRACT_STATUS
+//    python generate_run_batch.py 00317661 00317795
+//
+//  ...y se pega el resultado reemplazando el bloque de ejemplo de abajo.
+//  Motivo y Fecha de solicitud (-> SM_Cancellation_Date__c) salen de
+//  Contratos_para_Cancelar_LOG.csv, no se inventan acá.
+//
+//  SIEMPRE correr primero con modoDryRun = true, revisar el reporte, y
+//  solo después pasar a false.
 // ============================================================
 
 Boolean modoDryRun = true;
 
-CancelarContratosRunner.CancelGroup grupo = new CancelarContratosRunner.CancelGroup(
-    'Does not comply with payments',                                              // reason
-    'Cliente no cumple con los pagos, Solicitado y Autorizado por ELba Mantilla',  // Task description
-    new Set<String>{
-        // ← lista de ContractNumber a procesar
-        '00317795'
-    }
-);
+// ← pegar acá el bloque generado por generate_run_batch.py
+List<CancelarContratosRunner.CancelRequest> requests = new List<CancelarContratosRunner.CancelRequest>{
+    new CancelarContratosRunner.CancelRequest('00317795', 'Does not comply with Payments', Date.newInstance(2026, 9, 11))
+};
 
-List<CancelarContratosRunner.ResultRow> outcome =
-    CancelarContratosRunner.run(new List<CancelarContratosRunner.CancelGroup>{ grupo }, modoDryRun);
+List<CancelarContratosRunner.ResultRow> outcome = CancelarContratosRunner.run(requests, modoDryRun);
 
 Integer ok = 0, fail = 0;
 List<String> reportLines = new List<String>();
