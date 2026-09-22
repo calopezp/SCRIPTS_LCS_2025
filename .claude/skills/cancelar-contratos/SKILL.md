@@ -22,7 +22,7 @@ Org de Salesforce: siempre **MONEE** (producción) vía `sf` CLI.
 | Lista maestra | `COLLECTIONS/CANCELACIONES/Contratos_para_Cancelar_LOG.csv` | **3 columnas, tab-separated, sin header:** `ContractNumber`, Fecha de solicitud (formato `d mmm yyyy`, ej. `10 jun 2026`, meses en español abreviado — esta fecha es la que se guarda en `SM_Cancellation_Date__c`, NO se usa `Date.today()`), Motivo (`SM_Reason_for_cancellation__c`). Para agregar un contrato nuevo: agregar una línea con las 3 columnas. |
 | Estado recalculado | `COLLECTIONS/CANCELACIONES/Contratos_para_Cancelar_ESTADO.csv` | Se **regenera completo** cada vez que corre `check_estado_cancelaciones.py` — no editar a mano. Esta es la fuente de verdad de "en qué quedó cada contrato", visible en ambas máquinas tras `git pull`. |
 | Script de validación | `COLLECTIONS/CANCELACIONES/check_estado_cancelaciones.py` (wrapper `run_check_estado.sh`) | Re-consulta Salesforce en vivo y clasifica cada contrato en una de 5 categorías (ver abajo). Replica la MISMA lógica de bloqueo que `CancelarContratosRunner.cls` — si se cambia una, cambiar la otra. |
-| Generador de batch | `COLLECTIONS/CANCELACIONES/generate_run_batch.py` | Lee `Contratos_para_Cancelar_LOG.csv` y arma el bloque `List<CancelarContratosRunner.CancelRequest>` listo para pegar en el script — **nunca se escribe ese bloque a mano**, ni se procesa la lista maestra completa de una corrida (con Fecha+Motivo por fila, rompe el límite de Execute Anonymous). Tope por defecto 50 contratos por batch (`--limite`). |
+| Generador de batch | `COLLECTIONS/CANCELACIONES/generate_run_batch.py` | Lee `Contratos_para_Cancelar_LOG.csv` y arma el bloque `List<CancelarContratosRunner.CancelRequest>` listo para pegar en el script — **nunca se escribe ese bloque a mano**, ni se procesa la lista maestra completa de una corrida (con Fecha+Motivo por fila, rompe el límite de Execute Anonymous). Tope por defecto 50 contratos por batch (`--limite`). Un contrato que no está en el CSV se omite con aviso, salvo que se pasen `--motivo`/`--fecha` (caso puntual/urgente sin tocar la lista maestra — ver sección 4). |
 
 ## 2. Categorías de `Contratos_para_Cancelar_ESTADO.csv`
 
@@ -95,6 +95,11 @@ Lee `Contratos_para_Cancelar_ESTADO.csv` después — no hace falta recalcular n
    ```bash
    cd COLLECTIONS/CANCELACIONES
    python generate_run_batch.py --categoria STUCK_CONTRACT_STATUS   # o PENDING_CHARGEBEE, o contratos puntuales
+   ```
+   Un contrato puntual que **todavía no está** en `Contratos_para_Cancelar_LOG.csv` (caso urgente,
+   sin agregarlo a la lista maestra):
+   ```bash
+   python generate_run_batch.py 00319999 --motivo "Does not comply with Payments" --fecha "22 sep 2026"
    ```
 2. Pegar el bloque `requests` impreso en `scripts/apex/-CANCELAR_CONTRATOS_FULL.apex`, reemplazando
    el de ejemplo.
