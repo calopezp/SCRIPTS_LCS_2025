@@ -65,5 +65,11 @@
     "additionalDirectories": [
       "\\tmp"
     ]
+  },
+  "autoMode": {
+    "allow": [
+      "$defaults",
+      "Bash(git push SCRIPTS_LCS_2025 main)"
+    ]
   }
 }
