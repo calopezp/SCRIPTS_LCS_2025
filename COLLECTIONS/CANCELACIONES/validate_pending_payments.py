@@ -13,8 +13,15 @@ por argumento), hace 2 cosas que check_estado_cancelaciones.py NO hace
        + collections_index.csv, ver COLLECTIONS/buscar_payment.py) para
        confirmar que el estado que tiene Salesforce en vivo coincide con el
        ULTIMO reporte bancario real -- si hay un reporte mas reciente que
-       Salesforce no reflejo, NO se toca (se marca REVISAR_REPORTE_NO_APLICADO,
-       eso lo resuelve el pipeline diario normal, no este script).
+       Salesforce no reflejo, NO se auto-aplica nunca (se marca
+       REVISAR_REPORTE_NO_APLICADO con el detalle del reporte encontrado).
+       El pipeline diario (run_daily_new_files.sh/run_daily_catchup.sh) NO
+       resuelve esto solo si el reporte es historico -- la Rule 2 del
+       CLAUDE.md exige confirmacion explicita del usuario para tocar
+       cualquier cosa reportada hace mas de 2 meses, nunca un catch-up
+       silencioso. Por eso este caso solo se REPORTA (queda en el CSV con
+       la fecha/archivo del reporte mas reciente) -- es decision del
+       usuario si se aplica, este script nunca lo hace por su cuenta.
      - Si Salesforce ya esta al dia con el historial (o nunca hubo reporte
        posterior a la transmision), aplica la Rule 3 del CLAUDE.md (#2.2):
        PENDING/RETURN con mas de 26 dias desde SM_Transmission_Date_ACH_File__c
@@ -124,14 +131,17 @@ def classify_payment(payment: dict) -> dict:
 
     latest = latest_bank_report(name)
     if latest and sf_date and latest["SM_Check_Collection_Date__c"] > sf_date:
+        reported_status = latest.get("SM_Check_Collection_Status__c") or latest.get("Payment_Status__c") or "(sin estado en la fila del indice)"
         return {
             "accion": "REVISAR_REPORTE_NO_APLICADO",
             "razon": (
-                f"Indice COLLECTIONS tiene un reporte mas reciente ({latest['SM_Check_Collection_Date__c']}, "
-                f"archivo {latest.get('Source_File')}) que Salesforce no refleja "
-                f"(Salesforce sigue en {sf_date}) -- no se auto-aplica Rule 3, correr el pipeline diario normal primero."
+                f"Reporte mas reciente en el indice COLLECTIONS ({latest['SM_Check_Collection_Date__c']}, "
+                f"archivo {latest.get('Source_File')}) dice '{reported_status}', pero Salesforce sigue en "
+                f"'{sf_status}' desde {sf_date}. El pipeline diario NO lo aplica solo si es historico "
+                f"(Rule 2, CLAUDE.md) -- SOLO SE REPORTA, no se auto-aplica ninguna regla; decision del usuario "
+                f"si se actualiza (y con que dato: el del reporte, no necesariamente NOT_COLLECTED)."
             ),
-            "ultimo_reporte": f"{latest['SM_Check_Collection_Date__c']} | {latest.get('Source_File')}",
+            "ultimo_reporte": f"{latest['SM_Check_Collection_Date__c']} | {reported_status} | {latest.get('Source_File')}",
             "dias_transmitido": days,
         }
 
@@ -252,8 +262,19 @@ def write_csv(rows):
     for (tipo, accion), n in sorted(counts.items(), key=lambda kv: -kv[1]):
         print(f"   {tipo} -> {accion}: {n}")
 
+    revisar = [r for r in rows if r["AccionRecomendada"] == "REVISAR_REPORTE_NO_APLICADO"]
+    if revisar:
+        print(f"\n   >>> AVISO: {len(revisar)} payment(s) con un reporte de COLLECTIONS mas reciente que "
+              f"Salesforce no refleja -- SOLO SE REPORTAN, este script nunca los aplica solo (ver columna "
+              f"Razon en el CSV para el detalle y decidir uno por uno):")
+        for r in revisar:
+            print(f"       {r['ContractNumber']} | {r['Registro']}: {r['UltimoReporteCOLLECTIONS']}")
+
 
 def apply_changes(rows):
+    # NOT_COLLECTED/STOPPED son las UNICAS acciones que este script aplica solo --
+    # REVISAR_REPORTE_NO_APLICADO y EN_ESPERA quedan siempre fuera, a proposito
+    # (decision del usuario, nunca automatica -- ver build_report()/classify_payment()).
     payment_reasons = {r["RecordId"]: r["Razon"] for r in rows if r["Tipo"] == "PAGO" and r["AccionRecomendada"] == "NOT_COLLECTED"}
     order_reasons = {r["RecordId"]: r["Razon"] for r in rows if r["Tipo"] == "ORDEN_ACH" and r["AccionRecomendada"] == "STOPPED"}
 

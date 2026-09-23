@@ -123,8 +123,10 @@ Este es **distinto** — es para cuando hay que reprocesar a propósito un rango
 `COLLECTIONS/CANCELACIONES/validate_pending_payments.py` (ver skill `/cancelar-contratos` §4.1)
 aplica la Rule 3 (+ la excepción de código definitivo) como paso de validación antes de intentar
 cancelar un contrato `PENDING_ACH_PAYMENT` — pero primero cruza cada payment contra el índice
-histórico de COLLECTIONS para confirmar que Salesforce ya está al día con el último reporte real
-(si no, no toca nada, deja que el pipeline diario lo resuelva). Corre solo cuando el usuario invoca
+histórico de COLLECTIONS para confirmar que Salesforce ya está al día con el último reporte real.
+**Si no está al día, nunca lo auto-aplica** — el pipeline diario NO resuelve histórico por su
+cuenta (Rule 2, más de 2 meses exige confirmación explícita), así que solo lo reporta (con el
+estado/fecha del reporte encontrado) y queda como decisión del usuario si se actualiza. Corre solo cuando el usuario invoca
 el script (`apply` al final aplica; sin él es dry-run), nunca automático. **Fuera de este flujo
 (el pipeline diario `run_daily_new_files.sh`/`run_daily_catchup.sh`, cualquier otro backfill) la
 regla sigue sin estar implementada** — no es lo mismo que `UTILITARIOS/mark_transmitted_accepted.apex`,

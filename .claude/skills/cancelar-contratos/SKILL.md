@@ -122,9 +122,12 @@ Qué hace, por cada payment bloqueante (`SM_Payment__c` ACH en `REJECTED`/`ACH T
 1. **Lo cruza contra el índice histórico de COLLECTIONS** (`returns_index.csv` +
    `collections_index.csv`, mismo mecanismo que `COLLECTIONS/buscar_payment.py`) para confirmar
    que el valor en vivo de Salesforce coincide con el **último** reporte bancario real. Si hay un
-   reporte más reciente que Salesforce no refleja, **no se toca** — se marca
-   `REVISAR_REPORTE_NO_APLICADO` (eso lo resuelve el pipeline diario normal
-   `run_daily_new_files.sh`/`run_daily_catchup.sh`, no este script).
+   reporte más reciente que Salesforce no refleja, **nunca se auto-aplica** — se marca
+   `REVISAR_REPORTE_NO_APLICADO` con el estado/fecha/archivo de ese reporte. **El pipeline diario
+   NO resuelve esto solo si el reporte es histórico** (Rule 2, `CLAUDE.md` §2.2: cualquier cosa
+   reportada hace más de 2 meses exige confirmación explícita del usuario, nunca un catch-up
+   silencioso) — así que este caso queda **solo reportado** en el CSV, es decisión del usuario si
+   se actualiza y con qué dato (el que diga el reporte, no necesariamente `NOT_COLLECTED`).
 2. Si Salesforce ya está al día, aplica la **Rule 3** (`CLAUDE.md` §2.2): más de 26 días desde
    `SM_Transmission_Date_ACH_File__c` sin resolver, o código de retorno definitivo
    (`R02`/`R04`/`R07`/`R10`/`R13`/`R16` — `R01`/`R09`/`R08` nunca saltan la espera) → marca
