@@ -21,18 +21,12 @@ Boolean modoDryRun = false;
 
 // ← pegar acá el bloque generado por generate_run_batch.py
 List<CancelarContratosRunner.CancelRequest> requests = new List<CancelarContratosRunner.CancelRequest>{
-    new CancelarContratosRunner.CancelRequest('00317661', 'Does not comply with Payments', Date.newInstance(2026, 9, 11)),
-    new CancelarContratosRunner.CancelRequest('00317788', 'Does not comply with Payments', Date.newInstance(2026, 9, 11)),
-    new CancelarContratosRunner.CancelRequest('00317858', 'Does not comply with Payments', Date.newInstance(2026, 9, 11)),
-    new CancelarContratosRunner.CancelRequest('00317861', 'Does not comply with Payments', Date.newInstance(2026, 9, 11)),
-    new CancelarContratosRunner.CancelRequest('00317863', 'Does not comply with Payments', Date.newInstance(2026, 9, 11)),
-    new CancelarContratosRunner.CancelRequest('00317876', 'Does not comply with Payments', Date.newInstance(2026, 9, 11)),
-    new CancelarContratosRunner.CancelRequest('00317916', 'Does not comply with Payments', Date.newInstance(2026, 9, 11)),
-    new CancelarContratosRunner.CancelRequest('00317918', 'Does not comply with Payments', Date.newInstance(2026, 9, 11)),
-    new CancelarContratosRunner.CancelRequest('00317927', 'Does not comply with Payments', Date.newInstance(2026, 9, 11)),
-    new CancelarContratosRunner.CancelRequest('00317957', 'Does not comply with Payments', Date.newInstance(2026, 9, 11)),
-    new CancelarContratosRunner.CancelRequest('00318054', 'Does not comply with Payments', Date.newInstance(2026, 9, 11)),
-    new CancelarContratosRunner.CancelRequest('00318109', 'Does not comply with Payments', Date.newInstance(2026, 9, 11))
+    new CancelarContratosRunner.CancelRequest('00317835', 'Does not comply with Payments', Date.newInstance(2026, 9, 11)),
+    new CancelarContratosRunner.CancelRequest('00317954', 'Does not comply with Payments', Date.newInstance(2026, 9, 11)),
+    new CancelarContratosRunner.CancelRequest('00317971', 'Does not comply with Payments', Date.newInstance(2026, 9, 11)),
+    new CancelarContratosRunner.CancelRequest('00317974', 'Does not comply with Payments', Date.newInstance(2026, 9, 11)),
+    new CancelarContratosRunner.CancelRequest('00318018', 'Does not comply with Payments', Date.newInstance(2026, 9, 11)),
+    new CancelarContratosRunner.CancelRequest('00318092', 'Does not comply with Payments', Date.newInstance(2026, 9, 11))
 };
 
 List<CancelarContratosRunner.ResultRow> outcome = CancelarContratosRunner.run(requests, modoDryRun);

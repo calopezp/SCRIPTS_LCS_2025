@@ -205,15 +205,30 @@ def main():
         else:
             rows.append((num, "STUCK_CONTRACT_STATUS", today, "ACH ya resuelto, falta finalizar Contract.Status"))
 
+    # Si se paso una lista puntual de contratos (no toda la maestra), hacer
+    # MERGE contra lo que ya habia en el CSV en vez de sobreescribirlo
+    # entero -- si no, una corrida puntual borraria el resultado de todos
+    # los demas contratos que no se pasaron. Bug real encontrado 2026-09-23
+    # (una corrida de 7 contratos dejo el CSV con solo esas 7 filas, se
+    # perdieron las otras 452 hasta correr de nuevo sin argumentos).
+    final_rows = rows
+    if sys.argv[1:] and ESTADO_CSV.exists():
+        touched = {r[0] for r in rows}
+        with open(ESTADO_CSV, encoding="utf-8", newline="") as f:
+            existing = [r for r in csv.DictReader(f) if r["ContractNumber"] not in touched]
+        final_rows = [
+            (r["ContractNumber"], r["Estado"], r["FechaUltimaRevision"], r["Detalle"]) for r in existing
+        ] + rows
+
     with open(ESTADO_CSV, "w", newline="", encoding="utf-8") as f:
         writer = csv.writer(f)
         writer.writerow(["ContractNumber", "Estado", "FechaUltimaRevision", "Detalle"])
-        writer.writerows(rows)
+        writer.writerows(final_rows)
 
     counts = {}
-    for _, estado, _, _ in rows:
+    for _, estado, _, _ in final_rows:
         counts[estado] = counts.get(estado, 0) + 1
-    print(f"-> Escrito {ESTADO_CSV.relative_to(SCRIPT_DIR.parent.parent)}")
+    print(f"-> Escrito {ESTADO_CSV.relative_to(SCRIPT_DIR.parent.parent)} ({len(final_rows)} fila(s) total)")
     for estado, n in sorted(counts.items(), key=lambda kv: -kv[1]):
         print(f"   {estado}: {n}")
 
