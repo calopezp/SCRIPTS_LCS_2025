@@ -1,0 +1,766 @@
+{
+  "status": 0,
+  "result": {
+    "records": [
+      {
+        "attributes": {
+          "type": "SM_Payment__c",
+          "url": "/services/data/v67.0/sobjects/SM_Payment__c/a24UU000003XTczYAG"
+        },
+        "Name": "PY-01773073",
+        "Payment_Status__c": "REJECTED",
+        "SM_Check_Collection_Status__c": "NOT_COLLECTED",
+        "SM_Check_Collection__c": true,
+        "SM_Check_Collection_Date__c": "2026-01-08",
+        "SM_Return_code__c": null,
+        "SM_Type__c": "AC",
+        "SM_Original_Type__c": "AC",
+        "SM_Historical_Collection_Status__c": "PRC_AUT: NOT_COLLECTED //PRC_AUT: PENDING //PRC_AUT: PENDING //",
+        "SM_ACH_Order__c": "a04UU00000GnJ57YAF",
+        "SM_Contract__r": {
+          "attributes": {
+            "type": "Contract",
+            "url": "/services/data/v67.0/sobjects/Contract/800UU00000bFmjnYAC"
+          },
+          "ContractNumber": "00316203",
+          "Status": "Cancelled",
+          "Is_Test_Contract__c": false,
+          "Is_VIP_Contract__c": false,
+          "SM_AC_collected__c": true
+        }
+      },
+      {
+        "attributes": {
+          "type": "SM_Payment__c",
+          "url": "/services/data/v67.0/sobjects/SM_Payment__c/a24UU000005GDO9YAO"
+        },
+        "Name": "PY-01889253",
+        "Payment_Status__c": "REJECTED",
+        "SM_Check_Collection_Status__c": "PENDING",
+        "SM_Check_Collection__c": true,
+        "SM_Check_Collection_Date__c": "2026-08-31",
+        "SM_Return_code__c": "R01",
+        "SM_Type__c": "AC",
+        "SM_Original_Type__c": "AC",
+        "SM_Historical_Collection_Status__c": "PRC_AUT: PENDING //PRC_AUT: COLLECTED //PRC_AUT: COLLECTED //PRC_AUT: COLLECTED //PRC_AUT: PENDING //PRC_AUT: PENDING //PRC_AUT: PENDING //",
+        "SM_ACH_Order__c": "a04UU00000HUoFLYA1",
+        "SM_Contract__r": {
+          "attributes": {
+            "type": "Contract",
+            "url": "/services/data/v67.0/sobjects/Contract/800UU00000kjWu6YAE"
+          },
+          "ContractNumber": "00318358",
+          "Status": "Activated",
+          "Is_Test_Contract__c": false,
+          "Is_VIP_Contract__c": false,
+          "SM_AC_collected__c": true
+        }
+      },
+      {
+        "attributes": {
+          "type": "SM_Payment__c",
+          "url": "/services/data/v67.0/sobjects/SM_Payment__c/a24UU000005H8SzYAK"
+        },
+        "Name": "PY-01890504",
+        "Payment_Status__c": "REJECTED",
+        "SM_Check_Collection_Status__c": "PENDING",
+        "SM_Check_Collection__c": true,
+        "SM_Check_Collection_Date__c": "2026-09-01",
+        "SM_Return_code__c": "R01",
+        "SM_Type__c": "Late payment fee",
+        "SM_Original_Type__c": "Fee",
+        "SM_Historical_Collection_Status__c": "PRC_AUT: PENDING //PRC_AUT: COLLECTED //PRC_AUT: COLLECTED //PRC_AUT: COLLECTED //PRC_AUT: PENDING //PRC_AUT: PENDING //PRC_AUT: PENDING //",
+        "SM_ACH_Order__c": "a04UU00000HPmsTYAT",
+        "SM_Contract__r": {
+          "attributes": {
+            "type": "Contract",
+            "url": "/services/data/v67.0/sobjects/Contract/800UU00000eMUIGYA4"
+          },
+          "ContractNumber": "00316916",
+          "Status": "Activated",
+          "Is_Test_Contract__c": false,
+          "Is_VIP_Contract__c": false,
+          "SM_AC_collected__c": true
+        }
+      },
+      {
+        "attributes": {
+          "type": "SM_Payment__c",
+          "url": "/services/data/v67.0/sobjects/SM_Payment__c/a24UU000005H8TCYA0"
+        },
+        "Name": "PY-01890517",
+        "Payment_Status__c": "REJECTED",
+        "SM_Check_Collection_Status__c": "PENDING",
+        "SM_Check_Collection__c": true,
+        "SM_Check_Collection_Date__c": "2026-09-01",
+        "SM_Return_code__c": "R01",
+        "SM_Type__c": "Late payment fee",
+        "SM_Original_Type__c": "AC",
+        "SM_Historical_Collection_Status__c": "PRC_AUT: PENDING //PRC_AUT: COLLECTED //PRC_AUT: COLLECTED //PRC_AUT: COLLECTED //PRC_AUT: PENDING //PRC_AUT: PENDING //PRC_AUT: PENDING //",
+        "SM_ACH_Order__c": "a04UU00000HSRYCYA5",
+        "SM_Contract__r": {
+          "attributes": {
+            "type": "Contract",
+            "url": "/services/data/v67.0/sobjects/Contract/800UU00000iZSEhYAO"
+          },
+          "ContractNumber": "00317858",
+          "Status": "Payment Process",
+          "Is_Test_Contract__c": false,
+          "Is_VIP_Contract__c": false,
+          "SM_AC_collected__c": false
+        }
+      },
+      {
+        "attributes": {
+          "type": "SM_Payment__c",
+          "url": "/services/data/v67.0/sobjects/SM_Payment__c/a24UU000005H8TRYA0"
+        },
+        "Name": "PY-01890532",
+        "Payment_Status__c": "REJECTED",
+        "SM_Check_Collection_Status__c": "PENDING",
+        "SM_Check_Collection__c": true,
+        "SM_Check_Collection_Date__c": "2026-09-02",
+        "SM_Return_code__c": "R09",
+        "SM_Type__c": "Late payment fee",
+        "SM_Original_Type__c": "AC",
+        "SM_Historical_Collection_Status__c": "PRC_AUT: PENDING //PRC_AUT: COLLECTED //PRC_AUT: COLLECTED //PRC_AUT: COLLECTED //PRC_AUT: PENDING //PRC_AUT: PENDING //PRC_AUT: PENDING //",
+        "SM_ACH_Order__c": "a04UU00000HTiBzYAL",
+        "SM_Contract__r": {
+          "attributes": {
+            "type": "Contract",
+            "url": "/services/data/v67.0/sobjects/Contract/800UU00000ibLXFYA2"
+          },
+          "ContractNumber": "00317863",
+          "Status": "Payment Process",
+          "Is_Test_Contract__c": false,
+          "Is_VIP_Contract__c": false,
+          "SM_AC_collected__c": false
+        }
+      },
+      {
+        "attributes": {
+          "type": "SM_Payment__c",
+          "url": "/services/data/v67.0/sobjects/SM_Payment__c/a24UU000005J9PpYAK"
+        },
+        "Name": "PY-01894041",
+        "Payment_Status__c": "REJECTED",
+        "SM_Check_Collection_Status__c": "PENDING",
+        "SM_Check_Collection__c": true,
+        "SM_Check_Collection_Date__c": "2026-09-03",
+        "SM_Return_code__c": "R01",
+        "SM_Type__c": "AC",
+        "SM_Original_Type__c": "AC",
+        "SM_Historical_Collection_Status__c": "PRC_AUT: PENDING //PRC_AUT: COLLECTED //PRC_AUT: COLLECTED //PRC_AUT: COLLECTED //PRC_AUT: PENDING //PRC_AUT: PENDING //PRC_AUT: RETURN //",
+        "SM_ACH_Order__c": "a04UU00000HVPlXYAX",
+        "SM_Contract__r": {
+          "attributes": {
+            "type": "Contract",
+            "url": "/services/data/v67.0/sobjects/Contract/800UU00000kwJ4hYAE"
+          },
+          "ContractNumber": "00318428",
+          "Status": "Activated",
+          "Is_Test_Contract__c": false,
+          "Is_VIP_Contract__c": false,
+          "SM_AC_collected__c": true
+        }
+      },
+      {
+        "attributes": {
+          "type": "SM_Payment__c",
+          "url": "/services/data/v67.0/sobjects/SM_Payment__c/a24UU000005KHLwYAO"
+        },
+        "Name": "PY-01895410",
+        "Payment_Status__c": "ACCEPTED",
+        "SM_Check_Collection_Status__c": "COLLECTED",
+        "SM_Check_Collection__c": true,
+        "SM_Check_Collection_Date__c": "2026-09-16",
+        "SM_Return_code__c": null,
+        "SM_Type__c": "AC",
+        "SM_Original_Type__c": "AC",
+        "SM_Historical_Collection_Status__c": "PRC_AUT_FIX_CANCELLED_CONTRACT_ORDER: ACCEPTED //",
+        "SM_ACH_Order__c": "a04UU00000HVPlAYAX",
+        "SM_Contract__r": {
+          "attributes": {
+            "type": "Contract",
+            "url": "/services/data/v67.0/sobjects/Contract/800UU00000knUVdYAM"
+          },
+          "ContractNumber": "00318380",
+          "Status": "Cancelled",
+          "Is_Test_Contract__c": false,
+          "Is_VIP_Contract__c": false,
+          "SM_AC_collected__c": false
+        }
+      },
+      {
+        "attributes": {
+          "type": "SM_Payment__c",
+          "url": "/services/data/v67.0/sobjects/SM_Payment__c/a24UU000005MUukYAG"
+        },
+        "Name": "PY-01899134",
+        "Payment_Status__c": "REJECTED",
+        "SM_Check_Collection_Status__c": "PENDING",
+        "SM_Check_Collection__c": true,
+        "SM_Check_Collection_Date__c": "2026-09-09",
+        "SM_Return_code__c": "R01",
+        "SM_Type__c": "Fee",
+        "SM_Original_Type__c": "Subscription",
+        "SM_Historical_Collection_Status__c": "PRC_AUT: PENDING //PRC_AUT: COLLECTED //PRC_AUT: COLLECTED //PRC_AUT: COLLECTED //PRC_AUT: PENDING //PRC_AUT: RETURN //PRC_AUT: PENDING //PRC_AUT: RET",
+        "SM_ACH_Order__c": "a04UU00000HMr5VYAT",
+        "SM_Contract__r": {
+          "attributes": {
+            "type": "Contract",
+            "url": "/services/data/v67.0/sobjects/Contract/800UU00000g2P3uYAE"
+          },
+          "ContractNumber": "00317297",
+          "Status": "Cancelled",
+          "Is_Test_Contract__c": false,
+          "Is_VIP_Contract__c": false,
+          "SM_AC_collected__c": true
+        }
+      },
+      {
+        "attributes": {
+          "type": "SM_Payment__c",
+          "url": "/services/data/v67.0/sobjects/SM_Payment__c/a24UU000005MUvgYAG"
+        },
+        "Name": "PY-01899192",
+        "Payment_Status__c": "REJECTED",
+        "SM_Check_Collection_Status__c": "PENDING",
+        "SM_Check_Collection__c": true,
+        "SM_Check_Collection_Date__c": "2026-09-09",
+        "SM_Return_code__c": "R01",
+        "SM_Type__c": "Late payment fee",
+        "SM_Original_Type__c": "Fee",
+        "SM_Historical_Collection_Status__c": "PRC_AUT: PENDING //PRC_AUT: COLLECTED //PRC_AUT: COLLECTED //PRC_AUT: COLLECTED //PRC_AUT: PENDING //PRC_AUT: RETURN //PRC_AUT: PENDING //PRC_AUT: RET",
+        "SM_ACH_Order__c": "a04UU00000HR8cPYAT",
+        "SM_Contract__r": {
+          "attributes": {
+            "type": "Contract",
+            "url": "/services/data/v67.0/sobjects/Contract/800UU00000g2P3uYAE"
+          },
+          "ContractNumber": "00317297",
+          "Status": "Cancelled",
+          "Is_Test_Contract__c": false,
+          "Is_VIP_Contract__c": false,
+          "SM_AC_collected__c": true
+        }
+      },
+      {
+        "attributes": {
+          "type": "SM_Payment__c",
+          "url": "/services/data/v67.0/sobjects/SM_Payment__c/a24UU000005N6reYAC"
+        },
+        "Name": "PY-01899922",
+        "Payment_Status__c": "REJECTED",
+        "SM_Check_Collection_Status__c": "PENDING",
+        "SM_Check_Collection__c": true,
+        "SM_Check_Collection_Date__c": "2026-09-11",
+        "SM_Return_code__c": "R01",
+        "SM_Type__c": "AC",
+        "SM_Original_Type__c": "AC",
+        "SM_Historical_Collection_Status__c": "PRC_AUT: PENDING //PRC_AUT: COLLECTED //PRC_AUT: COLLECTED //PRC_AUT: COLLECTED //PRC_AUT: PENDING //PRC_AUT: PENDING //PRC_AUT: RETURN //",
+        "SM_ACH_Order__c": "a04UU00000HVyMHYA1",
+        "SM_Contract__r": {
+          "attributes": {
+            "type": "Contract",
+            "url": "/services/data/v67.0/sobjects/Contract/800UU00000kHzCjYAK"
+          },
+          "ContractNumber": "00318243",
+          "Status": "Activated",
+          "Is_Test_Contract__c": false,
+          "Is_VIP_Contract__c": false,
+          "SM_AC_collected__c": true
+        }
+      },
+      {
+        "attributes": {
+          "type": "SM_Payment__c",
+          "url": "/services/data/v67.0/sobjects/SM_Payment__c/a24UU000005NdywYAC"
+        },
+        "Name": "PY-01900438",
+        "Payment_Status__c": "REJECTED",
+        "SM_Check_Collection_Status__c": "PENDING",
+        "SM_Check_Collection__c": true,
+        "SM_Check_Collection_Date__c": "2026-09-14",
+        "SM_Return_code__c": "R01",
+        "SM_Type__c": "AC",
+        "SM_Original_Type__c": "AC",
+        "SM_Historical_Collection_Status__c": "PRC_AUT: PENDING //PRC_AUT: COLLECTED //PRC_AUT: COLLECTED //PRC_AUT: COLLECTED //PRC_AUT: PENDING //PRC_AUT: PENDING //PRC_AUT: RETURN //",
+        "SM_ACH_Order__c": "a04UU00000HUbbwYAD",
+        "SM_Contract__r": {
+          "attributes": {
+            "type": "Contract",
+            "url": "/services/data/v67.0/sobjects/Contract/800UU00000kepO4YAI"
+          },
+          "ContractNumber": "00318342",
+          "Status": "Cancelled",
+          "Is_Test_Contract__c": false,
+          "Is_VIP_Contract__c": false,
+          "SM_AC_collected__c": false
+        }
+      },
+      {
+        "attributes": {
+          "type": "SM_Payment__c",
+          "url": "/services/data/v67.0/sobjects/SM_Payment__c/a24UU000005NdyxYAC"
+        },
+        "Name": "PY-01900439",
+        "Payment_Status__c": "REJECTED",
+        "SM_Check_Collection_Status__c": "PENDING",
+        "SM_Check_Collection__c": true,
+        "SM_Check_Collection_Date__c": "2026-09-14",
+        "SM_Return_code__c": "R01",
+        "SM_Type__c": "AC",
+        "SM_Original_Type__c": "AC",
+        "SM_Historical_Collection_Status__c": "PRC_AUT: PENDING //PRC_AUT: COLLECTED //PRC_AUT: COLLECTED //PRC_AUT: COLLECTED //PRC_AUT: PENDING //PRC_AUT: PENDING //PRC_AUT: RETURN //",
+        "SM_ACH_Order__c": "a04UU00000HUbbxYAD",
+        "SM_Contract__r": {
+          "attributes": {
+            "type": "Contract",
+            "url": "/services/data/v67.0/sobjects/Contract/800UU00000kfCVlYAM"
+          },
+          "ContractNumber": "00318343",
+          "Status": "Cancelled",
+          "Is_Test_Contract__c": false,
+          "Is_VIP_Contract__c": false,
+          "SM_AC_collected__c": false
+        }
+      },
+      {
+        "attributes": {
+          "type": "SM_Payment__c",
+          "url": "/services/data/v67.0/sobjects/SM_Payment__c/a24UU000005OA1uYAG"
+        },
+        "Name": "PY-01901108",
+        "Payment_Status__c": "REJECTED",
+        "SM_Check_Collection_Status__c": "PENDING",
+        "SM_Check_Collection__c": true,
+        "SM_Check_Collection_Date__c": "2026-09-15",
+        "SM_Return_code__c": "R01",
+        "SM_Type__c": "Fee",
+        "SM_Original_Type__c": "Subscription",
+        "SM_Historical_Collection_Status__c": "PRC_AUT: PENDING //PRC_AUT: COLLECTED //PRC_AUT: COLLECTED //PRC_AUT: COLLECTED //PRC_AUT: PENDING //PRC_AUT: PENDING //PRC_AUT: RETURN //",
+        "SM_ACH_Order__c": "a04UU00000HKd53YAD",
+        "SM_Contract__r": {
+          "attributes": {
+            "type": "Contract",
+            "url": "/services/data/v67.0/sobjects/Contract/800UU00000fMg5sYAC"
+          },
+          "ContractNumber": "00317145",
+          "Status": "Activated",
+          "Is_Test_Contract__c": false,
+          "Is_VIP_Contract__c": false,
+          "SM_AC_collected__c": true
+        }
+      },
+      {
+        "attributes": {
+          "type": "SM_Payment__c",
+          "url": "/services/data/v67.0/sobjects/SM_Payment__c/a24UU000005OA22YAG"
+        },
+        "Name": "PY-01901116",
+        "Payment_Status__c": "REJECTED",
+        "SM_Check_Collection_Status__c": "PENDING",
+        "SM_Check_Collection__c": true,
+        "SM_Check_Collection_Date__c": "2026-09-15",
+        "SM_Return_code__c": "R10",
+        "SM_Type__c": "AC",
+        "SM_Original_Type__c": "AC",
+        "SM_Historical_Collection_Status__c": "PRC_AUT: PENDING //PRC_AUT: NOT_COLLECTED //PRC_AUT: PENDING //PRC_AUT: PENDING //PRC_AUT: RETURN //",
+        "SM_ACH_Order__c": "a04UU00000HUbbuYAD",
+        "SM_Contract__r": {
+          "attributes": {
+            "type": "Contract",
+            "url": "/services/data/v67.0/sobjects/Contract/800UU00000kcZjtYAE"
+          },
+          "ContractNumber": "00318330",
+          "Status": "Payment Process",
+          "Is_Test_Contract__c": false,
+          "Is_VIP_Contract__c": false,
+          "SM_AC_collected__c": false
+        }
+      },
+      {
+        "attributes": {
+          "type": "SM_Payment__c",
+          "url": "/services/data/v67.0/sobjects/SM_Payment__c/a24UU000005OA29YAG"
+        },
+        "Name": "PY-01901123",
+        "Payment_Status__c": "REJECTED",
+        "SM_Check_Collection_Status__c": "PENDING",
+        "SM_Check_Collection__c": true,
+        "SM_Check_Collection_Date__c": "2026-09-15",
+        "SM_Return_code__c": "R01",
+        "SM_Type__c": "Fee",
+        "SM_Original_Type__c": "Subscription",
+        "SM_Historical_Collection_Status__c": "PRC_AUT: PENDING //PRC_AUT: COLLECTED //PRC_AUT: COLLECTED //PRC_AUT: COLLECTED //PRC_AUT: PENDING //PRC_AUT: PENDING //PRC_AUT: RETURN //",
+        "SM_ACH_Order__c": "a04UU00000HVVSLYA5",
+        "SM_Contract__r": {
+          "attributes": {
+            "type": "Contract",
+            "url": "/services/data/v67.0/sobjects/Contract/800UU00000k3159YAA"
+          },
+          "ContractNumber": "00318160",
+          "Status": "Activated",
+          "Is_Test_Contract__c": false,
+          "Is_VIP_Contract__c": false,
+          "SM_AC_collected__c": true
+        }
+      },
+      {
+        "attributes": {
+          "type": "SM_Payment__c",
+          "url": "/services/data/v67.0/sobjects/SM_Payment__c/a24UU000005PG6nYAG"
+        },
+        "Name": "PY-01902575",
+        "Payment_Status__c": "REJECTED",
+        "SM_Check_Collection_Status__c": "PENDING",
+        "SM_Check_Collection__c": true,
+        "SM_Check_Collection_Date__c": "2026-09-16",
+        "SM_Return_code__c": "R01",
+        "SM_Type__c": "Fee",
+        "SM_Original_Type__c": "Subscription",
+        "SM_Historical_Collection_Status__c": "PRC_AUT: PENDING //PRC_AUT: COLLECTED //PRC_AUT: COLLECTED //PRC_AUT: COLLECTED //PRC_AUT: PENDING //PRC_AUT: PENDING //PRC_AUT: RETURN //",
+        "SM_ACH_Order__c": "a041U00000Xup0pQAB",
+        "SM_Contract__r": {
+          "attributes": {
+            "type": "Contract",
+            "url": "/services/data/v67.0/sobjects/Contract/8001U000000WmsmQAC"
+          },
+          "ContractNumber": "00242904",
+          "Status": "Activated",
+          "Is_Test_Contract__c": false,
+          "Is_VIP_Contract__c": false,
+          "SM_AC_collected__c": true
+        }
+      },
+      {
+        "attributes": {
+          "type": "SM_Payment__c",
+          "url": "/services/data/v67.0/sobjects/SM_Payment__c/a24UU000005PG6uYAG"
+        },
+        "Name": "PY-01902582",
+        "Payment_Status__c": "REJECTED",
+        "SM_Check_Collection_Status__c": "PENDING",
+        "SM_Check_Collection__c": true,
+        "SM_Check_Collection_Date__c": "2026-09-16",
+        "SM_Return_code__c": "R01",
+        "SM_Type__c": "Fee",
+        "SM_Original_Type__c": "Subscription",
+        "SM_Historical_Collection_Status__c": "PRC_AUT: PENDING //PRC_AUT: COLLECTED //PRC_AUT: COLLECTED //PRC_AUT: COLLECTED //PRC_AUT: PENDING //PRC_AUT: PENDING //PRC_AUT: RETURN //",
+        "SM_ACH_Order__c": "a048W00007u4IN8QAM",
+        "SM_Contract__r": {
+          "attributes": {
+            "type": "Contract",
+            "url": "/services/data/v67.0/sobjects/Contract/8008W000002O6a5QAC"
+          },
+          "ContractNumber": "00309301",
+          "Status": "Activated",
+          "Is_Test_Contract__c": false,
+          "Is_VIP_Contract__c": false,
+          "SM_AC_collected__c": true
+        }
+      },
+      {
+        "attributes": {
+          "type": "SM_Payment__c",
+          "url": "/services/data/v67.0/sobjects/SM_Payment__c/a24UU000005PG72YAG"
+        },
+        "Name": "PY-01902590",
+        "Payment_Status__c": "REJECTED",
+        "SM_Check_Collection_Status__c": "PENDING",
+        "SM_Check_Collection__c": true,
+        "SM_Check_Collection_Date__c": "2026-09-16",
+        "SM_Return_code__c": "R01",
+        "SM_Type__c": "Fee",
+        "SM_Original_Type__c": "Subscription",
+        "SM_Historical_Collection_Status__c": "PRC_AUT: PENDING //PRC_AUT: COLLECTED //PRC_AUT: COLLECTED //PRC_AUT: COLLECTED //PRC_AUT: PENDING //PRC_AUT: PENDING //PRC_AUT: RETURN //",
+        "SM_ACH_Order__c": "a04UU00000031XRYAY",
+        "SM_Contract__r": {
+          "attributes": {
+            "type": "Contract",
+            "url": "/services/data/v67.0/sobjects/Contract/8008W000004CDaoQAG"
+          },
+          "ContractNumber": "00310722",
+          "Status": "Activated",
+          "Is_Test_Contract__c": false,
+          "Is_VIP_Contract__c": false,
+          "SM_AC_collected__c": true
+        }
+      },
+      {
+        "attributes": {
+          "type": "SM_Payment__c",
+          "url": "/services/data/v67.0/sobjects/SM_Payment__c/a24UU000005PG76YAG"
+        },
+        "Name": "PY-01902594",
+        "Payment_Status__c": "REJECTED",
+        "SM_Check_Collection_Status__c": "PENDING",
+        "SM_Check_Collection__c": true,
+        "SM_Check_Collection_Date__c": "2026-09-16",
+        "SM_Return_code__c": "R01",
+        "SM_Type__c": "Fee",
+        "SM_Original_Type__c": "Subscription",
+        "SM_Historical_Collection_Status__c": "PRC_AUT: PENDING //PRC_AUT: COLLECTED //PRC_AUT: COLLECTED //PRC_AUT: COLLECTED //PRC_AUT: PENDING //PRC_AUT: PENDING //PRC_AUT: RETURN //",
+        "SM_ACH_Order__c": "a04UU000002XsBlYAK",
+        "SM_Contract__r": {
+          "attributes": {
+            "type": "Contract",
+            "url": "/services/data/v67.0/sobjects/Contract/800UU000003bRdpYAE"
+          },
+          "ContractNumber": "00312779",
+          "Status": "Activated",
+          "Is_Test_Contract__c": false,
+          "Is_VIP_Contract__c": false,
+          "SM_AC_collected__c": true
+        }
+      },
+      {
+        "attributes": {
+          "type": "SM_Payment__c",
+          "url": "/services/data/v67.0/sobjects/SM_Payment__c/a24UU000005PG7RYAW"
+        },
+        "Name": "PY-01902615",
+        "Payment_Status__c": "REJECTED",
+        "SM_Check_Collection_Status__c": "PENDING",
+        "SM_Check_Collection__c": true,
+        "SM_Check_Collection_Date__c": "2026-09-16",
+        "SM_Return_code__c": "R01",
+        "SM_Type__c": "Fee",
+        "SM_Original_Type__c": "Subscription",
+        "SM_Historical_Collection_Status__c": "PRC_AUT: PENDING //PRC_AUT: COLLECTED //PRC_AUT: COLLECTED //PRC_AUT: COLLECTED //PRC_AUT: PENDING //PRC_AUT: PENDING //PRC_AUT: RETURN //",
+        "SM_ACH_Order__c": "a04UU00000GEvWfYAL",
+        "SM_Contract__r": {
+          "attributes": {
+            "type": "Contract",
+            "url": "/services/data/v67.0/sobjects/Contract/800UU00000ZsqqMYAR"
+          },
+          "ContractNumber": "00315868",
+          "Status": "Activated",
+          "Is_Test_Contract__c": false,
+          "Is_VIP_Contract__c": false,
+          "SM_AC_collected__c": false
+        }
+      },
+      {
+        "attributes": {
+          "type": "SM_Payment__c",
+          "url": "/services/data/v67.0/sobjects/SM_Payment__c/a24UU000005PG7fYAG"
+        },
+        "Name": "PY-01902629",
+        "Payment_Status__c": "REJECTED",
+        "SM_Check_Collection_Status__c": "PENDING",
+        "SM_Check_Collection__c": true,
+        "SM_Check_Collection_Date__c": "2026-09-16",
+        "SM_Return_code__c": "R01",
+        "SM_Type__c": "Fee",
+        "SM_Original_Type__c": "Subscription",
+        "SM_Historical_Collection_Status__c": "PRC_AUT: PENDING //PRC_AUT: COLLECTED //PRC_AUT: COLLECTED //PRC_AUT: COLLECTED //PRC_AUT: PENDING //PRC_AUT: PENDING //PRC_AUT: RETURN //",
+        "SM_ACH_Order__c": "a04UU00000HELZ3YAP",
+        "SM_Contract__r": {
+          "attributes": {
+            "type": "Contract",
+            "url": "/services/data/v67.0/sobjects/Contract/800UU00000cN2XuYAK"
+          },
+          "ContractNumber": "00316452",
+          "Status": "Activated",
+          "Is_Test_Contract__c": false,
+          "Is_VIP_Contract__c": false,
+          "SM_AC_collected__c": true
+        }
+      },
+      {
+        "attributes": {
+          "type": "SM_Payment__c",
+          "url": "/services/data/v67.0/sobjects/SM_Payment__c/a24UU000005PG7yYAG"
+        },
+        "Name": "PY-01902648",
+        "Payment_Status__c": "REJECTED",
+        "SM_Check_Collection_Status__c": "PENDING",
+        "SM_Check_Collection__c": true,
+        "SM_Check_Collection_Date__c": "2026-09-16",
+        "SM_Return_code__c": "R01",
+        "SM_Type__c": "Fee",
+        "SM_Original_Type__c": "Subscription",
+        "SM_Historical_Collection_Status__c": "PRC_AUT: PENDING //PRC_AUT: COLLECTED //PRC_AUT: COLLECTED //PRC_AUT: COLLECTED //PRC_AUT: PENDING //PRC_AUT: PENDING //PRC_AUT: RETURN //",
+        "SM_ACH_Order__c": "a04UU00000HNoOvYAL",
+        "SM_Contract__r": {
+          "attributes": {
+            "type": "Contract",
+            "url": "/services/data/v67.0/sobjects/Contract/800UU00000gazrCYAQ"
+          },
+          "ContractNumber": "00317450",
+          "Status": "Activated",
+          "Is_Test_Contract__c": false,
+          "Is_VIP_Contract__c": false,
+          "SM_AC_collected__c": true
+        }
+      },
+      {
+        "attributes": {
+          "type": "SM_Payment__c",
+          "url": "/services/data/v67.0/sobjects/SM_Payment__c/a24UU000005PG89YAG"
+        },
+        "Name": "PY-01902659",
+        "Payment_Status__c": "REJECTED",
+        "SM_Check_Collection_Status__c": "PENDING",
+        "SM_Check_Collection__c": true,
+        "SM_Check_Collection_Date__c": "2026-09-16",
+        "SM_Return_code__c": "R01",
+        "SM_Type__c": "Fee",
+        "SM_Original_Type__c": "Subscription",
+        "SM_Historical_Collection_Status__c": "PRC_AUT: PENDING //PRC_AUT: COLLECTED //PRC_AUT: COLLECTED //PRC_AUT: COLLECTED //PRC_AUT: PENDING //PRC_AUT: PENDING //PRC_AUT: RETURN //",
+        "SM_ACH_Order__c": "a04UU00000HPq4zYAD",
+        "SM_Contract__r": {
+          "attributes": {
+            "type": "Contract",
+            "url": "/services/data/v67.0/sobjects/Contract/800UU00000hguGOYAY"
+          },
+          "ContractNumber": "00317671",
+          "Status": "Activated",
+          "Is_Test_Contract__c": false,
+          "Is_VIP_Contract__c": false,
+          "SM_AC_collected__c": true
+        }
+      },
+      {
+        "attributes": {
+          "type": "SM_Payment__c",
+          "url": "/services/data/v67.0/sobjects/SM_Payment__c/a24UU000005PG8EYAW"
+        },
+        "Name": "PY-01902664",
+        "Payment_Status__c": "REJECTED",
+        "SM_Check_Collection_Status__c": "PENDING",
+        "SM_Check_Collection__c": true,
+        "SM_Check_Collection_Date__c": "2026-09-16",
+        "SM_Return_code__c": "R01",
+        "SM_Type__c": "Fee",
+        "SM_Original_Type__c": "Subscription",
+        "SM_Historical_Collection_Status__c": "PRC_AUT: PENDING //PRC_AUT: COLLECTED //PRC_AUT: COLLECTED //PRC_AUT: COLLECTED //PRC_AUT: PENDING //PRC_AUT: PENDING //PRC_AUT: RETURN //",
+        "SM_ACH_Order__c": "a04UU00000HPr49YAD",
+        "SM_Contract__r": {
+          "attributes": {
+            "type": "Contract",
+            "url": "/services/data/v67.0/sobjects/Contract/800UU00000i4ytxYAA"
+          },
+          "ContractNumber": "00317747",
+          "Status": "Activated",
+          "Is_Test_Contract__c": false,
+          "Is_VIP_Contract__c": false,
+          "SM_AC_collected__c": true
+        }
+      },
+      {
+        "attributes": {
+          "type": "SM_Payment__c",
+          "url": "/services/data/v67.0/sobjects/SM_Payment__c/a24UU000005PG8NYAW"
+        },
+        "Name": "PY-01902673",
+        "Payment_Status__c": "REJECTED",
+        "SM_Check_Collection_Status__c": "PENDING",
+        "SM_Check_Collection__c": true,
+        "SM_Check_Collection_Date__c": "2026-09-16",
+        "SM_Return_code__c": "R01",
+        "SM_Type__c": "Fee",
+        "SM_Original_Type__c": "Subscription",
+        "SM_Historical_Collection_Status__c": "PRC_AUT: PENDING //PRC_AUT: COLLECTED //PRC_AUT: COLLECTED //PRC_AUT: COLLECTED //PRC_AUT: PENDING //PRC_AUT: PENDING //PRC_AUT: RETURN //",
+        "SM_ACH_Order__c": "a04UU00000HTouPYAT",
+        "SM_Contract__r": {
+          "attributes": {
+            "type": "Contract",
+            "url": "/services/data/v67.0/sobjects/Contract/800UU00000iO0QhYAK"
+          },
+          "ContractNumber": "00317801",
+          "Status": "Activated",
+          "Is_Test_Contract__c": false,
+          "Is_VIP_Contract__c": false,
+          "SM_AC_collected__c": true
+        }
+      },
+      {
+        "attributes": {
+          "type": "SM_Payment__c",
+          "url": "/services/data/v67.0/sobjects/SM_Payment__c/a24UU000005PG8SYAW"
+        },
+        "Name": "PY-01902678",
+        "Payment_Status__c": "REJECTED",
+        "SM_Check_Collection_Status__c": "PENDING",
+        "SM_Check_Collection__c": true,
+        "SM_Check_Collection_Date__c": "2026-09-16",
+        "SM_Return_code__c": "R01",
+        "SM_Type__c": "Fee",
+        "SM_Original_Type__c": "Subscription",
+        "SM_Historical_Collection_Status__c": "PRC_AUT: PENDING //PRC_AUT: COLLECTED //PRC_AUT: COLLECTED //PRC_AUT: COLLECTED //PRC_AUT: PENDING //PRC_AUT: PENDING //PRC_AUT: RETURN //",
+        "SM_ACH_Order__c": "a04UU00000HTourYAD",
+        "SM_Contract__r": {
+          "attributes": {
+            "type": "Contract",
+            "url": "/services/data/v67.0/sobjects/Contract/800UU00000jR5GHYA0"
+          },
+          "ContractNumber": "00318025",
+          "Status": "Activated",
+          "Is_Test_Contract__c": false,
+          "Is_VIP_Contract__c": false,
+          "SM_AC_collected__c": true
+        }
+      },
+      {
+        "attributes": {
+          "type": "SM_Payment__c",
+          "url": "/services/data/v67.0/sobjects/SM_Payment__c/a24UU000005PG8oYAG"
+        },
+        "Name": "PY-01902700",
+        "Payment_Status__c": "REJECTED",
+        "SM_Check_Collection_Status__c": "PENDING",
+        "SM_Check_Collection__c": true,
+        "SM_Check_Collection_Date__c": "2026-09-16",
+        "SM_Return_code__c": "R01",
+        "SM_Type__c": "AC",
+        "SM_Original_Type__c": "AC",
+        "SM_Historical_Collection_Status__c": "PRC_AUT: PENDING //PRC_AUT: COLLECTED //PRC_AUT: COLLECTED //PRC_AUT: COLLECTED //PRC_AUT: PENDING //PRC_AUT: PENDING //PRC_AUT: RETURN //",
+        "SM_ACH_Order__c": "a04UU00000HWDtBYAX",
+        "SM_Contract__r": {
+          "attributes": {
+            "type": "Contract",
+            "url": "/services/data/v67.0/sobjects/Contract/800UU00000lT6wfYAC"
+          },
+          "ContractNumber": "00318548",
+          "Status": "Activated",
+          "Is_Test_Contract__c": false,
+          "Is_VIP_Contract__c": false,
+          "SM_AC_collected__c": true
+        }
+      },
+      {
+        "attributes": {
+          "type": "SM_Payment__c",
+          "url": "/services/data/v67.0/sobjects/SM_Payment__c/a24UU000005PG8pYAG"
+        },
+        "Name": "PY-01902701",
+        "Payment_Status__c": "REJECTED",
+        "SM_Check_Collection_Status__c": "PENDING",
+        "SM_Check_Collection__c": true,
+        "SM_Check_Collection_Date__c": "2026-09-16",
+        "SM_Return_code__c": "R01",
+        "SM_Type__c": "Fee",
+        "SM_Original_Type__c": "Subscription",
+        "SM_Historical_Collection_Status__c": "PRC_AUT: PENDING //PRC_AUT: COLLECTED //PRC_AUT: COLLECTED //PRC_AUT: COLLECTED //PRC_AUT: PENDING //PRC_AUT: PENDING //PRC_AUT: RETURN //",
+        "SM_ACH_Order__c": "a04UU00000HWKjQYAX",
+        "SM_Contract__r": {
+          "attributes": {
+            "type": "Contract",
+            "url": "/services/data/v67.0/sobjects/Contract/800UU00000jbCtFYAU"
+          },
+          "ContractNumber": "00318054",
+          "Status": "Activated",
+          "Is_Test_Contract__c": false,
+          "Is_VIP_Contract__c": false,
+          "SM_AC_collected__c": true
+        }
+      }
+    ],
+    "totalSize": 28,
+    "done": true
+  },
+  "warnings": []
+}
