@@ -1,2 +1,2 @@
 Payment_Name,Payment_Status__c,SM_Check_Collection_Date__c,SM_Check_Collection__c,SM_Check_Collection_Status__c,SM_Return_code__c,SM_Return_Change__c,Batch,Individual_Name,Reason_Description,CR_Amount,DB_Amount
-PY-01894631,REJECTED,2026-09-03,TRUE,RETURN,R10,,0000771,,CUSTOMER ADVISES NOT AUTHORIZED,0.00,119.00
+PY-01895410,REJECTED,2026-09-04,TRUE,RETURN,R10,,0000778,,CUSTOMER ADVISES NOT AUTHORIZED,0.00,99.00
