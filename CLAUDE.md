@@ -119,7 +119,20 @@ Este es **distinto** — es para cuando hay que reprocesar a propósito un rango
 
 **Rule 3 — `PENDING` o `RETURN` con más de 26 días desde la transmisión pasa a `NOT_COLLECTED`** (confirmado por el usuario 2026-09-22, ampliada el mismo día). Si un pago queda en `SM_Check_Collection_Status__c = 'PENDING'` (Check Collection, todavía en proceso de reingreso tras un NSF) **o en `'RETURN'`** (ACH Return, sin re-presentar) y ya pasaron **más de 26 días desde `SM_Transmission_Date_ACH_File__c`** (la fecha en que se transmitió al banco, no la fecha del cheque ni la del reporte), el resultado real es `NOT_COLLECTED` — el banco ya no lo va a cobrar por esa vía, aunque ningún reporte posterior lo diga explícitamente así. Aplica a los dos estados "todavía sin resolver" del pipeline (Check Collection y ACH Returns), no solo a `PENDING`.
 
-**Ningún script de este repo implementa la Rule 3 todavía** (no es lo mismo que `UTILITARIOS/mark_transmitted_accepted.apex`, que es un timeout de 15 días para `ACH TRANSMITTED` sin ningún reporte → `ACCEPTED`; esta regla es al revés — un reporte SÍ existió, dijo `PENDING`/`RETURN`, pero ya venció el margen para que se resuelva solo). Por ahora es una regla de **interpretación manual** para validaciones/backfills puntuales, no una automatización desplegada — confirmar con el usuario antes de convertirla en un script recurrente tipo `mark_transmitted_accepted.apex`.
+**Implementada (2026-09-23) dentro de un solo flujo — sigue siendo manual/puntual en todo lo demás.**
+`COLLECTIONS/CANCELACIONES/validate_pending_payments.py` (ver skill `/cancelar-contratos` §4.1)
+aplica la Rule 3 (+ la excepción de código definitivo) como paso de validación antes de intentar
+cancelar un contrato `PENDING_ACH_PAYMENT` — pero primero cruza cada payment contra el índice
+histórico de COLLECTIONS para confirmar que Salesforce ya está al día con el último reporte real
+(si no, no toca nada, deja que el pipeline diario lo resuelva). Corre solo cuando el usuario invoca
+el script (`apply` al final aplica; sin él es dry-run), nunca automático. **Fuera de este flujo
+(el pipeline diario `run_daily_new_files.sh`/`run_daily_catchup.sh`, cualquier otro backfill) la
+regla sigue sin estar implementada** — no es lo mismo que `UTILITARIOS/mark_transmitted_accepted.apex`,
+que es un timeout de 15 días para `ACH TRANSMITTED` sin ningún reporte → `ACCEPTED`; esta regla es
+al revés — un reporte SÍ existió, dijo `PENDING`/`RETURN`, pero ya venció el margen para que se
+resuelva solo. Para cualquier uso fuera de `validate_pending_payments.py`, sigue siendo una regla
+de **interpretación manual** puntual — confirmar con el usuario antes de aplicarla en otro script
+recurrente.
 
 **Validado con datos reales 2026-09-22:** los 18 payments de contratos Cancelled que quedaron excluidos de un fix de validación puntual (Tier 3/4, ver `BITACORA_HALLAZGOS_TECNICOS.md`/`TAREAS_PENDIENTES.md`) tenían todos `SM_Transmission_Date_ACH_File__c` de 300+ días atrás y ya estaban en vivo como `NOT_COLLECTED` — exactamente lo que predice la Rule 3. Confirma que revertirlos a `PENDING` (lo que sugería literalmente el reporte histórico usado en ese análisis) hubiera sido un error.
 
@@ -133,6 +146,16 @@ Este es **distinto** — es para cuando hay que reprocesar a propósito un rango
 **La excepción de código definitivo (saltar los 26 días) solo aplica durante limpiezas puntuales, y solo a petición explícita del usuario — confirmado 2026-09-23.** No es una regla de aplicación automática/estándar del proceso normal (`run_daily_new_files.sh`, `mark_transmitted_accepted.apex`, etc.) — esos siguen esperando los 26 días completos salvo que el usuario pida expresamente aplicar la excepción en una validación puntual (como se hizo con los 5 Late Payment Fee y los 9 del barrido de Cancelar Contratos, ambos por instrucción directa). No inferir la excepción por defecto en ninguna automatización futura sin confirmarlo primero.
 
 **Regla R10 — siempre gana, sin importar el estado anterior (confirmado 2026-09-23, específico de R10, no generaliza a los otros 5 códigos definitivos):** un retorno `R10` (cliente no autoriza el cobro) pasa el pago a `NOT_COLLECTED` **incluso si ya estaba `ACCEPTED`/`COLLECTED` legítimamente** — es un evento tipo contracargo/disputa posterior al cobro real, no un error de reporte, y debe reportarse siempre (no confundir con la excepción de arriba, que es sobre saltar la espera de 26 días — esta regla es sobre que R10 puede revertir incluso un estado ya resuelto como bueno). Caso real: `PY-01895410` (contrato `00318380`) — cobro genuino confirmado por historial 13 días después de transmitido, contradicho 18 días después por un R10 real. **Confirmado por Carlos (2026-09-23): esta prioridad es específica de R10** (por su naturaleza de disputa/contracargo posterior al cobro) — R02/R04/R07/R13/R16 NO la heredan automáticamente; si uno de esos códigos aparece contradiciendo un `ACCEPTED`/`COLLECTED` ya resuelto, tratarlo como caso a confirmar con el usuario, no aplicar de forma automática.
+
+**`SM_ACH_Order__c` activa (`Pending`/`Initiated`/`Recurring`) en un contrato candidato a cancelar
+se detiene (`Stopped`), no se cancela (`Canceled`) — confirmado por el usuario 2026-09-23.** Estas
+órdenes siguen generando cobros futuros aunque el payment bloqueante ya esté resuelto o en proceso,
+así que antes de intentar cancelar hay que pararlas. `Stopped` es un estado intermedio de
+seguridad (evita cobros mientras el `Contract.Status` todavía no pasa a `Cancelled`); `Canceled` es
+el estado final que aplica `CancelarContratosRunner.cls` cuando el contrato sí termina de
+cancelarse. Implementado en `COLLECTIONS/CANCELACIONES/validate_pending_payments.py` (skill
+`/cancelar-contratos` §4.1) — mismo alcance/gate que la Rule 3 (dry-run por default, nunca
+automático fuera de ese script).
 
 ### 2.3 Asunto de migración conocido — no investigar salvo que se pida
 

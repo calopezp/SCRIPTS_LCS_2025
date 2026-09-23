@@ -1,0 +1,11 @@
+ContractNumber,Tipo,Registro,RecordId,EstadoSF,CodigoRetorno,DiasTransmitido,UltimoReporteCOLLECTIONS,AccionRecomendada,Razon
+00317233,PAGO,PY-01889257,a24UU000005GDODYA4,PENDING,R08,26,2026-08-31 | Check Collection Daily Report_09_01_2026.pdf,EN_ESPERA,"26 dias transmitido (<= 26), codigo R08 no es definitivo -- sigue esperando."
+00317233,PAGO,PY-01889258,a24UU000005GDOEYA4,PENDING,R08,26,2026-08-31 | Check Collection Daily Report_09_01_2026.pdf,EN_ESPERA,"26 dias transmitido (<= 26), codigo R08 no es definitivo -- sigue esperando."
+00317233,PAGO,PY-01889262,a24UU000005GDOIYA4,PENDING,R08,26,2026-08-31 | Check Collection Daily Report_09_01_2026.pdf,EN_ESPERA,"26 dias transmitido (<= 26), codigo R08 no es definitivo -- sigue esperando."
+00317835,PAGO,PY-01890515,a24UU000005H8TAYA0,PENDING,R01,26,2026-09-01 | CheckCollectionDailyReport_09022026.pdf,EN_ESPERA,"26 dias transmitido (<= 26), codigo R01 no es definitivo -- sigue esperando."
+00317915,PAGO,PY-01902704,a24UU000005PG8sYAG,PENDING,R01,9,2026-09-16 | CheckCollectionDailyReport_09172026.pdf,EN_ESPERA,"9 dias transmitido (<= 26), codigo R01 no es definitivo -- sigue esperando."
+00317954,PAGO,PY-01890523,a24UU000005H8TIYA0,PENDING,R08,26,2026-09-01 | CheckCollectionDailyReport_09022026.pdf,EN_ESPERA,"26 dias transmitido (<= 26), codigo R08 no es definitivo -- sigue esperando."
+00317971,PAGO,PY-01890524,a24UU000005H8TJYA0,PENDING,R01,26,2026-09-01 | CheckCollectionDailyReport_09022026.pdf,EN_ESPERA,"26 dias transmitido (<= 26), codigo R01 no es definitivo -- sigue esperando."
+00317974,PAGO,PY-01890525,a24UU000005H8TKYA0,PENDING,R01,26,2026-09-01 | CheckCollectionDailyReport_09022026.pdf,EN_ESPERA,"26 dias transmitido (<= 26), codigo R01 no es definitivo -- sigue esperando."
+00318018,PAGO,PY-01890528,a24UU000005H8TNYA0,PENDING,R08,26,2026-08-31 | Check Collection Daily Report_09_01_2026.pdf,EN_ESPERA,"26 dias transmitido (<= 26), codigo R08 no es definitivo -- sigue esperando."
+00318092,PAGO,PY-01890536,a24UU000005H8TVYA0,PENDING,R01,26,2026-09-01 | CheckCollectionDailyReport_09022026.pdf,EN_ESPERA,"26 dias transmitido (<= 26), codigo R01 no es definitivo -- sigue esperando."

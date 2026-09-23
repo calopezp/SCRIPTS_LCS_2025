@@ -23,9 +23,14 @@ Categorias:
                           REJECTED/ACH TRANSMITTED) con
                           SM_Check_Collection_Status__c sin resolver.
   REVISAR_MANUAL        - Caso raro: SM_Customer_Cancellation__c=false, o
-                          alguna SM_ACH_Order__c en Initiated/Stopped/
-                          Recurring/Pending (indica actividad reciente,
-                          no encaja con "para cancelar").
+                          alguna SM_ACH_Order__c en Initiated/Recurring/
+                          Pending (indica actividad reciente, no encaja con
+                          "para cancelar"). 'Stopped' NO cuenta como raro --
+                          es el estado seguro al que validate_pending_
+                          payments.py manda estas ordenes antes de cancelar
+                          (ver ese script), CancelarContratosRunner.cls ya
+                          las pasa a 'Canceled' cuando el contrato cancela
+                          de verdad.
   NOT_FOUND             - El ContractNumber no existe en el org.
 
 Uso:
@@ -59,7 +64,9 @@ ALLOWED_COLLECTION_STATUSES = {
     "COLLECTED", "COLECTED", "Collected",
     "REJECTED",
 }
-WEIRD_ORDER_STATUSES = {"Initiated", "Stopped", "Recurring", "Pending"}
+# 'Stopped' NO esta acá a propósito -- ver docstring del módulo. Es el
+# estado seguro/esperado antes de cancelar, no una señal de actividad rara.
+WEIRD_ORDER_STATUSES = {"Initiated", "Recurring", "Pending"}
 
 
 def sf_query(soql: str):
