@@ -1,3 +1,1 @@
-Payment_Name,Payment_Status__c,SM_Check_Collection_Date__c,SM_Check_Collection__c,SM_Check_Collection_Status__c,Section,Drawee_Name,Check_Number,Reference_Number,Amount,Reason
-PY-01894631,REJECTED,2026-09-17,TRUE,PENDING,PENDING,PY-01894631,00002627634,0005001917415,119.00,R10 CUST ADV NOT
-PY-01901116,REJECTED,2026-09-15,TRUE,NOT_COLLECTED,NOT COLLECTED,PY-01901116,00003012568,0000000031502,139.00,R10 CUST ADV NOT
+Payment_Name,Drawee_Name,Amount,SM_Check_Collection_Date__c,Section,Reference_Number,Check_Number,Reason

@@ -6,7 +6,8 @@
  * failed payments, 3 of them R02) - there was no standing way to notice this pattern except
  * investigating one contract at a time. Extended the same day to R10 (customer told the bank
  * directly they don't authorize the debit - see extract_check_collection.py's separate
- * Comercial-facing R10 CSV report for the customer-service side of this same code), then to
+ * Comercial-facing R10 CSV report for the customer-service side of this same code; extended
+ * 2026-09-23 to also cover R11, same dispute family, per explicit user instruction), then to
  * R04+R13 (invalid account/routing number - same underlying "bad bank details" problem, one
  * combined report), R07 (customer revoked authorization - a standing revocation, not a
  * one-time dispute like R10/R29), and R16 (account frozen, usually a legal/court order,
@@ -42,8 +43,13 @@ public without sharing class SM_ReturnCodeNotifier {
         sendReport(new Set<String>{ 'R02' }, 'R02 (ACCOUNT CLOSED)', 'la cuenta bancaria del metodo de pago ya no existe, reintentar no va a funcionar, hace falta que el cliente actualice su metodo de pago.');
     }
 
+    // calp 2026-09-23 :: R11 (ENTRY NOT PER AUTHORIZATION TERMS) se agrego al mismo reporte que R10
+    // por instruccion explicita del usuario -- es la misma familia de disputa/desconocimiento del
+    // cargo por parte del cliente, solo que el banco lo codifica distinto. Comparte tambien la regla
+    // de "siempre gana sin importar el estado anterior" (ver CLAUDE.md 2.2) -- especifica de
+    // R10/R11, no generaliza a los otros codigos definitivos (R02/R04/R07/R13/R16).
     public static void sendR10Report() {
-        sendReport(new Set<String>{ 'R10' }, 'R10 (CUSTOMER ADVISES NOT AUTHORIZED)', 'el cliente le informo al banco directamente que no autoriza el cobro (disputa/desconoce el cargo) - reintentar sin hablar primero con el cliente puede generar otra disputa.');
+        sendReport(new Set<String>{ 'R10', 'R11' }, 'R10/R11 (CUSTOMER ADVISES NOT AUTHORIZED / ENTRY NOT PER AUTHORIZATION TERMS)', 'el cliente le informo al banco directamente que no autoriza el cobro o que no cumple los terminos autorizados (disputa/desconoce el cargo) - reintentar sin hablar primero con el cliente puede generar otra disputa.');
     }
 
     public static void sendInvalidAccountReport() {

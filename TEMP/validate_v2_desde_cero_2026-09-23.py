@@ -111,9 +111,11 @@ def evaluate(rec, returns_idx, coll_idx):
         w_ccs = winner.get("SM_Check_Collection_Status__c", "")
         w_code = winner.get("SM_Return_code__c", "")
 
-        # Regla R10: siempre gana, sin importar el estado anterior.
-        if w_code == "R10":
-            return "REJECTED", "NOT_COLLECTED", "r10_siempre_gana", winner
+        # Regla R10/R11: siempre gana, sin importar el estado anterior
+        # (confirmado por Carlos 2026-09-23 -- misma familia de disputa del
+        # cliente, R11 se agrego al mismo tratamiento que R10 ese dia).
+        if w_code in ("R10", "R11"):
+            return "REJECTED", "NOT_COLLECTED", "r10_r11_siempre_gana", winner
 
         # Codigo definitivo (no R10) -> NOT_COLLECTED de inmediato, sin esperar 26 dias.
         if w_code in DEFINITIVE_CODES and w_ccs in UNRESOLVED:
