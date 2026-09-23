@@ -1,0 +1,116 @@
+ »   Warning: @salesforce/cli update available from 2.149.9 to 2.150.6.
+Compiled successfully.
+Executed successfully.
+
+67.0 APEX_CODE,DEBUG;APEX_PROFILING,INFO
+Execute Anonymous: SM_ReturnCodeNotifier.sendWeeklyComercialDigest();
+Execute Anonymous: System.debug('CORREO ENVIADO');
+16:23:05.52 (52293847)|USER_INFO|[EXTERNAL]|0051U000007bbx5|clopez@legal-credit.com|(GMT+02:00) Central European Summer Time (Europe/Madrid)|GMT+02:00
+16:23:05.52 (52316047)|EXECUTION_STARTED
+16:23:05.52 (52330427)|CODE_UNIT_STARTED|[EXTERNAL]|execute_anonymous_apex
+16:23:05.52 (938861673)|EMAIL_QUEUE|[394]|subject: [Comercial] Novedades ACH - Semana del 9/15/2026 - 9/22/2026, bccSender: false, saveAsActivity: true, useSignature: true, toAddresses: [clopez@legal-credit.com], plainTextBody: NOVEDADES ACH PARA COMERCIAL - Semana del 9/15/2026 al 9/22/2026
+========================================================================
+
+RESUMEN
+  ACTUALIZAR METODO DE PAGO          30 contrato(s)   $10,662.01   (1 nuevo(s) esta semana)
+  DISPUTA O REVOCACION DEL CLIENTE   16 contrato(s)   $2,822.58   (0 nuevo(s) esta semana)
+  CUENTA CONGELADA                   1 contrato(s)   $583   (0 nuevo(s) esta semana)
+  --------------------------------------------------
+  TOTAL                               47 contrato(s)   $14,067.59
+
+========================================================================
+ACTUALIZAR METODO DE PAGO
+el dato bancario del cliente esta mal o ya no existe -- hay que contactarlo para actualizarlo, reintentar con el mismo dato no va a funcionar.
+
+  NUEVO ESTA SEMANA (1):
+  - Contrato 00317934 (Activated) - 1 pago(s) rechazado(s), $75 - 9/15/2026 a 9/15/2026
+
+  BACKLOG ACUMULADO (29, sin novedad esta semana):
+  - Contrato 00316708 (Activated) - 16 pago(s) rechazado(s), $1,439 - 5/21/2026 a 8/26/2026
+  - Contrato 00314584 (Activated) - 14 pago(s) rechazado(s), $1,225 - 3/12/2026 a 9/14/2026
+  - Contrato 00314023 (Activated) - 10 pago(s) rechazado(s), $1,126.39 - 4/29/2026 a 9/8/2026
+  - Contrato 00316478 (Activated) - 10 pago(s) rechazado(s), $1,115 - 5/5/2026 a 9/8/2026
+  - Contrato 00314018 (Activated) - 9 pago(s) rechazado(s), $836 - 4/29/2026 a 9/8/2026
+  - Contrato 00315538 (Activated) - 5 pago(s) rechazado(s), $645 - 6/29/2026 a 9/8/2026
+  - Contrato 00317797 (Activated) - 5 pago(s) rechazado(s), $520 - 7/15/2026 a 9/14/2026
+  - Contrato 00317690 (Activated) - 3 pago(s) rechazado(s), $347 - 9/8/2026 a 9/14/2026
+  - Contrato 00316619 (Activated) - 3 pago(s) rechazado(s), $347 - 7/30/2026 a 8/19/2026
+  - Contrato 00314246 (Activated) - 3 pago(s) rechazado(s), $317 - 8/27/2026 a 9/8/2026
+  - Contrato 00241600 (Activated) - 3 pago(s) rechazado(s), $304.54 - 7/30/2026 a 9/8/2026
+  - Contrato 00317679 (Activated) - 3 pago(s) rechazado(s), $297 - 8/12/2026 a 9/14/2026
+  - Contrato 00317489 (Activated) - 2 pago(s) rechazado(s), $278 - 8/13/2026 a 9/14/2026
+  - Contrato 00318103 (Payment Process) - 1 pago(s) rechazado(s), $139 - 9/8/2026 a 9/8/2026
+  - Contrato 00318169 (Payment Process) - 1 pago(s) rechazado(s), $139 - 8/7/2026 a 8/7/2026
+  - Contrato 00318233 (Payment Process) - 1 pago(s) rechazado(s), $139 - 8/20/2026 a 8/20/2026
+  - Contrato 00318318 (Payment Process) - 1 pago(s) rechazado(s), $139 - 9/8/2026 a 9/8/2026
+  - Contrato 00318442 (Payment Process) - 1 pago(s) rechazado(s), $139 - 9/3/2026 a 9/3/2026
+  - Contrato 00314379 (Activated) - 1 pago(s) rechazado(s), $132.69 - 8/12/2026 a 8/12/2026
+  - Contrato 00317509 (Activated) - 1 pago(s) rechazado(s), $124 - 9/8/2026 a 9/8/2026
+  - Contrato 00313416 (Activated) - 1 pago(s) rechazado(s), $110.39 - 8/12/2026 a 8/12/2026
+  - Contrato 00316941 (Activated) - 1 pago(s) rechazado(s), $99 - 8/27/2026 a 8/27/2026
+  - Contrato 00318310 (Payment Process) - 1 pago(s) rechazado(s), $99 - 8/29/2026 a 8/29/2026
+  - Contrato 00318115 (Payment Process) - 1 pago(s) rechazado(s), $99 - 8/20/2026 a 8/20/2026
+  - Contrato 00318427 (Payment Process) - 1 pago(s) rechazado(s), $99 - 9/1/2026 a 9/1/2026
+  - Contrato 00317995 (Payment Process) - 1 pago(s) rechazado(s), $99 - 9/8/2026 a 9/8/2026
+  - Contrato 00317944 (Activated) - 1 pago(s) rechazado(s), $79 - 8/29/2026 a 8/29/2026
+  - Contrato 00315278 (Activated) - 1 pago(s) rechazado(s), $79 - 8/27/2026 a 8/27/2026
+  - Contrato 00317714 (Activated) - 1 pago(s) rechazado(s), $75 - 8/27/2026 a 8/27/2026
+
+  Ya resueltos (10, pago aceptado despues del ultimo rechazo -- no requieren accion): 00301055, 00311773, 00314444, 00316237, 00316240, 00316242, 00317037, 00317314, 00317655, 00317976
+
+========================================================================
+DISPUTA O REVOCACION DEL CLIENTE
+el cliente le dijo al banco que no autoriza o revoco el cobro -- hablar con el cliente antes de reintentar, para no generar otra disputa.
+
+  BACKLOG ACUMULADO (16, sin novedad esta semana):
+  - Contrato 00316097 (Activated) - 3 pago(s) rechazado(s), $322 - 8/13/2026 a 9/14/2026
+  - Contrato 00317264 (Activated) - 3 pago(s) rechazado(s), $317 - 7/30/2026 a 8/19/2026
+  - Contrato 00310862 (Activated) - 3 pago(s) rechazado(s), $257 - 4/14/2026 a 8/19/2026
+  - Contrato 00314671 (Activated) - 3 pago(s) rechazado(s), $225 - 6/29/2026 a 8/27/2026
+  - Contrato 00316444 (Activated) - 2 pago(s) rechazado(s), $198 - 7/21/2026 a 8/20/2026
+  - Contrato 00317434 (Activated) - 2 pago(s) rechazado(s), $198 - 6/29/2026 a 7/30/2026
+  - Contrato 00304787 (Activated) - 1 pago(s) rechazado(s), $188.44 - 8/12/2026 a 8/12/2026
+  - Contrato 00274687 (Activated) - 1 pago(s) rechazado(s), $166.14 - 8/12/2026 a 8/12/2026
+  - Contrato 00312743 (Activated) - 2 pago(s) rechazado(s), $158 - 3/12/2026 a 4/14/2026
+  - Contrato 00315994 (Activated) - 2 pago(s) rechazado(s), $158 - 7/30/2026 a 8/27/2026
+  - Contrato 00317867 (Activated) - 1 pago(s) rechazado(s), $139 - 8/12/2026 a 8/12/2026
+  - Contrato 00316755 (Activated) - 1 pago(s) rechazado(s), $124 - 8/19/2026 a 8/19/2026
+  - Contrato 00317116 (Activated) - 1 pago(s) rechazado(s), $99 - 5/29/2026 a 5/29/2026
+  - Contrato 00317509 (Activated) - 1 pago(s) rechazado(s), $99 - 9/2/2026 a 9/2/2026
+  - Contrato 00316376 (Activated) - 1 pago(s) rechazado(s), $99 - 9/2/2026 a 9/2/2026
+  - Contrato 00316864 (Activated) - 1 pago(s) rechazado(s), $75 - 8/17/2026 a 8/17/2026
+
+  Ya resueltos (4, pago aceptado despues del ultimo rechazo -- no requieren accion): 00312242, 00314997, 00315916, 00316977
+
+========================================================================
+CUENTA CONGELADA
+usualmente por una orden legal/judicial, fuera del control del cliente -- dar seguimiento aparte antes de reintentar.
+
+  BACKLOG ACUMULADO (1, sin novedad esta semana):
+  - Contrato 00311265 (Activated) - 7 pago(s) rechazado(s), $583 - 10/9/2025 a 9/8/2026
+
+  Ya resueltos (1, pago aceptado despues del ultimo rechazo -- no requieren accion): 00315109
+
+, 
+16:23:05.52 (941193370)|USER_DEBUG|[2]|DEBUG|CORREO ENVIADO
+16:23:06.47 (1047988579)|CUMULATIVE_LIMIT_USAGE
+16:23:06.47 (1047988579)|LIMIT_USAGE_FOR_NS|(default)|
+  Number of SOQL queries: 2 out of 100
+  Number of query rows: 9207 out of 50000
+  Number of SOSL queries: 0 out of 20
+  Number of DML statements: 0 out of 150
+  Number of Publish Immediate DML: 0 out of 150
+  Number of DML rows: 0 out of 10000
+  Maximum CPU time: 139 out of 10000
+  Maximum heap size: 0 out of 6000000
+  Number of callouts: 0 out of 100
+  Number of Email Invocations: 1 out of 10
+  Number of future calls: 0 out of 50
+  Number of queueable jobs added to the queue: 0 out of 50
+  Number of Mobile Apex push calls: 0 out of 10
+
+16:23:06.47 (1047988579)|CUMULATIVE_LIMIT_USAGE_END
+
+16:23:05.52 (1048071909)|CODE_UNIT_FINISHED|execute_anonymous_apex
+16:23:05.52 (1048090009)|EXECUTION_FINISHED
+

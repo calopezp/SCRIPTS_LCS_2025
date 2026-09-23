@@ -1,0 +1,319 @@
+ »   Warning: @salesforce/cli update available from 2.149.9 to 2.150.6.
+Compiled successfully.
+Executed successfully.
+
+67.0 APEX_CODE,DEBUG;APEX_PROFILING,INFO
+Execute Anonymous: // SOLO LECTURA -- borrador v2 del compilado semanal para Comercial: una linea por contrato
+Execute Anonymous: // (no por pago), separando "nuevo esta semana" del resto del backlog acumulado.
+Execute Anonymous: 
+Execute Anonymous: Set<String> CLOSED = new Set<String>{ 'Cancelled', 'Canceled', 'Finalized' };
+Execute Anonymous: Date sinceWeek = Date.today().addDays(-7);
+Execute Anonymous: 
+Execute Anonymous: class Pad {
+Execute Anonymous:     String rep(String ch, Integer n) {
+Execute Anonymous:         String s = '';
+Execute Anonymous:         for (Integer i = 0; i < n; i++) { s += ch; }
+Execute Anonymous:         return s;
+Execute Anonymous:     }
+Execute Anonymous: }
+Execute Anonymous: Pad pad = new Pad();
+Execute Anonymous: 
+Execute Anonymous: class Grupo {
+Execute Anonymous:     String titulo;
+Execute Anonymous:     String accion;
+Execute Anonymous:     Set<String> codigos;
+Execute Anonymous:     List<SM_Payment__c> payments = new List<SM_Payment__c>();
+Execute Anonymous: }
+Execute Anonymous: 
+Execute Anonymous: Map<String, Grupo> grupos = new Map<String, Grupo>();
+Execute Anonymous: 
+Execute Anonymous: Grupo g1 = new Grupo();
+Execute Anonymous: g1.titulo = 'ACTUALIZAR METODO DE PAGO';
+Execute Anonymous: g1.accion = 'el dato bancario del cliente esta mal o ya no existe -- hay que contactarlo para actualizarlo, reintentar con el mismo dato no va a funcionar.';
+Execute Anonymous: g1.codigos = new Set<String>{ 'R02', 'R04', 'R13' };
+Execute Anonymous: grupos.put('metodo', g1);
+Execute Anonymous: 
+Execute Anonymous: Grupo g2 = new Grupo();
+Execute Anonymous: g2.titulo = 'DISPUTA O REVOCACION DEL CLIENTE';
+Execute Anonymous: g2.accion = 'el cliente le dijo al banco que no autoriza o revoco el cobro -- hablar con el cliente antes de reintentar, para no generar otra disputa.';
+Execute Anonymous: g2.codigos = new Set<String>{ 'R10', 'R07' };
+Execute Anonymous: grupos.put('disputa', g2);
+Execute Anonymous: 
+Execute Anonymous: Grupo g3 = new Grupo();
+Execute Anonymous: g3.titulo = 'CUENTA CONGELADA';
+Execute Anonymous: g3.accion = 'usualmente por una orden legal/judicial, fuera del control del cliente -- dar seguimiento aparte antes de reintentar.';
+Execute Anonymous: g3.codigos = new Set<String>{ 'R16' };
+Execute Anonymous: grupos.put('congelada', g3);
+Execute Anonymous: 
+Execute Anonymous: Set<String> allCodes = new Set<String>{ 'R02', 'R04', 'R13', 'R10', 'R07', 'R16' };
+Execute Anonymous: List<SM_Payment__c> allPayments = [
+Execute Anonymous:     SELECT Id, Name, SM_Amount__c, CreatedDate, SM_Return_code__c,
+Execute Anonymous:            SM_Contract__c, SM_Contract__r.ContractNumber, SM_Contract__r.Status,
+Execute Anonymous:            SM_Contract__r.SM_Customer_Cancellation__c,
+Execute Anonymous:            SM_Contract__r.Is_Test_Contract__c, SM_Contract__r.Is_VIP_Contract__c
+Execute Anonymous:     FROM SM_Payment__c
+Execute Anonymous:     WHERE SM_Return_code__c IN :allCodes
+Execute Anonymous:     ORDER BY SM_Contract__r.ContractNumber, CreatedDate
+Execute Anonymous: ];
+Execute Anonymous: 
+Execute Anonymous: Set<Id> contractIds = new Set<Id>();
+Execute Anonymous: for (SM_Payment__c p : allPayments) {
+Execute Anonymous:     if (p.SM_Contract__c == null || p.SM_Contract__r == null) continue;
+Execute Anonymous:     if (CLOSED.contains(p.SM_Contract__r.Status) || p.SM_Contract__r.SM_Customer_Cancellation__c == true
+Execute Anonymous:         || p.SM_Contract__r.Is_Test_Contract__c == true || p.SM_Contract__r.Is_VIP_Contract__c == true) continue;
+Execute Anonymous:     contractIds.add(p.SM_Contract__c);
+Execute Anonymous:     for (Grupo g : grupos.values()) {
+Execute Anonymous:         if (g.codigos.contains(p.SM_Return_code__c)) {
+Execute Anonymous:             g.payments.add(p);
+Execute Anonymous:         }
+Execute Anonymous:     }
+Execute Anonymous: }
+Execute Anonymous: 
+Execute Anonymous: Map<Id, List<Date>> acceptedDatesByContract = new Map<Id, List<Date>>();
+Execute Anonymous: if (!contractIds.isEmpty()) {
+Execute Anonymous:     for (SM_Payment__c p : [SELECT SM_Contract__c, CreatedDate FROM SM_Payment__c
+Execute Anonymous:                              WHERE SM_Contract__c IN :contractIds AND Payment_Status__c = 'ACCEPTED']) {
+Execute Anonymous:         if (!acceptedDatesByContract.containsKey(p.SM_Contract__c)) {
+Execute Anonymous:             acceptedDatesByContract.put(p.SM_Contract__c, new List<Date>());
+Execute Anonymous:         }
+Execute Anonymous:         acceptedDatesByContract.get(p.SM_Contract__c).add(p.CreatedDate.date());
+Execute Anonymous:     }
+Execute Anonymous: }
+Execute Anonymous: 
+Execute Anonymous: class ContratoResumen {
+Execute Anonymous:     String contractNumber;
+Execute Anonymous:     String status;
+Execute Anonymous:     Decimal total = 0;
+Execute Anonymous:     Integer cantidad = 0;
+Execute Anonymous:     Date primero;
+Execute Anonymous:     Date ultimo;
+Execute Anonymous:     Boolean resuelto = false;
+Execute Anonymous:     Boolean nuevoEstaSemana = false;
+Execute Anonymous: }
+Execute Anonymous: 
+Execute Anonymous: String resumenLine = '';
+Execute Anonymous: String bodyDetalle = '';
+Execute Anonymous: Decimal granTotal = 0;
+Execute Anonymous: Integer granContratos = 0;
+Execute Anonymous: 
+Execute Anonymous: for (String key : new List<String>{ 'metodo', 'disputa', 'congelada' }) {
+Execute Anonymous:     Grupo g = grupos.get(key);
+Execute Anonymous:     Map<Id, ContratoResumen> porContrato = new Map<Id, ContratoResumen>();
+Execute Anonymous:     for (SM_Payment__c p : g.payments) {
+Execute Anonymous:         Date pd = p.CreatedDate.date();
+Execute Anonymous:         if (!porContrato.containsKey(p.SM_Contract__c)) {
+Execute Anonymous:             ContratoResumen cr = new ContratoResumen();
+Execute Anonymous:             cr.contractNumber = p.SM_Contract__r.ContractNumber;
+Execute Anonymous:             cr.status = p.SM_Contract__r.Status;
+Execute Anonymous:             cr.primero = pd;
+Execute Anonymous:             cr.ultimo = pd;
+Execute Anonymous:             porContrato.put(p.SM_Contract__c, cr);
+Execute Anonymous:         }
+Execute Anonymous:         ContratoResumen cr = porContrato.get(p.SM_Contract__c);
+Execute Anonymous:         cr.cantidad++;
+Execute Anonymous:         cr.total += (p.SM_Amount__c != null ? p.SM_Amount__c : 0);
+Execute Anonymous:         if (pd < cr.primero) cr.primero = pd;
+Execute Anonymous:         if (pd > cr.ultimo) cr.ultimo = pd;
+Execute Anonymous:         if (pd >= sinceWeek) cr.nuevoEstaSemana = true;
+Execute Anonymous:     }
+Execute Anonymous:     for (Id cId : porContrato.keySet()) {
+Execute Anonymous:         ContratoResumen cr = porContrato.get(cId);
+Execute Anonymous:         for (Date d : acceptedDatesByContract.containsKey(cId) ? acceptedDatesByContract.get(cId) : new List<Date>()) {
+Execute Anonymous:             if (d > cr.ultimo) cr.resuelto = true;
+Execute Anonymous:         }
+Execute Anonymous:     }
+Execute Anonymous: 
+Execute Anonymous:     List<ContratoResumen> nuevosSemana = new List<ContratoResumen>();
+Execute Anonymous:     List<ContratoResumen> backlog = new List<ContratoResumen>();
+Execute Anonymous:     List<ContratoResumen> resueltos = new List<ContratoResumen>();
+Execute Anonymous:     Decimal groupTotal = 0;
+Execute Anonymous:     for (ContratoResumen cr : porContrato.values()) {
+Execute Anonymous:         if (cr.resuelto) {
+Execute Anonymous:             resueltos.add(cr);
+Execute Anonymous:         } else if (cr.nuevoEstaSemana) {
+Execute Anonymous:             nuevosSemana.add(cr);
+Execute Anonymous:             groupTotal += cr.total;
+Execute Anonymous:         } else {
+Execute Anonymous:             backlog.add(cr);
+Execute Anonymous:             groupTotal += cr.total;
+Execute Anonymous:         }
+Execute Anonymous:     }
+Execute Anonymous: 
+Execute Anonymous:     resumenLine += '  ' + g.titulo + pad.rep(' ', Math.max(1, 35 - g.titulo.length()))
+Execute Anonymous:         + (nuevosSemana.size() + backlog.size()) + ' contrato(s)   $' + groupTotal.format()
+Execute Anonymous:         + '   (' + nuevosSemana.size() + ' nuevo(s) esta semana)\n';
+Execute Anonymous:     granTotal += groupTotal;
+Execute Anonymous:     granContratos += nuevosSemana.size() + backlog.size();
+Execute Anonymous: 
+Execute Anonymous:     bodyDetalle += '========================================================================\n';
+Execute Anonymous:     bodyDetalle += g.titulo + '\n';
+Execute Anonymous:     bodyDetalle += g.accion + '\n\n';
+Execute Anonymous: 
+Execute Anonymous:     if (nuevosSemana.isEmpty() && backlog.isEmpty()) {
+Execute Anonymous:         bodyDetalle += '  Sin contratos pendientes en esta categoria.\n\n';
+Execute Anonymous:     } else {
+Execute Anonymous:         for (Integer i = 0; i < nuevosSemana.size(); i++) {
+Execute Anonymous:             for (Integer j = i + 1; j < nuevosSemana.size(); j++) {
+Execute Anonymous:                 if (nuevosSemana[j].total > nuevosSemana[i].total) {
+Execute Anonymous:                     ContratoResumen tmp = nuevosSemana[i]; nuevosSemana[i] = nuevosSemana[j]; nuevosSemana[j] = tmp;
+Execute Anonymous:                 }
+Execute Anonymous:             }
+Execute Anonymous:         }
+Execute Anonymous:         for (Integer i = 0; i < backlog.size(); i++) {
+Execute Anonymous:             for (Integer j = i + 1; j < backlog.size(); j++) {
+Execute Anonymous:                 if (backlog[j].total > backlog[i].total) {
+Execute Anonymous:                     ContratoResumen tmp = backlog[i]; backlog[i] = backlog[j]; backlog[j] = tmp;
+Execute Anonymous:                 }
+Execute Anonymous:             }
+Execute Anonymous:         }
+Execute Anonymous: 
+Execute Anonymous:         if (!nuevosSemana.isEmpty()) {
+Execute Anonymous:             bodyDetalle += '  NUEVO ESTA SEMANA (' + nuevosSemana.size() + '):\n';
+Execute Anonymous:             for (ContratoResumen cr : nuevosSemana) {
+Execute Anonymous:                 bodyDetalle += '  - Contrato ' + cr.contractNumber + ' (' + cr.status + ') - '
+Execute Anonymous:                     + cr.cantidad + ' pago(s) rechazado(s), $' + cr.total.format()
+Execute Anonymous:                     + ' - ' + cr.primero.format() + ' a ' + cr.ultimo.format() + '\n';
+Execute Anonymous:             }
+Execute Anonymous:             bodyDetalle += '\n';
+Execute Anonymous:         }
+Execute Anonymous:         if (!backlog.isEmpty()) {
+Execute Anonymous:             bodyDetalle += '  BACKLOG ACUMULADO (' + backlog.size() + ', sin novedad esta semana):\n';
+Execute Anonymous:             for (ContratoResumen cr : backlog) {
+Execute Anonymous:                 bodyDetalle += '  - Contrato ' + cr.contractNumber + ' (' + cr.status + ') - '
+Execute Anonymous:                     + cr.cantidad + ' pago(s) rechazado(s), $' + cr.total.format()
+Execute Anonymous:                     + ' - ' + cr.primero.format() + ' a ' + cr.ultimo.format() + '\n';
+Execute Anonymous:             }
+Execute Anonymous:             bodyDetalle += '\n';
+Execute Anonymous:         }
+Execute Anonymous:     }
+Execute Anonymous: 
+Execute Anonymous:     if (!resueltos.isEmpty()) {
+Execute Anonymous:         bodyDetalle += '  Ya resueltos (' + resueltos.size() + ', pago aceptado despues del ultimo rechazo -- no requieren accion): ';
+Execute Anonymous:         List<String> nums = new List<String>();
+Execute Anonymous:         for (ContratoResumen cr : resueltos) { nums.add(cr.contractNumber); }
+Execute Anonymous:         bodyDetalle += String.join(nums, ', ') + '\n\n';
+Execute Anonymous:     }
+Execute Anonymous: }
+Execute Anonymous: 
+Execute Anonymous: String header = 'NOVEDADES ACH PARA COMERCIAL - Semana del ' + sinceWeek.format() + ' al ' + Date.today().format() + '\n'
+Execute Anonymous:     + '========================================================================\n\n'
+Execute Anonymous:     + 'RESUMEN\n' + resumenLine
+Execute Anonymous:     + '  ' + pad.rep('-', 50) + '\n'
+Execute Anonymous:     + '  TOTAL' + pad.rep(' ', 31) + granContratos + ' contrato(s)   $' + granTotal.format() + '\n\n';
+Execute Anonymous: 
+Execute Anonymous: String fullBody = header + bodyDetalle;
+Execute Anonymous: System.debug('===BODY START===');
+Execute Anonymous: System.debug(fullBody);
+Execute Anonymous: System.debug('===BODY END===');
+Execute Anonymous: System.debug('LENGTH: ' + fullBody.length());
+16:16:37.40 (40782508)|USER_INFO|[EXTERNAL]|0051U000007bbx5|clopez@legal-credit.com|(GMT+02:00) Central European Summer Time (Europe/Madrid)|GMT+02:00
+16:16:37.40 (40805518)|EXECUTION_STARTED
+16:16:37.40 (40838378)|CODE_UNIT_STARTED|[EXTERNAL]|execute_anonymous_apex
+16:16:37.40 (539851462)|USER_DEBUG|[200]|DEBUG|===BODY START===
+16:16:37.40 (539892302)|USER_DEBUG|[201]|DEBUG|NOVEDADES ACH PARA COMERCIAL - Semana del 9/15/2026 al 9/22/2026
+========================================================================
+
+RESUMEN
+  ACTUALIZAR METODO DE PAGO          30 contrato(s)   $10,662.01   (1 nuevo(s) esta semana)
+  DISPUTA O REVOCACION DEL CLIENTE   16 contrato(s)   $2,822.58   (0 nuevo(s) esta semana)
+  CUENTA CONGELADA                   1 contrato(s)   $583   (0 nuevo(s) esta semana)
+  --------------------------------------------------
+  TOTAL                               47 contrato(s)   $14,067.59
+
+========================================================================
+ACTUALIZAR METODO DE PAGO
+el dato bancario del cliente esta mal o ya no existe -- hay que contactarlo para actualizarlo, reintentar con el mismo dato no va a funcionar.
+
+  NUEVO ESTA SEMANA (1):
+  - Contrato 00317934 (Activated) - 1 pago(s) rechazado(s), $75 - 9/15/2026 a 9/15/2026
+
+  BACKLOG ACUMULADO (29, sin novedad esta semana):
+  - Contrato 00316708 (Activated) - 16 pago(s) rechazado(s), $1,439 - 5/21/2026 a 8/26/2026
+  - Contrato 00314584 (Activated) - 14 pago(s) rechazado(s), $1,225 - 3/12/2026 a 9/14/2026
+  - Contrato 00314023 (Activated) - 10 pago(s) rechazado(s), $1,126.39 - 4/29/2026 a 9/8/2026
+  - Contrato 00316478 (Activated) - 10 pago(s) rechazado(s), $1,115 - 5/5/2026 a 9/8/2026
+  - Contrato 00314018 (Activated) - 9 pago(s) rechazado(s), $836 - 4/29/2026 a 9/8/2026
+  - Contrato 00315538 (Activated) - 5 pago(s) rechazado(s), $645 - 6/29/2026 a 9/8/2026
+  - Contrato 00317797 (Activated) - 5 pago(s) rechazado(s), $520 - 7/15/2026 a 9/14/2026
+  - Contrato 00317690 (Activated) - 3 pago(s) rechazado(s), $347 - 9/8/2026 a 9/14/2026
+  - Contrato 00316619 (Activated) - 3 pago(s) rechazado(s), $347 - 7/30/2026 a 8/19/2026
+  - Contrato 00314246 (Activated) - 3 pago(s) rechazado(s), $317 - 8/27/2026 a 9/8/2026
+  - Contrato 00241600 (Activated) - 3 pago(s) rechazado(s), $304.54 - 7/30/2026 a 9/8/2026
+  - Contrato 00317679 (Activated) - 3 pago(s) rechazado(s), $297 - 8/12/2026 a 9/14/2026
+  - Contrato 00317489 (Activated) - 2 pago(s) rechazado(s), $278 - 8/13/2026 a 9/14/2026
+  - Contrato 00318103 (Payment Process) - 1 pago(s) rechazado(s), $139 - 9/8/2026 a 9/8/2026
+  - Contrato 00318169 (Payment Process) - 1 pago(s) rechazado(s), $139 - 8/7/2026 a 8/7/2026
+  - Contrato 00318233 (Payment Process) - 1 pago(s) rechazado(s), $139 - 8/20/2026 a 8/20/2026
+  - Contrato 00318318 (Payment Process) - 1 pago(s) rechazado(s), $139 - 9/8/2026 a 9/8/2026
+  - Contrato 00318442 (Payment Process) - 1 pago(s) rechazado(s), $139 - 9/3/2026 a 9/3/2026
+  - Contrato 00314379 (Activated) - 1 pago(s) rechazado(s), $132.69 - 8/12/2026 a 8/12/2026
+  - Contrato 00317509 (Activated) - 1 pago(s) rechazado(s), $124 - 9/8/2026 a 9/8/2026
+  - Contrato 00313416 (Activated) - 1 pago(s) rechazado(s), $110.39 - 8/12/2026 a 8/12/2026
+  - Contrato 00316941 (Activated) - 1 pago(s) rechazado(s), $99 - 8/27/2026 a 8/27/2026
+  - Contrato 00318310 (Payment Process) - 1 pago(s) rechazado(s), $99 - 8/29/2026 a 8/29/2026
+  - Contrato 00318115 (Payment Process) - 1 pago(s) rechazado(s), $99 - 8/20/2026 a 8/20/2026
+  - Contrato 00318427 (Payment Process) - 1 pago(s) rechazado(s), $99 - 9/1/2026 a 9/1/2026
+  - Contrato 00317995 (Payment Process) - 1 pago(s) rechazado(s), $99 - 9/8/2026 a 9/8/2026
+  - Contrato 00317944 (Activated) - 1 pago(s) rechazado(s), $79 - 8/29/2026 a 8/29/2026
+  - Contrato 00315278 (Activated) - 1 pago(s) rechazado(s), $79 - 8/27/2026 a 8/27/2026
+  - Contrato 00317714 (Activated) - 1 pago(s) rechazado(s), $75 - 8/27/2026 a 8/27/2026
+
+  Ya resueltos (10, pago aceptado despues del ultimo rechazo -- no requieren accion): 00301055, 00311773, 00314444, 00316237, 00316240, 00316242, 00317037, 00317314, 00317655, 00317976
+
+========================================================================
+DISPUTA O REVOCACION DEL CLIENTE
+el cliente le dijo al banco que no autoriza o revoco el cobro -- hablar con el cliente antes de reintentar, para no generar otra disputa.
+
+  BACKLOG ACUMULADO (16, sin novedad esta semana):
+  - Contrato 00316097 (Activated) - 3 pago(s) rechazado(s), $322 - 8/13/2026 a 9/14/2026
+  - Contrato 00317264 (Activated) - 3 pago(s) rechazado(s), $317 - 7/30/2026 a 8/19/2026
+  - Contrato 00310862 (Activated) - 3 pago(s) rechazado(s), $257 - 4/14/2026 a 8/19/2026
+  - Contrato 00314671 (Activated) - 3 pago(s) rechazado(s), $225 - 6/29/2026 a 8/27/2026
+  - Contrato 00316444 (Activated) - 2 pago(s) rechazado(s), $198 - 7/21/2026 a 8/20/2026
+  - Contrato 00317434 (Activated) - 2 pago(s) rechazado(s), $198 - 6/29/2026 a 7/30/2026
+  - Contrato 00304787 (Activated) - 1 pago(s) rechazado(s), $188.44 - 8/12/2026 a 8/12/2026
+  - Contrato 00274687 (Activated) - 1 pago(s) rechazado(s), $166.14 - 8/12/2026 a 8/12/2026
+  - Contrato 00312743 (Activated) - 2 pago(s) rechazado(s), $158 - 3/12/2026 a 4/14/2026
+  - Contrato 00315994 (Activated) - 2 pago(s) rechazado(s), $158 - 7/30/2026 a 8/27/2026
+  - Contrato 00317867 (Activated) - 1 pago(s) rechazado(s), $139 - 8/12/2026 a 8/12/2026
+  - Contrato 00316755 (Activated) - 1 pago(s) rechazado(s), $124 - 8/19/2026 a 8/19/2026
+  - Contrato 00317116 (Activated) - 1 pago(s) rechazado(s), $99 - 5/29/2026 a 5/29/2026
+  - Contrato 00317509 (Activated) - 1 pago(s) rechazado(s), $99 - 9/2/2026 a 9/2/2026
+  - Contrato 00316376 (Activated) - 1 pago(s) rechazado(s), $99 - 9/2/2026 a 9/2/2026
+  - Contrato 00316864 (Activated) - 1 pago(s) rechazado(s), $75 - 8/17/2026 a 8/17/2026
+
+  Ya resueltos (4, pago aceptado despues del ultimo rechazo -- no requieren accion): 00312242, 00314997, 00315916, 00316977
+
+========================================================================
+CUENTA CONGELADA
+usualmente por una orden legal/judicial, fuera del control del cliente -- dar seguimiento aparte antes de reintentar.
+
+  BACKLOG ACUMULADO (1, sin novedad esta semana):
+  - Contrato 00311265 (Activated) - 7 pago(s) rechazado(s), $583 - 10/9/2025 a 9/8/2026
+
+  Ya resueltos (1, pago aceptado despues del ultimo rechazo -- no requieren accion): 00315109
+
+
+16:16:37.40 (539921342)|USER_DEBUG|[202]|DEBUG|===BODY END===
+16:16:37.40 (539932742)|USER_DEBUG|[203]|DEBUG|LENGTH: 6046
+16:16:37.540 (540014863)|CUMULATIVE_LIMIT_USAGE
+16:16:37.540 (540014863)|LIMIT_USAGE_FOR_NS|(default)|
+  Number of SOQL queries: 2 out of 100
+  Number of query rows: 3723 out of 50000
+  Number of SOSL queries: 0 out of 20
+  Number of DML statements: 0 out of 150
+  Number of Publish Immediate DML: 0 out of 150
+  Number of DML rows: 0 out of 10000
+  Maximum CPU time: 0 out of 10000
+  Maximum heap size: 0 out of 6000000
+  Number of callouts: 0 out of 100
+  Number of Email Invocations: 0 out of 10
+  Number of future calls: 0 out of 50
+  Number of queueable jobs added to the queue: 0 out of 50
+  Number of Mobile Apex push calls: 0 out of 10
+
+16:16:37.540 (540014863)|CUMULATIVE_LIMIT_USAGE_END
+
+16:16:37.40 (540151863)|CODE_UNIT_FINISHED|execute_anonymous_apex
+16:16:37.40 (540162393)|EXECUTION_FINISHED
+
