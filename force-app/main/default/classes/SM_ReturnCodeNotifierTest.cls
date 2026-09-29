@@ -169,15 +169,85 @@ public without sharing class SM_ReturnCodeNotifierTest {
     }
 
     // calp 2026-09-22 :: compilado semanal para Comercial, agrupado por accion en vez de codigo.
+    // calp 2026-09-24 :: cada contrato se clasifica UNA sola vez, por el codigo de su rechazo
+    // mas reciente -- por eso esta prueba usa 2 contratos distintos (uno solo-R02, uno solo-R10)
+    // en vez de 2 pagos de codigos distintos sobre el MISMO contrato (eso lo cubre la prueba de
+    // abajo, weeklyDigestClassifiesContractByMostRecentCode).
     @IsTest
     static void weeklyDigestGroupsNewVsBacklogByAction() {
-        Contract ct = [SELECT Id, ContractNumber, Status, SM_Customer_Cancellation__c, Is_Test_Contract__c, Is_VIP_Contract__c FROM Contract LIMIT 1];
+        Contract ct1 = [SELECT Id, ContractNumber, Status, SM_Customer_Cancellation__c, Is_Test_Contract__c, Is_VIP_Contract__c, AccountId, RecordTypeId FROM Contract LIMIT 1];
+        Contract ct2 = new Contract(AccountId = ct1.AccountId, RecordTypeId = ct1.RecordTypeId);
+        insert ct2;
+        ct2 = [SELECT Id, ContractNumber, Status, SM_Customer_Cancellation__c, Is_Test_Contract__c, Is_VIP_Contract__c FROM Contract WHERE Id = :ct2.Id];
 
         SM_Payment__c nuevoR02 = new SM_Payment__c(
-            SM_Contract__c = ct.Id, SM_Amount__c = 75, Payment_Status__c = 'REJECTED',
+            SM_Contract__c = ct1.Id, SM_Amount__c = 75, Payment_Status__c = 'REJECTED',
             SM_Return_code__c = 'R02', CreatedDate = DateTime.now()
         );
-        nuevoR02.SM_Contract__r = ct;
+        nuevoR02.SM_Contract__r = ct1;
+
+        SM_Payment__c backlogR10 = new SM_Payment__c(
+            SM_Contract__c = ct2.Id, SM_Amount__c = 99, Payment_Status__c = 'REJECTED',
+            SM_Return_code__c = 'R10', CreatedDate = DateTime.now().addDays(-30)
+        );
+        backlogR10.SM_Contract__r = ct2;
+
+        Test.startTest();
+            String report = SM_ReturnCodeNotifier.buildWeeklyComercialDigest(
+                new List<SM_Payment__c>{ nuevoR02, backlogR10 }, new List<SM_Payment__c>(), Date.today().addDays(-7), true
+            );
+        Test.stopTest();
+
+        System.assert(report.contains('ACTUALIZAR METODO DE PAGO'), 'R02 should land in the update-payment-method section.');
+        System.assert(report.contains('DISPUTA O REVOCACION DEL CLIENTE'), 'R10 should land in the dispute section.');
+        System.assert(report.contains('NUEVO ESTA SEMANA'), 'The R02 payment from today should be flagged as new this week.');
+        System.assert(report.contains('BACKLOG ACUMULADO (1 contrato(s), sin novedad esta semana):'), 'fullBacklog=true should list the backlog contract itemized.');
+        System.assert(report.contains(ct2.ContractNumber), 'fullBacklog=true should list the individual backlog contract, grouped under its cause.');
+        System.assert(report.contains('Causa (ultimo rechazo): R02'), 'Each contract line should show its most recent rejection reason.');
+        System.assert(report.contains('Causa (ultimo rechazo): R10'), 'Each contract line should show its most recent rejection reason.');
+    }
+
+    @IsTest
+    static void weeklyDigestClassifiesContractByMostRecentCode() {
+        Contract ct = [SELECT Id, ContractNumber, Status, SM_Customer_Cancellation__c, Is_Test_Contract__c, Is_VIP_Contract__c FROM Contract LIMIT 1];
+
+        // Mismo contrato, 2 codigos distintos: un R02 viejo (metodo de pago) y un R10 mas
+        // reciente (disputa) -- debe clasificarse UNA sola vez, bajo "disputa" (el mas reciente),
+        // nunca bajo "metodo de pago" tambien.
+        SM_Payment__c oldR02 = new SM_Payment__c(
+            SM_Contract__c = ct.Id, SM_Amount__c = 75, Payment_Status__c = 'REJECTED',
+            SM_Return_code__c = 'R02', CreatedDate = DateTime.now().addDays(-30)
+        );
+        oldR02.SM_Contract__r = ct;
+
+        SM_Payment__c newerR10 = new SM_Payment__c(
+            SM_Contract__c = ct.Id, SM_Amount__c = 99, Payment_Status__c = 'REJECTED',
+            SM_Return_code__c = 'R10', CreatedDate = DateTime.now()
+        );
+        newerR10.SM_Contract__r = ct;
+
+        Test.startTest();
+            String report = SM_ReturnCodeNotifier.buildWeeklyComercialDigest(
+                new List<SM_Payment__c>{ oldR02, newerR10 }, new List<SM_Payment__c>(), Date.today().addDays(-7), true
+            );
+        Test.stopTest();
+
+        System.assert(report.contains('Causa (ultimo rechazo): R10'), 'The contract should be labeled with its most recent rejection code (R10), not the older R02.');
+        System.assert(!report.contains('Causa (ultimo rechazo): R02'), 'The older R02 should not be shown as the reference cause once a more recent R10 exists.');
+
+        // lastIndexOf, no indexOf: ambos titulos aparecen primero en el RESUMEN (una linea por
+        // categoria) y de nuevo como encabezado de su seccion detallada -- la seccion real es la
+        // segunda aparicion.
+        Integer metodoIdx = report.lastIndexOf('ACTUALIZAR METODO DE PAGO');
+        Integer disputaIdx = report.lastIndexOf('DISPUTA O REVOCACION DEL CLIENTE');
+        String metodoSection = report.substring(metodoIdx, disputaIdx);
+        System.assert(metodoSection.contains('Sin contratos pendientes en esta categoria'), 'The contract should NOT be counted under "metodo de pago" once its most recent code is R10.');
+        System.assert(!metodoSection.contains(ct.ContractNumber), 'The contract should not be listed under "metodo de pago" at all.');
+    }
+
+    @IsTest
+    static void weeklyDigestCollapsesBacklogWhenNotFull() {
+        Contract ct = [SELECT Id, ContractNumber, Status, SM_Customer_Cancellation__c, Is_Test_Contract__c, Is_VIP_Contract__c FROM Contract LIMIT 1];
 
         SM_Payment__c backlogR10 = new SM_Payment__c(
             SM_Contract__c = ct.Id, SM_Amount__c = 99, Payment_Status__c = 'REJECTED',
@@ -187,18 +257,21 @@ public without sharing class SM_ReturnCodeNotifierTest {
 
         Test.startTest();
             String report = SM_ReturnCodeNotifier.buildWeeklyComercialDigest(
-                new List<SM_Payment__c>{ nuevoR02, backlogR10 }, new List<SM_Payment__c>(), Date.today().addDays(-7)
+                new List<SM_Payment__c>{ backlogR10 }, new List<SM_Payment__c>(), Date.today().addDays(-7), false
             );
         Test.stopTest();
 
-        System.assert(report.contains('ACTUALIZAR METODO DE PAGO'), 'R02 should land in the update-payment-method section.');
-        System.assert(report.contains('DISPUTA O REVOCACION DEL CLIENTE'), 'R10 should land in the dispute section.');
-        System.assert(report.contains('NUEVO ESTA SEMANA'), 'The R02 payment from today should be flagged as new this week.');
-        System.assert(report.contains('BACKLOG ACUMULADO'), 'The R10 payment from 30 days ago should be flagged as backlog.');
+        System.assert(report.contains('BACKLOG ACUMULADO (1 contrato(s), sin novedad esta semana):'), 'fullBacklog=false should still show the backlog header and per-cause summary.');
+        System.assert(report.contains('Causa (ultimo rechazo): R10') && report.contains('-- 1 contrato(s), $99'), 'fullBacklog=false should show a one-line summary per cause (count + total).');
+        System.assert(!report.contains(ct.ContractNumber), 'fullBacklog=false should not list the individual contract, only the per-cause summary.');
+        System.assert(report.contains('(correr el reporte completo para el detalle por contrato de cada causa)'), 'fullBacklog=false should point to the full report for per-contract detail.');
     }
 
+    // calp 2026-09-24 :: un contrato ya resuelto (pago ACCEPTED despues del ultimo return code)
+    // ya no se reporta en absoluto -- no hace falta mencionarlo si ya tiene un pago mas reciente
+    // (decision explicita del usuario). Antes se listaba bajo "Ya resueltos"; ese bloque se quito.
     @IsTest
-    static void weeklyDigestFlagsResolvedContractsSeparately() {
+    static void weeklyDigestOmitsResolvedContractsEntirely() {
         Contract ct = [SELECT Id, ContractNumber, Status, SM_Customer_Cancellation__c, Is_Test_Contract__c, Is_VIP_Contract__c FROM Contract LIMIT 1];
 
         SM_Payment__c oldR16 = new SM_Payment__c(
@@ -213,12 +286,14 @@ public without sharing class SM_ReturnCodeNotifierTest {
 
         Test.startTest();
             String report = SM_ReturnCodeNotifier.buildWeeklyComercialDigest(
-                new List<SM_Payment__c>{ oldR16 }, new List<SM_Payment__c>{ laterAccepted }, Date.today().addDays(-7)
+                new List<SM_Payment__c>{ oldR16 }, new List<SM_Payment__c>{ laterAccepted }, Date.today().addDays(-7), true
             );
         Test.stopTest();
 
-        System.assert(report.contains('Ya resueltos'), 'A contract accepted after its last return code should be listed as resolved.');
-        System.assert(!report.contains('BACKLOG ACUMULADO'), 'A resolved contract should not also appear in the backlog list.');
+        System.assert(!report.contains('Ya resueltos'), 'The "Ya resueltos" section was removed entirely, per explicit user instruction.');
+        System.assert(!report.contains('BACKLOG ACUMULADO'), 'A resolved contract should not appear in the backlog list either.');
+        System.assert(!report.contains(ct.ContractNumber), 'A resolved contract should not be mentioned anywhere in the report.');
+        System.assert(report.contains('Sin contratos pendientes en esta categoria'), 'With its only contract resolved, "cuenta congelada" should report no pending contracts.');
     }
 
     @IsTest
@@ -227,5 +302,13 @@ public without sharing class SM_ReturnCodeNotifierTest {
             SM_ReturnCodeNotifier.sendWeeklyComercialDigest();
         Test.stopTest();
         System.assert(true, 'sendWeeklyComercialDigest should run end-to-end (live SOQL) without throwing.');
+    }
+
+    @IsTest
+    static void sendsWeeklyComercialDigestReducedWithoutError() {
+        Test.startTest();
+            SM_ReturnCodeNotifier.sendWeeklyComercialDigest(false);
+        Test.stopTest();
+        System.assert(true, 'sendWeeklyComercialDigest(false) (recurring/reduced mode) should run end-to-end without throwing.');
     }
 }

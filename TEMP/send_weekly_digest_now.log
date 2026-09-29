@@ -1,31 +1,27 @@
- »   Warning: @salesforce/cli update available from 2.149.9 to 2.150.6.
 Compiled successfully.
 Executed successfully.
 
 67.0 APEX_CODE,DEBUG;APEX_PROFILING,INFO
 Execute Anonymous: SM_ReturnCodeNotifier.sendWeeklyComercialDigest();
 Execute Anonymous: System.debug('CORREO ENVIADO');
-16:23:05.52 (52293847)|USER_INFO|[EXTERNAL]|0051U000007bbx5|clopez@legal-credit.com|(GMT+02:00) Central European Summer Time (Europe/Madrid)|GMT+02:00
-16:23:05.52 (52316047)|EXECUTION_STARTED
-16:23:05.52 (52330427)|CODE_UNIT_STARTED|[EXTERNAL]|execute_anonymous_apex
-16:23:05.52 (938861673)|EMAIL_QUEUE|[394]|subject: [Comercial] Novedades ACH - Semana del 9/15/2026 - 9/22/2026, bccSender: false, saveAsActivity: true, useSignature: true, toAddresses: [clopez@legal-credit.com], plainTextBody: NOVEDADES ACH PARA COMERCIAL - Semana del 9/15/2026 al 9/22/2026
+13:10:52.322 (322252712)|USER_INFO|[EXTERNAL]|0051U000007bbx5|clopez@legal-credit.com|(GMT+02:00) Central European Summer Time (Europe/Madrid)|GMT+02:00
+13:10:52.322 (322279802)|EXECUTION_STARTED
+13:10:52.322 (322300883)|CODE_UNIT_STARTED|[EXTERNAL]|execute_anonymous_apex
+13:10:54.607 (2607488879)|EMAIL_QUEUE|[400]|subject: [Comercial] Novedades ACH - Semana del 9/17/2026 - 9/24/2026, bccSender: false, saveAsActivity: true, useSignature: true, toAddresses: [clopez@legal-credit.com], plainTextBody: NOVEDADES ACH PARA COMERCIAL - Semana del 9/17/2026 al 9/24/2026
 ========================================================================
 
 RESUMEN
-  ACTUALIZAR METODO DE PAGO          30 contrato(s)   $10,662.01   (1 nuevo(s) esta semana)
-  DISPUTA O REVOCACION DEL CLIENTE   16 contrato(s)   $2,822.58   (0 nuevo(s) esta semana)
+  ACTUALIZAR METODO DE PAGO          30 contrato(s)   $10,662.01   (0 nuevo(s) esta semana)
+  DISPUTA O REVOCACION DEL CLIENTE   24 contrato(s)   $3,648.42   (1 nuevo(s) esta semana)
   CUENTA CONGELADA                   1 contrato(s)   $583   (0 nuevo(s) esta semana)
   --------------------------------------------------
-  TOTAL                               47 contrato(s)   $14,067.59
+  TOTAL                               55 contrato(s)   $14,893.43
 
 ========================================================================
 ACTUALIZAR METODO DE PAGO
 el dato bancario del cliente esta mal o ya no existe -- hay que contactarlo para actualizarlo, reintentar con el mismo dato no va a funcionar.
 
-  NUEVO ESTA SEMANA (1):
-  - Contrato 00317934 (Activated) - 1 pago(s) rechazado(s), $75 - 9/15/2026 a 9/15/2026
-
-  BACKLOG ACUMULADO (29, sin novedad esta semana):
+  BACKLOG ACUMULADO (30, sin novedad esta semana):
   - Contrato 00316708 (Activated) - 16 pago(s) rechazado(s), $1,439 - 5/21/2026 a 8/26/2026
   - Contrato 00314584 (Activated) - 14 pago(s) rechazado(s), $1,225 - 3/12/2026 a 9/14/2026
   - Contrato 00314023 (Activated) - 10 pago(s) rechazado(s), $1,126.39 - 4/29/2026 a 9/8/2026
@@ -55,6 +51,7 @@ el dato bancario del cliente esta mal o ya no existe -- hay que contactarlo para
   - Contrato 00317944 (Activated) - 1 pago(s) rechazado(s), $79 - 8/29/2026 a 8/29/2026
   - Contrato 00315278 (Activated) - 1 pago(s) rechazado(s), $79 - 8/27/2026 a 8/27/2026
   - Contrato 00317714 (Activated) - 1 pago(s) rechazado(s), $75 - 8/27/2026 a 8/27/2026
+  - Contrato 00317934 (Activated) - 1 pago(s) rechazado(s), $75 - 9/15/2026 a 9/15/2026
 
   Ya resueltos (10, pago aceptado despues del ultimo rechazo -- no requieren accion): 00301055, 00311773, 00314444, 00316237, 00316240, 00316242, 00317037, 00317314, 00317655, 00317976
 
@@ -62,25 +59,35 @@ el dato bancario del cliente esta mal o ya no existe -- hay que contactarlo para
 DISPUTA O REVOCACION DEL CLIENTE
 el cliente le dijo al banco que no autoriza o revoco el cobro -- hablar con el cliente antes de reintentar, para no generar otra disputa.
 
-  BACKLOG ACUMULADO (16, sin novedad esta semana):
+  NUEVO ESTA SEMANA (1):
+  - Contrato 00317117 (Activated) - 1 pago(s) rechazado(s), $99 - 9/17/2026 a 9/17/2026
+
+  BACKLOG ACUMULADO (23, sin novedad esta semana):
   - Contrato 00316097 (Activated) - 3 pago(s) rechazado(s), $322 - 8/13/2026 a 9/14/2026
   - Contrato 00317264 (Activated) - 3 pago(s) rechazado(s), $317 - 7/30/2026 a 8/19/2026
   - Contrato 00310862 (Activated) - 3 pago(s) rechazado(s), $257 - 4/14/2026 a 8/19/2026
-  - Contrato 00314671 (Activated) - 3 pago(s) rechazado(s), $225 - 6/29/2026 a 8/27/2026
+  - Contrato 00316863 (Activated) - 2 pago(s) rechazado(s), $198 - 8/26/2026 a 8/26/2026
   - Contrato 00316444 (Activated) - 2 pago(s) rechazado(s), $198 - 7/21/2026 a 8/20/2026
   - Contrato 00317434 (Activated) - 2 pago(s) rechazado(s), $198 - 6/29/2026 a 7/30/2026
   - Contrato 00304787 (Activated) - 1 pago(s) rechazado(s), $188.44 - 8/12/2026 a 8/12/2026
   - Contrato 00274687 (Activated) - 1 pago(s) rechazado(s), $166.14 - 8/12/2026 a 8/12/2026
-  - Contrato 00312743 (Activated) - 2 pago(s) rechazado(s), $158 - 3/12/2026 a 4/14/2026
   - Contrato 00315994 (Activated) - 2 pago(s) rechazado(s), $158 - 7/30/2026 a 8/27/2026
+  - Contrato 00312743 (Activated) - 2 pago(s) rechazado(s), $158 - 3/12/2026 a 4/14/2026
+  - Contrato 00248872 (Activated) - 1 pago(s) rechazado(s), $143.84 - 8/12/2026 a 8/12/2026
   - Contrato 00317867 (Activated) - 1 pago(s) rechazado(s), $139 - 8/12/2026 a 8/12/2026
+  - Contrato 00318330 (Payment Process) - 1 pago(s) rechazado(s), $139 - 9/11/2026 a 9/11/2026
   - Contrato 00316755 (Activated) - 1 pago(s) rechazado(s), $124 - 8/19/2026 a 8/19/2026
-  - Contrato 00317116 (Activated) - 1 pago(s) rechazado(s), $99 - 5/29/2026 a 5/29/2026
+  - Contrato 00316181 (Activated) - 1 pago(s) rechazado(s), $119 - 6/25/2026 a 6/25/2026
   - Contrato 00317509 (Activated) - 1 pago(s) rechazado(s), $99 - 9/2/2026 a 9/2/2026
+  - Contrato 00317809 (Activated) - 1 pago(s) rechazado(s), $99 - 9/3/2026 a 9/3/2026
   - Contrato 00316376 (Activated) - 1 pago(s) rechazado(s), $99 - 9/2/2026 a 9/2/2026
+  - Contrato 00318220 (Activated) - 1 pago(s) rechazado(s), $99 - 8/12/2026 a 8/12/2026
+  - Contrato 00317116 (Activated) - 1 pago(s) rechazado(s), $99 - 5/29/2026 a 5/29/2026
+  - Contrato 00313523 (Activated) - 1 pago(s) rechazado(s), $79 - 7/30/2026 a 7/30/2026
+  - Contrato 00309340 (Activated) - 1 pago(s) rechazado(s), $75 - 8/27/2026 a 8/27/2026
   - Contrato 00316864 (Activated) - 1 pago(s) rechazado(s), $75 - 8/17/2026 a 8/17/2026
 
-  Ya resueltos (4, pago aceptado despues del ultimo rechazo -- no requieren accion): 00312242, 00314997, 00315916, 00316977
+  Ya resueltos (7, pago aceptado despues del ultimo rechazo -- no requieren accion): 00312242, 00314671, 00314997, 00315916, 00316773, 00316858, 00316977
 
 ========================================================================
 CUENTA CONGELADA
@@ -92,16 +99,16 @@ usualmente por una orden legal/judicial, fuera del control del cliente -- dar se
   Ya resueltos (1, pago aceptado despues del ultimo rechazo -- no requieren accion): 00315109
 
 , 
-16:23:05.52 (941193370)|USER_DEBUG|[2]|DEBUG|CORREO ENVIADO
-16:23:06.47 (1047988579)|CUMULATIVE_LIMIT_USAGE
-16:23:06.47 (1047988579)|LIMIT_USAGE_FOR_NS|(default)|
+13:10:54.607 (2609277540)|USER_DEBUG|[2]|DEBUG|CORREO ENVIADO
+13:10:54.691 (2691114951)|CUMULATIVE_LIMIT_USAGE
+13:10:54.691 (2691114951)|LIMIT_USAGE_FOR_NS|(default)|
   Number of SOQL queries: 2 out of 100
-  Number of query rows: 9207 out of 50000
+  Number of query rows: 10403 out of 50000
   Number of SOSL queries: 0 out of 20
   Number of DML statements: 0 out of 150
   Number of Publish Immediate DML: 0 out of 150
   Number of DML rows: 0 out of 10000
-  Maximum CPU time: 139 out of 10000
+  Maximum CPU time: 75 out of 10000
   Maximum heap size: 0 out of 6000000
   Number of callouts: 0 out of 100
   Number of Email Invocations: 1 out of 10
@@ -109,8 +116,8 @@ usualmente por una orden legal/judicial, fuera del control del cliente -- dar se
   Number of queueable jobs added to the queue: 0 out of 50
   Number of Mobile Apex push calls: 0 out of 10
 
-16:23:06.47 (1047988579)|CUMULATIVE_LIMIT_USAGE_END
+13:10:54.691 (2691114951)|CUMULATIVE_LIMIT_USAGE_END
 
-16:23:05.52 (1048071909)|CODE_UNIT_FINISHED|execute_anonymous_apex
-16:23:05.52 (1048090009)|EXECUTION_FINISHED
+13:10:54.607 (2691211372)|CODE_UNIT_FINISHED|execute_anonymous_apex
+13:10:54.607 (2691231103)|EXECUTION_FINISHED
 

@@ -135,6 +135,15 @@ public without sharing class SM_ReturnCodeNotifier {
         return String.valueOf(d.day()) + ' ' + MONTH_ABBR_ES[d.month() - 1] + ' ' + String.valueOf(d.year());
     }
 
+    /**
+     * @description "13 Ago" -- dia + mes abreviado CAPITALIZADO, sin ano (el compilado semanal
+     * de Comercial es de esta semana/mes, el ano no aporta). Usado por buildWeeklyComercialDigest().
+     */
+    private static String formatDiaMesCorto(Date d) {
+        String mes = MONTH_ABBR_ES[d.month() - 1];
+        return String.valueOf(d.day()) + ' ' + mes.substring(0, 1).toUpperCase() + mes.substring(1);
+    }
+
     // calp 2026-09-21 :: significado corto de los codigos NACHA que de verdad aparecen en este
     // reporte (Returns) -- Comercial no tiene por que saber de memoria que es un R11. Los 5 codigos
     // que ya tienen su propio reporte (R02/R04/R07/R10/R13/R16) usan la misma idea, mas resumida.
@@ -355,17 +364,43 @@ public without sharing class SM_ReturnCodeNotifier {
         Date ultimo;
         Boolean resuelto = false;
         Boolean nuevoEstaSemana = false;
+        String ultimoCodigo;
+    }
+
+    /**
+     * @description "R02" -> "R02 (Cuenta cerrada)" -- usa el mismo mapa de significados que
+     * buildTimeoutReversalReport(). Se reporta solo el codigo del rechazo MAS RECIENTE por
+     * contrato (no todo el historial de codigos que haya tenido) -- decision explicita del
+     * usuario, 2026-09-24: es la causa vigente, no un listado historico. Codigo sin significado
+     * documentado se muestra tal cual.
+     */
+    private static String formatCodigo(String code) {
+        if (code == null) {
+            return '?';
+        }
+        return RETURN_CODE_MEANINGS.containsKey(code) ? code + ' (' + RETURN_CODE_MEANINGS.get(code) + ')' : code;
     }
 
     private class ComercialGroup {
         String titulo;
         String accion;
         Set<String> codigos;
-        List<SM_Payment__c> payments = new List<SM_Payment__c>();
+        List<ContractSummary> contratos = new List<ContractSummary>();
     }
 
+    /**
+     * @description Envio manual/bajo demanda -- SIEMPRE con el backlog completo (un contrato
+     * "de un vistazo" del tamano real del problema). El envio recurrente programado (ver
+     * SM_WeeklyComercialDigestScheduler) usa sendWeeklyComercialDigest(false) -- backlog
+     * colapsado a una sola linea por categoria, para no repetir el mismo listado completo cada
+     * semana. Decision explicita del usuario, 2026-09-24.
+     */
     public static void sendWeeklyComercialDigest() {
-        Set<String> allCodes = new Set<String>{ 'R02', 'R04', 'R13', 'R10', 'R07', 'R16' };
+        sendWeeklyComercialDigest(true);
+    }
+
+    public static void sendWeeklyComercialDigest(Boolean fullBacklog) {
+        Set<String> allCodes = new Set<String>{ 'R02', 'R04', 'R13', 'R10', 'R11', 'R07', 'R16' };
         List<SM_Payment__c> codePayments = [
             SELECT Id, Name, SM_Amount__c, CreatedDate, SM_Return_code__c,
                    SM_Contract__c, SM_Contract__r.ContractNumber, SM_Contract__r.Status,
@@ -390,7 +425,7 @@ public without sharing class SM_ReturnCodeNotifier {
             AND Payment_Status__c = 'ACCEPTED'
         ];
 
-        String body = buildWeeklyComercialDigest(codePayments, acceptedSince, Date.today().addDays(-7));
+        String body = buildWeeklyComercialDigest(codePayments, acceptedSince, Date.today().addDays(-7), fullBacklog);
 
         Messaging.SingleEmailMessage mail = new Messaging.SingleEmailMessage();
         mail.setToAddresses(new String[]{ NOTIFY_EMAIL });
@@ -405,8 +440,11 @@ public without sharing class SM_ReturnCodeNotifier {
      * @description Separada de sendWeeklyComercialDigest() para poder probarla con datos en
      * memoria, mismo patron que buildReport()/buildTimeoutReversalReport(). codePayments YA debe
      * venir sin filtrar (Test/VIP/cerrados se excluyen aqui adentro, igual que buildReport()).
+     * fullBacklog=true lista cada contrato del backlog (envio manual/bajo demanda); false lo
+     * colapsa a una sola linea por categoria (conteo + total) -- envio recurrente semanal, para
+     * no repetir el mismo listado completo cada lunes.
      */
-    public static String buildWeeklyComercialDigest(List<SM_Payment__c> codePayments, List<SM_Payment__c> acceptedPayments, Date sinceWeek) {
+    public static String buildWeeklyComercialDigest(List<SM_Payment__c> codePayments, List<SM_Payment__c> acceptedPayments, Date sinceWeek, Boolean fullBacklog) {
         Map<String, ComercialGroup> grupos = new Map<String, ComercialGroup>();
 
         ComercialGroup g1 = new ComercialGroup();
@@ -418,7 +456,7 @@ public without sharing class SM_ReturnCodeNotifier {
         ComercialGroup g2 = new ComercialGroup();
         g2.titulo = 'DISPUTA O REVOCACION DEL CLIENTE';
         g2.accion = 'el cliente le dijo al banco que no autoriza o revoco el cobro -- hablar con el cliente antes de reintentar, para no generar otra disputa.';
-        g2.codigos = new Set<String>{ 'R10', 'R07' };
+        g2.codigos = new Set<String>{ 'R10', 'R11', 'R07' };
         grupos.put('disputa', g2);
 
         ComercialGroup g3 = new ComercialGroup();
@@ -427,6 +465,13 @@ public without sharing class SM_ReturnCodeNotifier {
         g3.codigos = new Set<String>{ 'R16' };
         grupos.put('congelada', g3);
 
+        // Un contrato se clasifica por el codigo de su rechazo MAS RECIENTE (ultimo transmitido
+        // y rechazado), no por cada codigo que haya tenido -- decision explicita del usuario,
+        // 2026-09-24. Por eso el resumen por contrato se construye UNA sola vez, cruzando TODOS
+        // los codigos juntos, y solo despues se reparte cada contrato a su categoria segun
+        // ultimoCodigo -- así un contrato con, por ejemplo, un R02 viejo y un R10 mas reciente
+        // aparece una sola vez, en "Disputa o revocacion".
+        Map<Id, ContractSummary> porContrato = new Map<Id, ContractSummary>();
         for (SM_Payment__c p : codePayments) {
             if (p.SM_Contract__c == null || p.SM_Contract__r == null) {
                 continue;
@@ -435,11 +480,33 @@ public without sharing class SM_ReturnCodeNotifier {
                 || p.SM_Contract__r.Is_Test_Contract__c == true || p.SM_Contract__r.Is_VIP_Contract__c == true) {
                 continue;
             }
-            for (ComercialGroup g : grupos.values()) {
-                if (g.codigos.contains(p.SM_Return_code__c)) {
-                    g.payments.add(p);
-                }
+            Date pd = p.CreatedDate.date();
+            if (!porContrato.containsKey(p.SM_Contract__c)) {
+                ContractSummary cr = new ContractSummary();
+                cr.contractNumber = p.SM_Contract__r.ContractNumber;
+                cr.status = p.SM_Contract__r.Status;
+                cr.primero = pd;
+                cr.ultimo = pd;
+                porContrato.put(p.SM_Contract__c, cr);
             }
+            ContractSummary cr = porContrato.get(p.SM_Contract__c);
+            cr.cantidad++;
+            cr.total += (p.SM_Amount__c != null ? p.SM_Amount__c : 0);
+            if (pd < cr.primero) {
+                cr.primero = pd;
+            }
+            if (pd > cr.ultimo) {
+                cr.ultimo = pd;
+            }
+            if (pd >= sinceWeek) {
+                cr.nuevoEstaSemana = true;
+            }
+            // codePayments viene ordenado por CreatedDate ascendente (ver la query en
+            // sendWeeklyComercialDigest()) -- el ultimo pago procesado para este contrato es,
+            // por construccion, el mas reciente entre TODOS sus codigos de rechazo. Se
+            // sobreescribe siempre (no solo con pd > cr.ultimo) para no perder el codigo
+            // cuando 2 pagos caen el mismo dia.
+            cr.ultimoCodigo = p.SM_Return_code__c;
         }
 
         Map<Id, List<Date>> acceptedDatesByContract = new Map<Id, List<Date>>();
@@ -449,6 +516,22 @@ public without sharing class SM_ReturnCodeNotifier {
             }
             acceptedDatesByContract.get(p.SM_Contract__c).add(p.CreatedDate.date());
         }
+        for (Id cId : porContrato.keySet()) {
+            ContractSummary cr = porContrato.get(cId);
+            for (Date d : acceptedDatesByContract.containsKey(cId) ? acceptedDatesByContract.get(cId) : new List<Date>()) {
+                if (d > cr.ultimo) {
+                    cr.resuelto = true;
+                }
+            }
+        }
+
+        for (ContractSummary cr : porContrato.values()) {
+            for (ComercialGroup g : grupos.values()) {
+                if (g.codigos.contains(cr.ultimoCodigo)) {
+                    g.contratos.add(cr);
+                }
+            }
+        }
 
         String resumenLine = '';
         String bodyDetalle = '';
@@ -457,46 +540,13 @@ public without sharing class SM_ReturnCodeNotifier {
 
         for (String key : new List<String>{ 'metodo', 'disputa', 'congelada' }) {
             ComercialGroup g = grupos.get(key);
-            Map<Id, ContractSummary> porContrato = new Map<Id, ContractSummary>();
-            for (SM_Payment__c p : g.payments) {
-                Date pd = p.CreatedDate.date();
-                if (!porContrato.containsKey(p.SM_Contract__c)) {
-                    ContractSummary cr = new ContractSummary();
-                    cr.contractNumber = p.SM_Contract__r.ContractNumber;
-                    cr.status = p.SM_Contract__r.Status;
-                    cr.primero = pd;
-                    cr.ultimo = pd;
-                    porContrato.put(p.SM_Contract__c, cr);
-                }
-                ContractSummary cr = porContrato.get(p.SM_Contract__c);
-                cr.cantidad++;
-                cr.total += (p.SM_Amount__c != null ? p.SM_Amount__c : 0);
-                if (pd < cr.primero) {
-                    cr.primero = pd;
-                }
-                if (pd > cr.ultimo) {
-                    cr.ultimo = pd;
-                }
-                if (pd >= sinceWeek) {
-                    cr.nuevoEstaSemana = true;
-                }
-            }
-            for (Id cId : porContrato.keySet()) {
-                ContractSummary cr = porContrato.get(cId);
-                for (Date d : acceptedDatesByContract.containsKey(cId) ? acceptedDatesByContract.get(cId) : new List<Date>()) {
-                    if (d > cr.ultimo) {
-                        cr.resuelto = true;
-                    }
-                }
-            }
 
             List<ContractSummary> nuevosSemana = new List<ContractSummary>();
             List<ContractSummary> backlog = new List<ContractSummary>();
-            List<ContractSummary> resueltos = new List<ContractSummary>();
             Decimal groupTotal = 0;
-            for (ContractSummary cr : porContrato.values()) {
+            for (ContractSummary cr : g.contratos) {
                 if (cr.resuelto) {
-                    resueltos.add(cr);
+                    continue;
                 } else if (cr.nuevoEstaSemana) {
                     nuevosSemana.add(cr);
                     groupTotal += cr.total;
@@ -525,31 +575,52 @@ public without sharing class SM_ReturnCodeNotifier {
                 if (!nuevosSemana.isEmpty()) {
                     bodyDetalle += '  NUEVO ESTA SEMANA (' + nuevosSemana.size() + '):\n';
                     for (ContractSummary cr : nuevosSemana) {
-                        bodyDetalle += '  - Contrato ' + cr.contractNumber + ' (' + cr.status + ') - '
-                            + cr.cantidad + ' pago(s) rechazado(s), $' + cr.total.format()
-                            + ' - ' + cr.primero.format() + ' a ' + cr.ultimo.format() + '\n';
+                        bodyDetalle += '  ' + formatContractLine(cr) + ' - Causa (ultimo rechazo): ' + formatCodigo(cr.ultimoCodigo) + '\n';
                     }
                     bodyDetalle += '\n';
                 }
                 if (!backlog.isEmpty()) {
-                    bodyDetalle += '  BACKLOG ACUMULADO (' + backlog.size() + ', sin novedad esta semana):\n';
+                    // Backlog agrupado por causa (codigo del ultimo rechazo), no en un listado
+                    // plano -- decision explicita del usuario, 2026-09-24: mas facil de leer y
+                    // permite campanas de Comercial orientadas por causa. Ordenado por $ total
+                    // descendente (la causa con mas impacto primero).
+                    Map<String, List<ContractSummary>> backlogPorCausa = new Map<String, List<ContractSummary>>();
                     for (ContractSummary cr : backlog) {
-                        bodyDetalle += '  - Contrato ' + cr.contractNumber + ' (' + cr.status + ') - '
-                            + cr.cantidad + ' pago(s) rechazado(s), $' + cr.total.format()
-                            + ' - ' + cr.primero.format() + ' a ' + cr.ultimo.format() + '\n';
+                        String causa = cr.ultimoCodigo == null ? '?' : cr.ultimoCodigo;
+                        if (!backlogPorCausa.containsKey(causa)) {
+                            backlogPorCausa.put(causa, new List<ContractSummary>());
+                        }
+                        backlogPorCausa.get(causa).add(cr);
                     }
-                    bodyDetalle += '\n';
-                }
-            }
+                    List<String> causasOrdenadas = new List<String>(backlogPorCausa.keySet());
+                    sortCodesByTotalDesc(causasOrdenadas, backlogPorCausa);
 
-            if (!resueltos.isEmpty()) {
-                bodyDetalle += '  Ya resueltos (' + resueltos.size() + ', pago aceptado despues del ultimo rechazo -- no requieren accion): ';
-                List<String> nums = new List<String>();
-                for (ContractSummary cr : resueltos) {
-                    nums.add(cr.contractNumber);
+                    bodyDetalle += '  BACKLOG ACUMULADO (' + backlog.size() + ' contrato(s), sin novedad esta semana):\n\n';
+                    for (String causa : causasOrdenadas) {
+                        List<ContractSummary> contratosCausa = backlogPorCausa.get(causa);
+                        sortByTotalDesc(contratosCausa);
+                        Decimal causaTotal = 0;
+                        for (ContractSummary cr : contratosCausa) {
+                            causaTotal += cr.total;
+                        }
+                        bodyDetalle += '  Causa (ultimo rechazo): ' + formatCodigo(causa)
+                            + ' -- ' + contratosCausa.size() + ' contrato(s), $' + causaTotal.format() + '\n';
+                        if (fullBacklog) {
+                            for (ContractSummary cr : contratosCausa) {
+                                bodyDetalle += '     ' + formatContractLine(cr) + '\n';
+                            }
+                            bodyDetalle += '\n';
+                        }
+                    }
+                    if (!fullBacklog) {
+                        bodyDetalle += '  (correr el reporte completo para el detalle por contrato de cada causa)\n\n';
+                    }
                 }
-                bodyDetalle += String.join(nums, ', ') + '\n\n';
             }
+            // Contratos "resueltos" (pago ACCEPTED despues del ultimo return code) ya no se
+            // reportan -- decision explicita del usuario, 2026-09-24: si ya tienen un pago mas
+            // reciente, no hace falta mencionarlos. cr.resuelto se sigue calculando arriba,
+            // solo para EXCLUIRLOS (el `continue` de mas arriba), nunca se imprimen.
         }
 
         String header = 'NOVEDADES ACH PARA COMERCIAL - Semana del ' + sinceWeek.format() + ' al ' + Date.today().format() + '\n'
@@ -571,5 +642,40 @@ public without sharing class SM_ReturnCodeNotifier {
                 }
             }
         }
+    }
+
+    /**
+     * @description Ordena una lista de codigos (llaves de byCode) por la suma de $ total de sus
+     * contratos, descendente -- la causa con mas impacto primero, para priorizar campanas.
+     */
+    private static void sortCodesByTotalDesc(List<String> codes, Map<String, List<ContractSummary>> byCode) {
+        Map<String, Decimal> totals = new Map<String, Decimal>();
+        for (String code : codes) {
+            Decimal t = 0;
+            for (ContractSummary cr : byCode.get(code)) {
+                t += cr.total;
+            }
+            totals.put(code, t);
+        }
+        for (Integer i = 0; i < codes.size(); i++) {
+            for (Integer j = i + 1; j < codes.size(); j++) {
+                if (totals.get(codes[j]) > totals.get(codes[i])) {
+                    String tmp = codes[i];
+                    codes[i] = codes[j];
+                    codes[j] = tmp;
+                }
+            }
+        }
+    }
+
+    /**
+     * @description "00316097 - 3 pago(s) rechazado(s), transmitidos del 13 Ago al 14 Sep - $322"
+     * -- formato compacto por contrato para el compilado semanal de Comercial (sin el prefijo
+     * "Contrato" ni el status, ya no aportan una vez agrupado por causa -- decision explicita
+     * del usuario, 2026-09-24).
+     */
+    private static String formatContractLine(ContractSummary cr) {
+        return cr.contractNumber + ' - ' + cr.cantidad + ' pago(s) rechazado(s), transmitidos del '
+            + formatDiaMesCorto(cr.primero) + ' al ' + formatDiaMesCorto(cr.ultimo) + ' - $' + cr.total.format();
     }
 }
