@@ -103,6 +103,38 @@ Todos: `DRY_RUN=true` por default, comparan contra el estado ACTUAL de `SM_Payme
 - **`notify_r02.apex` / `notify_r10.apex` / `notify_invalid_account.apex` / `notify_r07.apex` / `notify_r16.apex`** (nuevos 2026-09-14): invocan `SM_ReturnCodeNotifier.sendR02Report()` / `.sendR10Report()` / `.sendInvalidAccountReport()` / `.sendR07Report()` / `.sendR16Report()` — correo con contratos activos que tienen un `SM_Payment__c.SM_Return_code__c` en `R02` (ACCOUNT CLOSED), `R10` (CUSTOMER ADVISES NOT AUTHORIZED), `R04`/`R13` (número de cuenta/routing inválido, un solo reporte combinado), `R07` (autorización revocada permanentemente — no un cargo puntual disputado como R10) o `R16` (cuenta congelada, usualmente orden legal) sin resolver. Ninguno se arregla reintentando el mismo método de pago. Excluye contratos `Cancelled`/`Finalized`/`SM_Customer_Cancellation__c=true`; marca "OJO" si hubo un pago `ACCEPTED` después del último return (posible ya resuelto). Se disparan solo en modo `apply` de `run_daily_new_files.sh`. Distinto del CSV de R10 para Comercial (`CheckCollectionImport_R10_ClienteSolicitoDevolucion.csv`, generado por `extract_check_collection.py` por corrida) — ese es seguimiento comercial puntual, este es un correo acumulativo del estado actual en Salesforce. **R01/R09 (NSF, se resuelve solo reintentando) y R08 (pago detenido — puede ser puntual) quedaron deliberadamente fuera**, ver `BITACORA_HALLAZGOS_TECNICOS.md` para el detalle completo del análisis de los 24 códigos.
 - **`notify_timeout_reversal.apex`** (nuevo 2026-09-18): invoca `SM_ReturnCodeNotifier.sendTimeoutReversalReport()` — correo con pagos que `mark_transmitted_accepted.apex` aceptó por timeout y que un reporte REAL de Returns/Collection, llegado después, contradijo (`Payment_Status__c='REJECTED'`, o `SM_Check_Collection_Status__c` en `RETURN`/`NOT_COLLECTED`/`NOT COLLECTED`/`PENDING`). Es la contraparte de visibilidad del hueco de arriba: cuando la excepción del guard de regresión SÍ aplica (tag `D_SIN_REPORTE:`) y deja pasar la corrección silenciosamente, este correo es la única forma de enterarse de que el timeout de 15/20 días resultó equivocado para ese pago en particular. A diferencia de los R02/R10/etc, no filtra Test/VIP ni contratos cerrados a propósito — cualquier reversión es evidencia útil sobre qué tan agresivo es el timeout. **Gotcha de Apex encontrado al construirlo**: el wildcard `_` de `LIKE` escapado como `\_` (la forma correcta en SOQL vía API/CLI) devuelve CERO filas en SOQL **inline/estático** dentro de una clase Apex — Apex no lo interpreta igual que `Database.query()`/la API REST. Con datos reales que debían matchear, la versión escapada dio 0 y la versión sin escapar (`_` normal, sirve igual de bien aquí porque el texto del tag es fijo) dio el conteo correcto. Ver `BITACORA_HALLAZGOS_TECNICOS.md` fila 2026-09-18 para el detalle completo — aplica a cualquier SOQL estático futuro que necesite escapar `_` o `%`.
 
+### 4.1 Contracargos (TC) y R10/R11 de ACH — `Historical_Claim_On_Record__c`
+
+**Regla de negocio confirmada por el usuario (2026-09-25):** cualquier contracargo (chargeback de
+tarjeta de crédito) o Return de ACH con código **R10** (cliente no autoriza el cobro) o **R11**
+(cliente autoriza pero disputa el monto/reintento) debe dejar marcado
+`Historical_Claim_On_Record__c = TRUE` en el **Contract** y en el **Account** — sirve como bandera
+histórica de que ese cliente/contrato ya tuvo una disputa, sin importar si después se resolvió.
+
+- **TC (Chargebee/Credit Card) — ya implementado.** `scripts/apex/-CONTRACARGO_CHARGEBEE.apex`
+  (líneas ~206-220) ya marca ambos campos (más `Account.Has_Refund_History__c = true`) cada vez que
+  se procesa un contracargo, y además **crea un Payment nuevo `Payment_Status__c = 'REFUNDED'`**
+  (monto en negativo, `SM_Payments_refunded__c` apuntando al original) vía
+  `SM_Payments_refunded__c`/`SM_Reason_for_refund__c = 'CONTRA CARGO'` — porque en TC el banco/
+  Chargebee sí devuelve el dinero y hay que reflejar el movimiento contable.
+- **ACH (R10/R11) — NO implementado todavía.** `COLLECTIONS/RETURNS/update_ach_returns.apex` (el
+  script que aplica los reportes de ACH Returns a `SM_Payment__c`, incluye R10/R11) **no** setea
+  `Historical_Claim_On_Record__c` en ningún lado hoy (verificado por grep, 2026-09-25) — es un hueco
+  pendiente de implementar, no un bug de un campo mal escrito.
+- **Diferencia clave TC vs. ACH — no crear un Payment REFUND en ACH.** A diferencia de TC, un R10/R11
+  de ACH **nunca genera un Payment nuevo tipo REFUND** — el Payment original simplemente pasa a
+  `Payment_Status__c = 'REJECTED'` / `SM_Check_Collection_Status__c = 'NOT COLLECTED'` (mismo mapeo
+  de estados que cualquier otro Return, sección 3 arriba). No hubo cobro real que devolver: es un
+  intento de cobro que el banco rechazó, no una transacción ya liquidada como en TC. Si se
+  implementa esta regla en `update_ach_returns.apex`, el cambio debe limitarse a setear el flag en
+  Contract/Account — **no** replicar el patrón de crear un Payment REFUNDED de
+  `-CONTRACARGO_CHARGEBEE.apex`.
+- **Pendiente de implementación** (a petición explícita del usuario, no auto-implementar sin
+  confirmar de nuevo): agregar a `update_ach_returns.apex` (o a un script/paso nuevo del pipeline
+  diario) la lógica que, al aplicar un Return con `SM_Return_code__c` en (`R10`, `R11`), marque
+  `Historical_Claim_On_Record__c = true` en el Contract y el Account del Payment afectado — mismo
+  guard de "no pisar si ya es true" que usa `-CONTRACARGO_CHARGEBEE.apex`.
+
 ## 5. Clases Apex de negocio relacionadas (fuera de `COLLECTIONS/`)
 
 - **`SM_PaymentHandler.cls`** — máquina de estados de `SM_Payment__c`. `paymentStatusUpdates()` setea fechas por transición de estado. `processRejectedPayments()`: al pasar un Payment ACH a `REJECTED`, crea automáticamente una `SM_ACH_Order__c` tipo **`Late payment fee`** — salvo contrato `CANCELED`/`FINALIZED`, orden/payment relacionado ya existente, o (regla **SMPII-57**) ya exista una `Late payment fee` `Completed`/`Once` sobre contrato `Payment Process`/`Activated` (ahí solo se pone `Stopped`, no se duplica). Monto de penalidad y días de gracia vienen de `SM_Company_Setting__c` (configuración por compañía, no hardcodeada).
@@ -126,4 +158,5 @@ Todos: `DRY_RUN=true` por default, comparan contra el estado ACTUAL de `SM_Payme
 - `fetch_salesforce_files.py` usa API v60.0, desactualizado respecto al resto del proyecto (v64.0/v67.0) — housekeeping menor, ya señalado en `CLAUDE.md`.
 - Las reglas de negocio del proceso diario (qué se procesa, qué se represa detrás de confirmación) viven en `CLAUDE.md` sección 2, no aquí — este skill es la referencia técnica del pipeline, `CLAUDE.md` es la de reglas operativas/decisiones del usuario.
 - 84 contratos ACH legacy (2019-2025) sin orden AC son un asunto de migración conocido, no tocar salvo que se pida — ver `CLAUDE.md` sección 2.3.
+- `update_ach_returns.apex` todavía no marca `Historical_Claim_On_Record__c` en Contract/Account para R10/R11 — regla confirmada por el usuario 2026-09-25, implementación pendiente a petición explícita, ver sección 4.1.
 - Antes de asumir que algo de aquí sigue vigente, relee el script/clase citado — este documento es una fotografía, no una fuente en vivo.

@@ -1,0 +1,145 @@
+<?xml version="1.0" encoding="UTF-8"?>
+<Workflow xmlns="http://soap.sforce.com/2006/04/metadata">
+    <fieldUpdates>
+        <fullName>Discount_ACH_Applies_Date</fullName>
+        <field>SM_Discount_Applies_Date__c</field>
+        <formula>NOW()</formula>
+        <name>Discount ACH Applies Date</name>
+        <notifyAssignee>false</notifyAssignee>
+        <operation>Formula</operation>
+        <protected>false</protected>
+        <reevaluateOnChange>false</reevaluateOnChange>
+    </fieldUpdates>
+    <fieldUpdates>
+        <fullName>Discount_ACH_Original_Sibtotal</fullName>
+        <field>Discount_Original_Subtotal__c</field>
+        <formula>SM_Total__c</formula>
+        <name>Discount ACH Original Sibtotal</name>
+        <notifyAssignee>false</notifyAssignee>
+        <operation>Formula</operation>
+        <protected>false</protected>
+        <reevaluateOnChange>false</reevaluateOnChange>
+    </fieldUpdates>
+    <fieldUpdates>
+        <fullName>Discount_ACH_Original_Total</fullName>
+        <field>Discount_Original_Total__c</field>
+        <formula>Total_Amount__c</formula>
+        <name>Discount ACH Original Total</name>
+        <notifyAssignee>false</notifyAssignee>
+        <operation>Formula</operation>
+        <protected>false</protected>
+        <reevaluateOnChange>false</reevaluateOnChange>
+    </fieldUpdates>
+    <fieldUpdates>
+        <fullName>Discount_ACH_Set_Apply_Discount_to_true</fullName>
+        <field>SM_Apply_Discount__c</field>
+        <literalValue>1</literalValue>
+        <name>Discount ACH Set Apply Discount to true</name>
+        <notifyAssignee>false</notifyAssignee>
+        <operation>Literal</operation>
+        <protected>false</protected>
+        <reevaluateOnChange>false</reevaluateOnChange>
+    </fieldUpdates>
+    <fieldUpdates>
+        <fullName>Discount_ACH_Set_Subtotal</fullName>
+        <field>SM_Total__c</field>
+        <formula>IF( ISPICKVAL( SM_Discount_Type__c , &quot;Value&quot; ),
+ROUND( (SM_Total__c + SM_Penalty_value__c) - SM_Discount_Value__c , 2 ),
+ROUND( (SM_Total__c + SM_Penalty_value__c) * SM_Discount_Percentage__c , 2 )
+)</formula>
+        <name>Discount ACH Set Subtotal</name>
+        <notifyAssignee>false</notifyAssignee>
+        <operation>Formula</operation>
+        <protected>false</protected>
+        <reevaluateOnChange>false</reevaluateOnChange>
+    </fieldUpdates>
+    <fieldUpdates>
+        <fullName>Discount_ACH_Set_User_approve_discount</fullName>
+        <field>User_Who_Approve_Discount__c</field>
+        <formula>$User.FirstName &amp; &quot; &quot; &amp; $User.LastName</formula>
+        <name>Discount ACH Set User approve discount</name>
+        <notifyAssignee>false</notifyAssignee>
+        <operation>Formula</operation>
+        <protected>false</protected>
+        <reevaluateOnChange>false</reevaluateOnChange>
+    </fieldUpdates>
+    <fieldUpdates>
+        <fullName>Discount_ACH_Set_approval_status</fullName>
+        <field>SM_Discount_Status__c</field>
+        <literalValue>Accepted</literalValue>
+        <name>Discount ACH Set approval status</name>
+        <notifyAssignee>false</notifyAssignee>
+        <operation>Literal</operation>
+        <protected>false</protected>
+        <reevaluateOnChange>false</reevaluateOnChange>
+    </fieldUpdates>
+    <fieldUpdates>
+        <fullName>SM_Set_apply_penalty_to_false</fullName>
+        <field>SM_Apply_penalty__c</field>
+        <literalValue>0</literalValue>
+        <name>Set apply penalty to false</name>
+        <notifyAssignee>false</notifyAssignee>
+        <operation>Literal</operation>
+        <protected>false</protected>
+        <reevaluateOnChange>false</reevaluateOnChange>
+    </fieldUpdates>
+    <fieldUpdates>
+        <fullName>SM_Set_approval_status_to_accepted</fullName>
+        <field>SM_Approval_status__c</field>
+        <literalValue>Accepted</literalValue>
+        <name>Set approval status to accepted</name>
+        <notifyAssignee>false</notifyAssignee>
+        <operation>Literal</operation>
+        <protected>false</protected>
+        <reevaluateOnChange>false</reevaluateOnChange>
+    </fieldUpdates>
+    <fieldUpdates>
+        <fullName>SM_Set_approval_status_to_pending</fullName>
+        <field>SM_Approval_status__c</field>
+        <literalValue>Pending approval</literalValue>
+        <name>Set approval status to pending</name>
+        <notifyAssignee>false</notifyAssignee>
+        <operation>Literal</operation>
+        <protected>false</protected>
+        <reevaluateOnChange>false</reevaluateOnChange>
+    </fieldUpdates>
+    <fieldUpdates>
+        <fullName>SM_Set_approval_status_to_rejected</fullName>
+        <field>SM_Approval_status__c</field>
+        <literalValue>Rejected</literalValue>
+        <name>Set approval status to rejected</name>
+        <notifyAssignee>false</notifyAssignee>
+        <operation>Literal</operation>
+        <protected>false</protected>
+        <reevaluateOnChange>false</reevaluateOnChange>
+    </fieldUpdates>
+    <fieldUpdates>
+        <fullName>Set_approval_status_to_pending</fullName>
+        <field>SM_Discount_Status__c</field>
+        <literalValue>Pending approval</literalValue>
+        <name>Set approval status to pending</name>
+        <notifyAssignee>false</notifyAssignee>
+        <operation>Literal</operation>
+        <protected>false</protected>
+        <reevaluateOnChange>false</reevaluateOnChange>
+    </fieldUpdates>
+    <fieldUpdates>
+        <fullName>Set_approval_status_to_rejected</fullName>
+        <field>SM_Discount_Status__c</field>
+        <literalValue>Rejected</literalValue>
+        <name>Set approval status to rejected</name>
+        <notifyAssignee>false</notifyAssignee>
+        <operation>Literal</operation>
+        <protected>false</protected>
+        <reevaluateOnChange>false</reevaluateOnChange>
+    </fieldUpdates>
+    <fieldUpdates>
+        <fullName>Set_user_who_applies_the_penalty</fullName>
+        <field>SM_User_Who_Applies_Discount__c</field>
+        <name>Set user who applies the penalty</name>
+        <notifyAssignee>false</notifyAssignee>
+        <operation>LookupValue</operation>
+        <protected>false</protected>
+        <reevaluateOnChange>false</reevaluateOnChange>
+    </fieldUpdates>
+</Workflow>

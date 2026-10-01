@@ -1,0 +1,1875 @@
+﻿sf :  »   Warning: @salesforce/cli update available from 2.150.6 to 2.151.7.
+En línea: 1 Carácter: 302
++ ... tch {} } }; sf apex run -o MONEE -f "scripts\apex\-TC_to_ACH_Simulaci ...
++                 ~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~
+    + CategoryInfo          : NotSpecified: ( »   Warning: @...0.6 to 2.151.7.:String) [], RemoteException
+    + FullyQualifiedErrorId : NativeCommandError
+ 
+Compiled successfully.
+Executed successfully.
+
+67.0 APEX_CODE,DEBUG;APEX_PROFILING,INFO
+Execute Anonymous: // ============================================================
+Execute Anonymous: //  SIMULACIÓN — Cambio de ChargeBee (TC) -> ACH
+Execute Anonymous: //
+Execute Anonymous: //  Contrato ya tiene SM_Payment_methods__c = 'ACH' y su
+Execute Anonymous: //  SM_Payment_Method__c (RecordType SM_ACH) creado por el agente
+Execute Anonymous: //  comercial. Este script valida qué falta para completar la
+Execute Anonymous: //  migración real, en 3 pasos (instrucción del usuario):
+Execute Anonymous: //
+Execute Anonymous: //   1. Cancelar en Chargebee lo pendiente: Invoice -> Request -> Subscription
+Execute Anonymous: //      (en ese orden: Invoice y Request primero, Subscription al final).
+Execute Anonymous: //   2. Crear el ACH Order tipo Subscription (recurrente).
+Execute Anonymous: //   3. Crear un ACH Order tipo Late Payment Fee por cada ciclo de
+Execute Anonymous: //      cobro que quedó sin pagar en Chargebee, emparejando cada
+Execute Anonymous: //      Invoice de Late Fee ($25) con su Invoice padre vía
+Execute Anonymous: //      Parent_CB_Invoice__c (campo directo en el Invoice, no hace
+Execute Anonymous: //      falta pasar por CB_Charge_Request__c) -- si el padre y el
+Execute Anonymous: //      hijo (multa) siguen sin pagar, el LPF de ACH suma los dos
+Execute Anonymous: //      (Total_Amount__c = base + multa) y registra la multa en
+Execute Anonymous: //      SM_Apply_penalty__c=true / SM_Penalty_value__c=25; si la
+Execute Anonymous: //      multa ya se cobró aparte, el LPF de ACH es solo el monto
+Execute Anonymous: //      base, sin penalty.
+Execute Anonymous: //
+Execute Anonymous: //  Después de crear los ACH Order (paso 2 y 3), se cancela Chargebee
+Execute Anonymous: //  en este orden -- Invoice -> Request -> Subscription -- cada uno
+Execute Anonymous: //  con la nota "Paso de TC a ACH":
+Execute Anonymous: //   - Invoice: VOID vía API (Named Credential Chargebee_API), la nota
+Execute Anonymous: //     va en el parámetro `comment` del POST (no existe un campo local
+Execute Anonymous: //     tipo Notes en el Invoice).
+Execute Anonymous: //   - Request (CB_Charge_Request__c, objeto local, no tiene API propia
+Execute Anonymous: //     de Chargebee): Request_Status__c = 'Cancelled' (picklist real,
+Execute Anonymous: //     doble L) + Notes__c = la nota (ese es su campo "Comment" local).
+Execute Anonymous: //   - Subscription: cancel_for_items vía API, misma nota en `comment`.
+Execute Anonymous: //  Cada ACH Order tipo Late Payment Fee queda con SM_Fee_CB_Invoice__c
+Execute Anonymous: //  (invoice base) y SM_LPF_CB_Invoice__c (invoice de multa) poblados.
+Execute Anonymous: //
+Execute Anonymous: //  modoDryRun = true: SOLO lee y reporta. Cero callouts a Chargebee,
+Execute Anonymous: //  cero DML. Seguro de correr las veces que haga falta para validar.
+Execute Anonymous: //
+Execute Anonymous: //  Autor: Carlos Lopez / Claude Code — SEPTIEMBRE 2026
+Execute Anonymous: // ============================================================
+Execute Anonymous: 
+Execute Anonymous: Boolean modoDryRun = false;   // Autorizado por Carlos 2026-09-26 -- ejecución real contrato 00314430
+Execute Anonymous: String  contractNumber = '00314430';
+Execute Anonymous: 
+Execute Anonymous: String  NAMED_CRED    = 'Chargebee_API';
+Execute Anonymous: String  NOTA_MIGRACION = 'Paso de TC a ACH';
+Execute Anonymous: Set<String> ESTADOS_INVOICE_RESUELTOS = new Set<String>{ 'VOIDED', 'PAID' };
+Execute Anonymous: 
+Execute Anonymous: System.debug('════════════════════════════════════════════════════════');
+Execute Anonymous: System.debug('SIMULACIÓN CAMBIO CHARGEBEE -> ACH — Contrato ' + contractNumber);
+Execute Anonymous: System.debug('Modo: ' + (modoDryRun ? 'DRY RUN (sin cambios)' : 'EJECUCIÓN REAL'));
+Execute Anonymous: System.debug('════════════════════════════════════════════════════════');
+Execute Anonymous: 
+Execute Anonymous: // ── 1. Contrato + validaciones de elegibilidad ─────────────
+Execute Anonymous: Contract cont = [
+Execute Anonymous:     SELECT Id, ContractNumber, Status, SM_Payment_methods__c,
+Execute Anonymous:            SM_Payment_Method__c, SM_Payment_Method__r.RecordType.DeveloperName,
+Execute Anonymous:            SM_Payment_Method__r.SM_ACH_Account_Number__c, SM_Payment_Method__r.ACH_Account_Type__c,
+Execute Anonymous:            CB_Subscription__c, CB_Subscription__r.Name,
+Execute Anonymous:            CB_Subscription__r.chargebeeapps__Subscription_status__c,
+Execute Anonymous:            SM_AC_collected__c, SM_Total_ac__c, SM_Monthly_offer__c, SM_Payment_day__c,
+Execute Anonymous:            SM_Email_to_send_contract__c,
+Execute Anonymous:            SM_Customer_Cancellation__c, Is_Test_Contract__c, Is_VIP_Contract__c
+Execute Anonymous:     FROM Contract
+Execute Anonymous:     WHERE ContractNumber = :contractNumber
+Execute Anonymous:     LIMIT 1
+Execute Anonymous: ];
+Execute Anonymous: 
+Execute Anonymous: List<String> bloqueos = new List<String>();
+Execute Anonymous: if (cont.Status == 'Cancelled') bloqueos.add('Contrato ya está Cancelled.');
+Execute Anonymous: if (cont.SM_Customer_Cancellation__c == true) bloqueos.add('Contrato marcado con cancelación de cliente.');
+Execute Anonymous: if (cont.Is_Test_Contract__c == true) bloqueos.add('Es Test Contract.');
+Execute Anonymous: if (cont.Is_VIP_Contract__c == true) bloqueos.add('Es VIP Contract.');
+Execute Anonymous: if (String.isBlank(cont.CB_Subscription__c)) bloqueos.add('No tiene CB_Subscription__c -- no es un contrato Chargebee, nada que migrar.');
+Execute Anonymous: if (cont.SM_Payment_methods__c != 'ACH') bloqueos.add('SM_Payment_methods__c todavía NO está en ACH (actual: ' + cont.SM_Payment_methods__c + ').');
+Execute Anonymous: if (cont.SM_Payment_Method__r == null || cont.SM_Payment_Method__r.RecordType.DeveloperName != 'SM_ACH')
+Execute Anonymous:     bloqueos.add('El Payment Method asignado al contrato no es de tipo ACH.');
+Execute Anonymous: 
+Execute Anonymous: System.debug('\n── CONTRATO ──');
+Execute Anonymous: System.debug(' Status: ' + cont.Status + ' | SM_Payment_methods__c: ' + cont.SM_Payment_methods__c);
+Execute Anonymous: System.debug(' Payment Method ACH: ' + (cont.SM_Payment_Method__c != null ? cont.SM_Payment_Method__c
+Execute Anonymous:     + ' (cuenta ...' + cont.SM_Payment_Method__r.SM_ACH_Account_Number__c + ', ' + cont.SM_Payment_Method__r.ACH_Account_Type__c + ')' : 'NO ASIGNADO'));
+Execute Anonymous: System.debug(' AC ya cobrado (SM_AC_collected__c): ' + cont.SM_AC_collected__c + ' ($' + cont.SM_Total_ac__c + ')');
+Execute Anonymous: System.debug(' Monthly offer (RC): $' + cont.SM_Monthly_offer__c);
+Execute Anonymous: System.debug(' Chargebee Subscription: ' + cont.CB_Subscription__r.Name
+Execute Anonymous:     + ' -- status ' + cont.CB_Subscription__r.chargebeeapps__Subscription_status__c);
+Execute Anonymous: 
+Execute Anonymous: if (!bloqueos.isEmpty()) {
+Execute Anonymous:     System.debug('\n⚠️ BLOQUEADO -- no se puede continuar:');
+Execute Anonymous:     for (String b : bloqueos) System.debug(' - ' + b);
+Execute Anonymous:     return;
+Execute Anonymous: }
+Execute Anonymous: 
+Execute Anonymous: // ── 2. Invoices de Chargebee (todas, para poder emparejar) ─
+Execute Anonymous: Map<Id, chargebeeapps__CB_Invoice__c> invoicesById = new Map<Id, chargebeeapps__CB_Invoice__c>([
+Execute Anonymous:     SELECT Id, Name, chargebeeapps__CB_Invoice_Id__c, chargebeeapps__Status__c,
+Execute Anonymous:            chargebeeapps__Invoice_Date__c, chargebeeapps__Due_Amount__c, Has_Late_Fee__c,
+Execute Anonymous:            Parent_CB_Invoice__c, Parent_CB_Invoice_Number__c
+Execute Anonymous:     FROM   chargebeeapps__CB_Invoice__c
+Execute Anonymous:     WHERE  Contract__c = :cont.Id
+Execute Anonymous:     ORDER BY chargebeeapps__Invoice_Date__c ASC
+Execute Anonymous: ]);
+Execute Anonymous: 
+Execute Anonymous: List<chargebeeapps__CB_Invoice__c> pendientes = new List<chargebeeapps__CB_Invoice__c>();
+Execute Anonymous: for (chargebeeapps__CB_Invoice__c inv : invoicesById.values()) {
+Execute Anonymous:     if (!ESTADOS_INVOICE_RESUELTOS.contains(inv.chargebeeapps__Status__c)) pendientes.add(inv);
+Execute Anonymous: }
+Execute Anonymous: 
+Execute Anonymous: System.debug('\n── PASO 1a. INVOICES CHARGEBEE (' + invoicesById.size() + ' total, ' + pendientes.size() + ' pendientes de VOID) ──');
+Execute Anonymous: for (chargebeeapps__CB_Invoice__c inv : invoicesById.values()) {
+Execute Anonymous:     Boolean esPendiente = !ESTADOS_INVOICE_RESUELTOS.contains(inv.chargebeeapps__Status__c);
+Execute Anonymous:     System.debug(' ' + (esPendiente ? '⚠️ PENDIENTE' : '✓ resuelto  ') + ' — Invoice ' + inv.Name
+Execute Anonymous:         + ' ▫ ' + inv.chargebeeapps__Status__c
+Execute Anonymous:         + ' ▫ Fecha: ' + inv.chargebeeapps__Invoice_Date__c
+Execute Anonymous:         + ' ▫ Debe: $' + inv.chargebeeapps__Due_Amount__c
+Execute Anonymous:         + (inv.Has_Late_Fee__c ? ' ▫ (es Late Fee)' : ''));
+Execute Anonymous: }
+Execute Anonymous: 
+Execute Anonymous: // ── 3. Charge Requests (Late Payment Fee) de la subscription ─
+Execute Anonymous: List<CB_Charge_Request__c> requests = [
+Execute Anonymous:     SELECT Id, Name, Request_Status__c, Notes__c, Charge_Amount__c, Charge_Date__c,
+Execute Anonymous:            CB_Invoice_Origin_Late_Fee__c, CB_Invoice_Created__c
+Execute Anonymous:     FROM   CB_Charge_Request__c
+Execute Anonymous:     WHERE  CB_Subscription__c = :cont.CB_Subscription__c
+Execute Anonymous:     ORDER BY Charge_Date__c ASC
+Execute Anonymous: ];
+Execute Anonymous: 
+Execute Anonymous: System.debug('\n── PASO 1b. CHARGE REQUESTS CHARGEBEE (' + requests.size() + ' total) ──');
+Execute Anonymous: // Instrucción confirmada del usuario: solo se cancelan los Request "activos" -- Pending,
+Execute Anonymous: // Ready To Collect, Error (todavía no se resolvieron). Los que ya están "Sent" YA fueron
+Execute Anonymous: // trabajados (su invoice ya existe, se resuelve al hacer VOID del invoice) -- NO se tocan.
+Execute Anonymous: Set<String> ESTADOS_REQUEST_ACTIVOS = new Set<String>{ 'Pending', 'Ready To Collect', 'Error' };
+Execute Anonymous: List<CB_Charge_Request__c> requestsACancelar = new List<CB_Charge_Request__c>();
+Execute Anonymous: for (CB_Charge_Request__c req : requests) {
+Execute Anonymous:     Boolean esActivo = ESTADOS_REQUEST_ACTIVOS.contains(req.Request_Status__c);
+Execute Anonymous:     if (esActivo) requestsACancelar.add(req);
+Execute Anonymous:     System.debug(' Request ' + req.Name + ' ▫ Status actual: ' + req.Request_Status__c
+Execute Anonymous:         + ' ▫ Charge: $' + req.Charge_Amount__c + ' ▫ Fecha: ' + req.Charge_Date__c
+Execute Anonymous:         + (esActivo ? ' ▫ ⚠️ se cancelará' : ' ▫ ✓ ya trabajado, no se toca'));
+Execute Anonymous: }
+Execute Anonymous: 
+Execute Anonymous: // ── 4. Emparejar ciclos usando Parent_CB_Invoice__c (campo directo
+Execute Anonymous: //      en el Invoice hijo de Late Fee -- NO se pasa por CB_Charge_Request__c) ──
+Execute Anonymous: // Un "hijo" es un invoice con Has_Late_Fee__c=true y Parent_CB_Invoice__c poblado (la multa de $25).
+Execute Anonymous: // Su "padre" es el invoice base (la cuota mensual) que la originó.
+Execute Anonymous: class DmlLogger {
+Execute Anonymous:     public void logSaveResults(String label, List<Database.SaveResult> results) {
+Execute Anonymous:         for (Database.SaveResult sr : results) {
+Execute Anonymous:             if (!sr.isSuccess()) {
+Execute Anonymous:                 List<String> msgs = new List<String>();
+Execute Anonymous:                 for (Database.Error e : sr.getErrors()) msgs.add(e.getStatusCode() + ': ' + e.getMessage());
+Execute Anonymous:                 System.debug('⚠️ ERROR DML [' + label + '] Id=' + sr.getId() + ' -- ' + String.join(msgs, ' | '));
+Execute Anonymous:             } else {
+Execute Anonymous:                 System.debug('✔️ DML OK [' + label + '] Id=' + sr.getId());
+Execute Anonymous:             }
+Execute Anonymous:         }
+Execute Anonymous:     }
+Execute Anonymous: }
+Execute Anonymous: 
+Execute Anonymous: class PlanLPF implements Comparable {
+Execute Anonymous:     String  invoiceBase;
+Execute Anonymous:     String  invoiceMulta;
+Execute Anonymous:     Id      invoiceBaseId;   // -> SM_Fee_CB_Invoice__c
+Execute Anonymous:     Id      invoiceMultaId;  // -> SM_LPF_CB_Invoice__c
+Execute Anonymous:     Date    invoiceDate;     // fecha del invoice base -- para ordenar cronológicamente
+Execute Anonymous:     Decimal montoBase;
+Execute Anonymous:     Decimal montoMulta;
+Execute Anonymous:     Decimal totalAmount;   // base + multa -> Total_Amount__c / SM_Total__c del ACH Order
+Execute Anonymous:     Boolean aplicaPenalty; // -> SM_Apply_penalty__c
+Execute Anonymous:     Date    fechaCobro;    // -> SM_Next_Transaction_Date__c (asignado después de ordenar)
+Execute Anonymous:     Boolean esPTP;         // -> Is_PTP__c / SM_PTP_Montly__c
+Execute Anonymous: 
+Execute Anonymous:     public Integer compareTo(Object other) {
+Execute Anonymous:         PlanLPF o = (PlanLPF) other;
+Execute Anonymous:         if (invoiceDate == null || o.invoiceDate == null) return 0;
+Execute Anonymous:         if (invoiceDate < o.invoiceDate) return -1;
+Execute Anonymous:         if (invoiceDate > o.invoiceDate) return 1;
+Execute Anonymous:         return 0;
+Execute Anonymous:     }
+Execute Anonymous: }
+Execute Anonymous: 
+Execute Anonymous: Set<Id> invoicesEmparejadas = new Set<Id>();
+Execute Anonymous: List<PlanLPF> planesLPF = new List<PlanLPF>();
+Execute Anonymous: 
+Execute Anonymous: // 4a. Recorrer los invoices HIJOS (multa) pendientes y buscar su padre.
+Execute Anonymous: for (chargebeeapps__CB_Invoice__c hijo : pendientes) {
+Execute Anonymous:     if (hijo.Parent_CB_Invoice__c == null) continue; // no es un hijo de Late Fee
+Execute Anonymous: 
+Execute Anonymous:     chargebeeapps__CB_Invoice__c padre = invoicesById.get(hijo.Parent_CB_Invoice__c);
+Execute Anonymous:     Decimal dueMulta = (hijo.chargebeeapps__Due_Amount__c != null) ? hijo.chargebeeapps__Due_Amount__c : 0;
+Execute Anonymous:     Decimal duePadre = (padre != null && !ESTADOS_INVOICE_RESUELTOS.contains(padre.chargebeeapps__Status__c) && padre.chargebeeapps__Due_Amount__c != null)
+Execute Anonymous:         ? padre.chargebeeapps__Due_Amount__c : 0;
+Execute Anonymous: 
+Execute Anonymous:     invoicesEmparejadas.add(hijo.Id);
+Execute Anonymous:     if (padre != null) invoicesEmparejadas.add(padre.Id);
+Execute Anonymous: 
+Execute Anonymous:     PlanLPF p = new PlanLPF();
+Execute Anonymous:     p.invoiceBase    = padre != null ? padre.Name : hijo.Parent_CB_Invoice_Number__c;
+Execute Anonymous:     p.invoiceMulta   = hijo.Name;
+Execute Anonymous:     p.invoiceBaseId  = (padre != null) ? padre.Id : null;
+Execute Anonymous:     p.invoiceMultaId = hijo.Id;
+Execute Anonymous:     p.invoiceDate    = (padre != null && padre.chargebeeapps__Invoice_Date__c != null) ? padre.chargebeeapps__Invoice_Date__c.date() : hijo.chargebeeapps__Invoice_Date__c.date();
+Execute Anonymous:     p.montoBase      = duePadre;
+Execute Anonymous:     p.montoMulta     = dueMulta;
+Execute Anonymous:     p.totalAmount    = duePadre + dueMulta;
+Execute Anonymous:     p.aplicaPenalty  = dueMulta > 0;
+Execute Anonymous:     if (p.totalAmount > 0) planesLPF.add(p);
+Execute Anonymous: }
+Execute Anonymous: 
+Execute Anonymous: // 4b. Invoices base pendientes cuyo hijo (multa) ya está resuelto/PAID o nunca se generó -- LPF sin penalty.
+Execute Anonymous: for (chargebeeapps__CB_Invoice__c inv : pendientes) {
+Execute Anonymous:     if (inv.Parent_CB_Invoice__c != null) continue;           // es un hijo, ya se procesó arriba
+Execute Anonymous:     if (invoicesEmparejadas.contains(inv.Id)) continue;        // ya tiene un hijo pendiente, ya se procesó arriba
+Execute Anonymous:     if (inv.chargebeeapps__Due_Amount__c == null || inv.chargebeeapps__Due_Amount__c <= 0) continue;
+Execute Anonymous: 
+Execute Anonymous:     PlanLPF p = new PlanLPF();
+Execute Anonymous:     p.invoiceBase    = inv.Name;
+Execute Anonymous:     p.invoiceMulta   = null;
+Execute Anonymous:     p.invoiceBaseId  = inv.Id;
+Execute Anonymous:     p.invoiceMultaId = null;
+Execute Anonymous:     p.invoiceDate    = inv.chargebeeapps__Invoice_Date__c != null ? inv.chargebeeapps__Invoice_Date__c.date() : null;
+Execute Anonymous:     p.montoBase      = inv.chargebeeapps__Due_Amount__c;
+Execute Anonymous:     p.montoMulta     = 0;
+Execute Anonymous:     p.totalAmount    = inv.chargebeeapps__Due_Amount__c;
+Execute Anonymous:     p.aplicaPenalty  = false;
+Execute Anonymous:     planesLPF.add(p);
+Execute Anonymous: }
+Execute Anonymous: 
+Execute Anonymous: Decimal totalLPF = 0;
+Execute Anonymous: for (PlanLPF p : planesLPF) totalLPF += p.totalAmount;
+Execute Anonymous: 
+Execute Anonymous: // ── 4c. Requerimiento puntual de la agente (00314430): "UNA cobro inmediato, y las
+Execute Anonymous: //      otras PTP para el 16 y 30 de oct" -- confirmado con el usuario: orden cronológico,
+Execute Anonymous: //      la deuda más vieja se cobra primero. Esto es específico de ESTE contrato/solicitud,
+Execute Anonymous: //      no una regla genérica -- en otro contrato habría que preguntar de nuevo.
+Execute Anonymous: planesLPF.sort(); // ordena por invoiceDate ascendente (Comparable)
+Execute Anonymous: List<Date> FECHAS_COBRO_ESPECIFICAS = new List<Date>{
+Execute Anonymous:     Date.today(),               // el ciclo más viejo -> cobro inmediato
+Execute Anonymous:     Date.newInstance(2026,10,16), // PTP 16-oct
+Execute Anonymous:     Date.newInstance(2026,10,30)  // PTP 30-oct
+Execute Anonymous: };
+Execute Anonymous: for (Integer i = 0; i < planesLPF.size(); i++) {
+Execute Anonymous:     PlanLPF p = planesLPF[i];
+Execute Anonymous:     if (i < FECHAS_COBRO_ESPECIFICAS.size()) {
+Execute Anonymous:         p.fechaCobro = FECHAS_COBRO_ESPECIFICAS[i];
+Execute Anonymous:         p.esPTP      = (i > 0); // el primero es cobro inmediato, no PTP
+Execute Anonymous:     } else {
+Execute Anonymous:         // más ciclos de los que el requerimiento contempló -- no se asume fecha, se marca para revisión manual
+Execute Anonymous:         p.fechaCobro = null;
+Execute Anonymous:         p.esPTP      = false;
+Execute Anonymous:     }
+Execute Anonymous: }
+Execute Anonymous: 
+Execute Anonymous: System.debug('\n── PASO 3. LATE PAYMENT FEE (ACH) A CREAR -- ' + planesLPF.size() + ' orden(es), total $' + totalLPF + ' ──');
+Execute Anonymous: System.debug(' (Requerimiento de la agente: 1 cobro inmediato + 2 PTP para 16 y 30-oct, orden cronológico)');
+Execute Anonymous: for (PlanLPF p : planesLPF) {
+Execute Anonymous:     System.debug(' → ACH Order Late Payment Fee: SM_Total__c = $' + p.totalAmount + ' (Total_Amount__c es fórmula, se calcula solo)'
+Execute Anonymous:         + '  (base ' + p.invoiceBase + ' $' + p.montoBase
+Execute Anonymous:         + (p.aplicaPenalty ? ' + multa ' + p.invoiceMulta + ' $' + p.montoMulta : (p.invoiceMulta != null ? ' -- multa ' + p.invoiceMulta + ' ya resuelta, no se replica' : ''))
+Execute Anonymous:         + ')  ▫ SM_Apply_penalty__c=' + p.aplicaPenalty
+Execute Anonymous:         + (p.aplicaPenalty ? ' ▫ SM_Penalty_value__c=$' + p.montoMulta : ''));
+Execute Anonymous:     System.debug('     SM_Fee_CB_Invoice__c = ' + p.invoiceBase + ' (' + p.invoiceBaseId + ')'
+Execute Anonymous:         + ' ▫ SM_LPF_CB_Invoice__c = ' + (p.invoiceMultaId != null ? p.invoiceMulta + ' (' + p.invoiceMultaId + ')' : 'N/A (sin multa pendiente)'));
+Execute Anonymous:     System.debug('     SM_Next_Transaction_Date__c = ' + p.fechaCobro
+Execute Anonymous:         + (p.fechaCobro == null ? ' ⚠️ SIN FECHA -- revisar manualmente' : (p.esPTP ? ' (PTP -- Is_PTP__c=true, SM_PTP_Montly__c=\'octubre PTP\')' : ' (cobro inmediato)')));
+Execute Anonymous: }
+Execute Anonymous: if (planesLPF.isEmpty()) System.debug(' → No hay ciclos pendientes -- no haría falta crear ningún Late Payment Fee.');
+Execute Anonymous: 
+Execute Anonymous: // ── 5. Plan de cancelación Chargebee (Invoice -> Request -> Subscription) ──
+Execute Anonymous: System.debug('\n── PASO 4. CANCELACIÓN CHARGEBEE (orden: Invoice -> Request -> Subscription) -- nota: "' + NOTA_MIGRACION + '" ──');
+Execute Anonymous: for (chargebeeapps__CB_Invoice__c inv : pendientes) {
+Execute Anonymous:     System.debug(' → VOID Invoice ' + inv.Name + ' (CB Id ' + inv.chargebeeapps__CB_Invoice_Id__c
+Execute Anonymous:         + ') vía POST /invoices/.../void, comment="' + NOTA_MIGRACION + '"');
+Execute Anonymous: }
+Execute Anonymous: for (CB_Charge_Request__c req : requestsACancelar) {
+Execute Anonymous:     System.debug(' → Request ' + req.Name + ' (status actual ' + req.Request_Status__c + '): Request_Status__c = \'Cancelled\', Notes__c = "' + NOTA_MIGRACION + '"');
+Execute Anonymous: }
+Execute Anonymous: System.debug(' → Cancelar Subscription ' + cont.CB_Subscription__r.Name + ' vía POST /subscriptions/.../cancel_for_items, comment="' + NOTA_MIGRACION + '" -- SOLO después de que los invoices arriba queden resueltos.');
+Execute Anonymous: 
+Execute Anonymous: // ── 6. Task de auditoría/seguimiento (nuevo, no toca el Task existente de la agente) ──
+Execute Anonymous: String taskSubject = 'Migración ChargeBee (TC) a ACH';
+Execute Anonymous: String taskDescription =
+Execute Anonymous:     'AUTO: TC_to_ACH_Migracion - ' + Date.today().format() + '\n' +
+Execute Anonymous:     'Se completó el paso de ChargeBee (TC) a ACH del contrato ' + cont.ContractNumber + ':\n' +
+Execute Anonymous:     '- Chargebee: Subscription ' + cont.CB_Subscription__r.Name + ' cancelada + ' + pendientes.size()
+Execute Anonymous:         + ' invoice(s) anulados ($' + totalLPF + ' total) - nota "' + NOTA_MIGRACION + '"\n' +
+Execute Anonymous:     '- ACH: Subscription Order creada ($' + cont.SM_Monthly_offer__c + '/mes)\n' +
+Execute Anonymous:     '- ACH: ' + planesLPF.size() + ' Late Payment Fee creadas ($' + totalLPF + ' total)\n' +
+Execute Anonymous:     '- AC: ' + (cont.SM_AC_collected__c == true ? 'ya estaba cobrado ($' + cont.SM_Total_ac__c + '), no se generó orden de AC' : 'NO cobrado, se generó orden de AC por $' + cont.SM_Total_ac__c) + '\n' +
+Execute Anonymous:     'Referencia: Task "Collections-Change Payment Method" de Raiza Montiel (2026-09-25)';
+Execute Anonymous: 
+Execute Anonymous: System.debug('\n── PASO 5. TASK DE AUDITORÍA (nuevo -- no se toca el Task existente de Raiza) ──');
+Execute Anonymous: System.debug(' Subject: ' + taskSubject);
+Execute Anonymous: System.debug(' WhatId: ' + cont.Id + ' (Contract ' + cont.ContractNumber + ')');
+Execute Anonymous: System.debug(' RecordTypeId: 0121U00000085XiQAI (mismo RT que usa CancelarContratosRunner)');
+Execute Anonymous: System.debug(' Description:\n' + taskDescription);
+Execute Anonymous: 
+Execute Anonymous: // ── 7. Resumen del plan completo ──
+Execute Anonymous: System.debug('\n════════════════════════════════════════════════════════');
+Execute Anonymous: System.debug('RESUMEN DEL PLAN (' + (modoDryRun ? 'SIMULADO -- nada se ejecutó' : 'A EJECUTAR') + ')');
+Execute Anonymous: System.debug('════════════════════════════════════════════════════════');
+Execute Anonymous: System.debug('1. VOID en Chargebee: ' + pendientes.size() + ' invoice(s) pendientes -- comment="' + NOTA_MIGRACION + '".');
+Execute Anonymous: System.debug('   Cancelar Request(s) activos: ' + requestsACancelar.size() + ' de ' + requests.size() + ' (Request_Status__c=\'Cancelled\', Notes__c="' + NOTA_MIGRACION + '") -- los "Sent" no se tocan.');
+Execute Anonymous: System.debug('   Cancelar Subscription ' + cont.CB_Subscription__r.Name + ' (status actual: '
+Execute Anonymous:     + cont.CB_Subscription__r.chargebeeapps__Subscription_status__c + ') -- comment="' + NOTA_MIGRACION + '", SOLO después de que los invoices queden resueltos.');
+Execute Anonymous: System.debug('2. Crear ACH Order tipo Subscription: $' + cont.SM_Monthly_offer__c + '/mes.');
+Execute Anonymous: System.debug('3. Crear ' + planesLPF.size() + ' ACH Order(es) tipo Late Payment Fee por $' + totalLPF + ' total, con SM_Fee_CB_Invoice__c / SM_LPF_CB_Invoice__c poblados.');
+Execute Anonymous: System.debug('   AC: ' + (cont.SM_AC_collected__c == true
+Execute Anonymous:     ? 'ya cobrado ($' + cont.SM_Total_ac__c + ') -- NO se crea ACH Order de AC.'
+Execute Anonymous:     : '⚠️ NO cobrado todavía -- SÍ haría falta crear un ACH Order tipo AC por $' + cont.SM_Total_ac__c + '.'));
+Execute Anonymous: System.debug('4. Crear 1 Task nuevo de auditoría en el contrato (ver detalle arriba).');
+Execute Anonymous: 
+Execute Anonymous: // ── 8. EJECUCIÓN REAL ──
+Execute Anonymous: // Orden interno OBLIGATORIO por restricción de la plataforma (mismo gotcha ya documentado
+Execute Anonymous: // en CancelarContratosRunner.cls): un callout DESPUÉS de cualquier DML pendiente en la misma
+Execute Anonymous: // transacción tira "System.CalloutException: You have uncommitted work pending". Por eso:
+Execute Anonymous: //   FASE 1 = todos los callouts a Chargebee (cero DML antes).
+Execute Anonymous: //   FASE 2 = toda la DML junta (ACH Orders, mirror local de Invoice/Subscription, Requests, Task).
+Execute Anonymous: // El resultado final es el mismo que pediste (ACH creado + Chargebee cancelado, todo en el
+Execute Anonymous: // mismo commit) -- el orden invoice->request->subscription solo aplica DENTRO de la Fase 1.
+Execute Anonymous: if (!modoDryRun) {
+Execute Anonymous: 
+Execute Anonymous:     DmlLogger logger = new DmlLogger();
+Execute Anonymous:     String TASK_OWNER_ID = '0051U000001MRFeQAO'; // "Legal Credit Solutions" -- mismo owner que usa CancelarContratosRunner
+Execute Anonymous: 
+Execute Anonymous:     // FASE 1 — Callouts a Chargebee, cero DML todavía.
+Execute Anonymous:     Map<Id, Boolean> invoiceVoidOk = new Map<Id, Boolean>();
+Execute Anonymous:     Boolean todosLosInvoicesOk = true;
+Execute Anonymous: 
+Execute Anonymous:     for (chargebeeapps__CB_Invoice__c inv : pendientes) {
+Execute Anonymous:         Boolean ok = false;
+Execute Anonymous:         try {
+Execute Anonymous:             HttpRequest req = new HttpRequest();
+Execute Anonymous:             req.setEndpoint('callout:' + NAMED_CRED + '/api/v2/invoices/'
+Execute Anonymous:                 + EncodingUtil.urlEncode(inv.chargebeeapps__CB_Invoice_Id__c, 'UTF-8') + '/void');
+Execute Anonymous:             req.setMethod('POST');
+Execute Anonymous:             req.setHeader('Content-Type', 'application/x-www-form-urlencoded');
+Execute Anonymous:             req.setBody('comment=' + EncodingUtil.urlEncode(NOTA_MIGRACION, 'UTF-8'));
+Execute Anonymous:             req.setTimeout(60000);
+Execute Anonymous:             HttpResponse res = new Http().send(req);
+Execute Anonymous:             ok = (res.getStatusCode() == 200);
+Execute Anonymous:             if (!ok) System.debug('⚠️ ERROR void Invoice ' + inv.Name + ': HTTP ' + res.getStatusCode() + ' — ' + res.getBody());
+Execute Anonymous:         } catch (Exception e) {
+Execute Anonymous:             System.debug('⚠️ EXCEPTION void Invoice ' + inv.Name + ': ' + e.getMessage());
+Execute Anonymous:         }
+Execute Anonymous:         invoiceVoidOk.put(inv.Id, ok);
+Execute Anonymous:         if (!ok) todosLosInvoicesOk = false;
+Execute Anonymous:     }
+Execute Anonymous: 
+Execute Anonymous:     Boolean subscriptionCancelOk = false;
+Execute Anonymous:     if (todosLosInvoicesOk) {
+Execute Anonymous:         try {
+Execute Anonymous:             HttpRequest req = new HttpRequest();
+Execute Anonymous:             req.setEndpoint('callout:' + NAMED_CRED + '/api/v2/subscriptions/'
+Execute Anonymous:                 + EncodingUtil.urlEncode(cont.CB_Subscription__r.Name, 'UTF-8') + '/cancel_for_items');
+Execute Anonymous:             req.setMethod('POST');
+Execute Anonymous:             req.setHeader('Content-Type', 'application/x-www-form-urlencoded');
+Execute Anonymous:             req.setBody('cancel_option=immediately&comment=' + EncodingUtil.urlEncode(NOTA_MIGRACION, 'UTF-8'));
+Execute Anonymous:             req.setTimeout(60000);
+Execute Anonymous:             HttpResponse res = new Http().send(req);
+Execute Anonymous:             subscriptionCancelOk = (res.getStatusCode() == 200);
+Execute Anonymous:             if (!subscriptionCancelOk) System.debug('⚠️ ERROR cancel Subscription: HTTP ' + res.getStatusCode() + ' — ' + res.getBody());
+Execute Anonymous:         } catch (Exception e) {
+Execute Anonymous:             System.debug('⚠️ EXCEPTION cancel Subscription: ' + e.getMessage());
+Execute Anonymous:         }
+Execute Anonymous:     } else {
+Execute Anonymous:         System.debug('⚠️ No se intenta cancelar la Subscription -- quedó al menos 1 Invoice sin poder anular.');
+Execute Anonymous:     }
+Execute Anonymous: 
+Execute Anonymous:     // FASE 2 — Toda la DML, ya sin callouts pendientes.
+Execute Anonymous:     List<chargebeeapps__CB_Invoice__c> invoicesToUpdate = new List<chargebeeapps__CB_Invoice__c>();
+Execute Anonymous:     for (chargebeeapps__CB_Invoice__c inv : pendientes) {
+Execute Anonymous:         if (invoiceVoidOk.get(inv.Id) == true) {
+Execute Anonymous:             invoicesToUpdate.add(new chargebeeapps__CB_Invoice__c(Id = inv.Id, chargebeeapps__Status__c = 'VOIDED'));
+Execute Anonymous:         }
+Execute Anonymous:     }
+Execute Anonymous:     if (!invoicesToUpdate.isEmpty()) logger.logSaveResults('Invoice mirror VOIDED', Database.update(invoicesToUpdate, false));
+Execute Anonymous: 
+Execute Anonymous:     List<CB_Charge_Request__c> requestsToUpdate = new List<CB_Charge_Request__c>();
+Execute Anonymous:     for (CB_Charge_Request__c req : requestsACancelar) {
+Execute Anonymous:         requestsToUpdate.add(new CB_Charge_Request__c(Id = req.Id, Request_Status__c = 'Cancelled', Notes__c = NOTA_MIGRACION));
+Execute Anonymous:     }
+Execute Anonymous:     if (!requestsToUpdate.isEmpty()) logger.logSaveResults('Request Cancelled', Database.update(requestsToUpdate, false));
+Execute Anonymous: 
+Execute Anonymous:     if (subscriptionCancelOk) {
+Execute Anonymous:         logger.logSaveResults('Subscription mirror CANCELLED', new List<Database.SaveResult>{ Database.update(
+Execute Anonymous:             new chargebeeapps__CB_Subscription__c(Id = cont.CB_Subscription__c, chargebeeapps__Subscription_status__c = 'CANCELLED'),
+Execute Anonymous:             false
+Execute Anonymous:         ) });
+Execute Anonymous:     }
+Execute Anonymous: 
+Execute Anonymous:     // ── GATE DE SEGURIDAD ──
+Execute Anonymous:     // Si Chargebee no quedó 100% cancelado (algún invoice sin voidear, o la subscription
+Execute Anonymous:     // sin cancelar), NO se crean los ACH Orders ni el Task -- crearlos igual dejaría al
+Execute Anonymous:     // contrato cobrando por los dos lados (Chargebee sin cerrar + ACH nuevo). Se detiene
+Execute Anonymous:     // acá para que Carlos revise manualmente qué falló antes de reintentar.
+Execute Anonymous:     if (!todosLosInvoicesOk || !subscriptionCancelOk) {
+Execute Anonymous:         System.debug('\n⛔ DETENIDO -- Chargebee no quedó completamente cancelado (invoices OK: '
+Execute Anonymous:             + todosLosInvoicesOk + ', subscription OK: ' + subscriptionCancelOk
+Execute Anonymous:             + '). NO se crearon ACH Orders ni Task. Revisar los ERROR/EXCEPTION de arriba antes de reintentar.');
+Execute Anonymous:         return;
+Execute Anonymous:     }
+Execute Anonymous: 
+Execute Anonymous:     // ACH Order tipo Subscription -- próxima fecha = próxima ocurrencia de SM_Payment_day__c en el mes.
+Execute Anonymous:     Date hoy = Date.today();
+Execute Anonymous:     Integer diaPago = (cont.SM_Payment_day__c != null) ? Integer.valueOf(cont.SM_Payment_day__c) : hoy.day();
+Execute Anonymous:     Date proximoCobro = Date.newInstance(hoy.year(), hoy.month(), 1).addMonths(0);
+Execute Anonymous:     Integer ultimoDiaMes = Date.daysInMonth(hoy.year(), hoy.month());
+Execute Anonymous:     Date candidato = Date.newInstance(hoy.year(), hoy.month(), Math.min(diaPago, ultimoDiaMes));
+Execute Anonymous:     proximoCobro = (candidato >= hoy) ? candidato : candidato.addMonths(1);
+Execute Anonymous: 
+Execute Anonymous:     List<SM_ACH_Order__c> achOrdersToInsert = new List<SM_ACH_Order__c>();
+Execute Anonymous: 
+Execute Anonymous:     achOrdersToInsert.add(new SM_ACH_Order__c(
+Execute Anonymous:         SM_Contract__c              = cont.Id,
+Execute Anonymous:         SM_Payment_Method__c        = cont.SM_Payment_Method__c,
+Execute Anonymous:         SM_Payment_Type__c          = 'Subscription',
+Execute Anonymous:         SM_Payment_Frequency__c     = 'Monthly',
+Execute Anonymous:         SM_Payment_Status__c        = 'Pending',
+Execute Anonymous:         SM_Payment_Condition__c     = 'Fixed value',
+Execute Anonymous:         SM_Billing_Email__c         = cont.SM_Email_to_send_contract__c,
+Execute Anonymous:         SM_Payment_Count__c         = 1,
+Execute Anonymous:         SM_Fee_to_collect__c        = 1,
+Execute Anonymous:         SM_Payment_Start_Date__c    = proximoCobro,
+Execute Anonymous:         SM_Next_Transaction_Date__c = proximoCobro,
+Execute Anonymous:         SM_Total__c                 = cont.SM_Monthly_offer__c
+Execute Anonymous:     ));
+Execute Anonymous: 
+Execute Anonymous:     for (PlanLPF p : planesLPF) {
+Execute Anonymous:         // Fecha de cobro: la asignada en el PASO 3 (1 inmediata + 2 PTP 16/30-oct,
+Execute Anonymous:         // requerimiento puntual de la agente) -- si por alguna razón vino null
+Execute Anonymous:         // (más ciclos de los 3 esperados), cae a hoy como fallback seguro.
+Execute Anonymous:         Date fechaOrden = (p.fechaCobro != null) ? p.fechaCobro : hoy;
+Execute Anonymous:         achOrdersToInsert.add(new SM_ACH_Order__c(
+Execute Anonymous:             SM_Contract__c              = cont.Id,
+Execute Anonymous:             SM_Payment_Method__c        = cont.SM_Payment_Method__c,
+Execute Anonymous:             SM_Payment_Type__c          = 'Late payment fee',
+Execute Anonymous:             SM_Payment_Frequency__c     = 'Once',
+Execute Anonymous:             SM_Payment_Status__c        = 'Pending',
+Execute Anonymous:             SM_Payment_Condition__c     = 'Fixed value',
+Execute Anonymous:             SM_Billing_Email__c         = cont.SM_Email_to_send_contract__c,
+Execute Anonymous:             SM_Payment_Start_Date__c    = fechaOrden,
+Execute Anonymous:             SM_Payment_End_Date__c      = fechaOrden,
+Execute Anonymous:             SM_Next_Transaction_Date__c = fechaOrden,
+Execute Anonymous:             SM_Total__c                 = p.totalAmount,
+Execute Anonymous:             SM_Apply_penalty__c         = p.aplicaPenalty,
+Execute Anonymous:             SM_Penalty_value__c         = p.aplicaPenalty ? p.montoMulta : null,
+Execute Anonymous:             SM_Penalty_date__c          = p.aplicaPenalty ? hoy : null,
+Execute Anonymous:             SM_Fee_CB_Invoice__c        = p.invoiceBaseId,
+Execute Anonymous:             SM_LPF_CB_Invoice__c        = p.invoiceMultaId,
+Execute Anonymous:             SM_PTP_Montly__c            = p.esPTP ? 'octubre PTP' : null
+Execute Anonymous:         ));
+Execute Anonymous:     }
+Execute Anonymous:     logger.logSaveResults('ACH Order insert', Database.insert(achOrdersToInsert, false));
+Execute Anonymous: 
+Execute Anonymous:     logger.logSaveResults('Task insert', new List<Database.SaveResult>{ Database.insert(new Task(
+Execute Anonymous:         Subject       = taskSubject,
+Execute Anonymous:         WhatId        = cont.Id,
+Execute Anonymous:         Description   = taskDescription,
+Execute Anonymous:         OwnerId       = TASK_OWNER_ID,
+Execute Anonymous:         RecordTypeId  = '0121U00000085XiQAI',
+Execute Anonymous:         ActivityDate  = hoy
+Execute Anonymous:     ), false) });
+Execute Anonymous: 
+Execute Anonymous:     System.debug('\n✔️ EJECUCIÓN REAL completada -- ver detalle arriba de cada callout/DML.');
+Execute Anonymous: }
+02:02:37.70 (70610985)|USER_INFO|[EXTERNAL]|0051U000007bbx5|clopez@legal-credit.com|(GMT+02:00) Central European Summer Time (Europe/Madrid)|GMT+02:00
+02:02:37.70 (70820216)|EXECUTION_STARTED
+02:02:37.70 (70845267)|CODE_UNIT_STARTED|[EXTERNAL]|execute_anonymous_apex
+02:02:37.70 (72471530)|USER_DEBUG|[49]|DEBUG|════════════════════════════════════════════════════════
+02:02:37.70 (72502590)|USER_DEBUG|[50]|DEBUG|SIMULACIÓN CAMBIO CHARGEBEE -> ACH — Contrato 00314430
+02:02:37.70 (72538180)|USER_DEBUG|[51]|DEBUG|Modo: EJECUCIÓN REAL
+02:02:37.70 (72543740)|USER_DEBUG|[52]|DEBUG|════════════════════════════════════════════════════════
+02:02:37.70 (102535390)|USER_DEBUG|[79]|DEBUG|
+── CONTRATO ──
+02:02:37.70 (102624321)|USER_DEBUG|[80]|DEBUG| Status: Activated &#124; SM_Payment_methods__c: ACH
+02:02:37.70 (102671251)|USER_DEBUG|[81]|DEBUG| Payment Method ACH: a10UU00000Es4hhYAB (cuenta ...33264, Savings)
+02:02:37.70 (102706981)|USER_DEBUG|[83]|DEBUG| AC ya cobrado (SM_AC_collected__c): true ($99.00)
+02:02:37.70 (102718862)|USER_DEBUG|[84]|DEBUG| Monthly offer (RC): $79.00
+02:02:37.70 (102753582)|USER_DEBUG|[85]|DEBUG| Chargebee Subscription: Azqdg3VKpUkw31JWz -- status ACTIVE
+02:02:37.70 (109849119)|USER_DEBUG|[109]|DEBUG|
+── PASO 1a. INVOICES CHARGEBEE (9 total, 5 pendientes de VOID) ──
+02:02:37.70 (110021360)|USER_DEBUG|[112]|DEBUG| ✓ resuelto   — Invoice 1270 ▫ PAID ▫ Fecha: 2026-05-27 14:08:12 ▫ Debe: $0.000
+02:02:37.70 (110056040)|USER_DEBUG|[112]|DEBUG| ✓ resuelto   — Invoice 1967 ▫ PAID ▫ Fecha: 2026-05-30 04:00:00 ▫ Debe: $0.000
+02:02:37.70 (110075640)|USER_DEBUG|[112]|DEBUG| ✓ resuelto   — Invoice 1981 ▫ PAID ▫ Fecha: 2026-05-30 12:01:17 ▫ Debe: $0.000 ▫ (es Late Fee)
+02:02:37.70 (110095941)|USER_DEBUG|[112]|DEBUG| ⚠️ PENDIENTE — Invoice 3828 ▫ NOT_PAID ▫ Fecha: 2026-06-30 04:00:00 ▫ Debe: $79.000
+02:02:37.70 (110112451)|USER_DEBUG|[112]|DEBUG| ⚠️ PENDIENTE — Invoice 4182 ▫ NOT_PAID ▫ Fecha: 2026-07-01 11:01:10 ▫ Debe: $25.000 ▫ (es Late Fee)
+02:02:37.70 (110127811)|USER_DEBUG|[112]|DEBUG| ⚠️ PENDIENTE — Invoice 6005 ▫ PAYMENT_DUE ▫ Fecha: 2026-07-30 04:00:00 ▫ Debe: $79.000
+02:02:37.70 (110143971)|USER_DEBUG|[112]|DEBUG| ✓ resuelto   — Invoice 6466 ▫ PAID ▫ Fecha: 2026-08-01 11:02:03 ▫ Debe: $0.000 ▫ (es Late Fee)
+02:02:37.70 (110159021)|USER_DEBUG|[112]|DEBUG| ⚠️ PENDIENTE — Invoice 8411 ▫ PAYMENT_DUE ▫ Fecha: 2026-08-30 04:00:00 ▫ Debe: $79.000
+02:02:37.70 (110174081)|USER_DEBUG|[112]|DEBUG| ⚠️ PENDIENTE — Invoice 8858 ▫ PAYMENT_DUE ▫ Fecha: 2026-09-01 11:01:58 ▫ Debe: $25.000 ▫ (es Late Fee)
+02:02:37.70 (116726314)|USER_DEBUG|[128]|DEBUG|
+── PASO 1b. CHARGE REQUESTS CHARGEBEE (4 total) ──
+02:02:37.70 (116974046)|USER_DEBUG|[137]|DEBUG| Request 0000000544 ▫ Status actual: Sent ▫ Charge: $25.00 ▫ Fecha: 2026-05-30 00:00:00 ▫ ✓ ya trabajado, no se toca
+02:02:37.70 (117001436)|USER_DEBUG|[137]|DEBUG| Request 0000001261 ▫ Status actual: Sent ▫ Charge: $25.00 ▫ Fecha: 2026-07-01 00:00:00 ▫ ✓ ya trabajado, no se toca
+02:02:37.70 (117016346)|USER_DEBUG|[137]|DEBUG| Request 0000002092 ▫ Status actual: Sent ▫ Charge: $25.00 ▫ Fecha: 2026-08-01 00:00:00 ▫ ✓ ya trabajado, no se toca
+02:02:37.70 (117029636)|USER_DEBUG|[137]|DEBUG| Request 0000003006 ▫ Status actual: Sent ▫ Charge: $25.00 ▫ Fecha: 2026-09-01 00:00:00 ▫ ✓ ya trabajado, no se toca
+02:02:37.70 (117827922)|USER_DEBUG|[254]|DEBUG|
+── PASO 3. LATE PAYMENT FEE (ACH) A CREAR -- 3 orden(es), total $287.000 ──
+02:02:37.70 (117840402)|USER_DEBUG|[255]|DEBUG| (Requerimiento de la agente: 1 cobro inmediato + 2 PTP para 16 y 30-oct, orden cronológico)
+02:02:37.70 (117882383)|USER_DEBUG|[257]|DEBUG| → ACH Order Late Payment Fee: SM_Total__c = $104.000 (Total_Amount__c es fórmula, se calcula solo)  (base 3828 $79.000 + multa 4182 $25.000)  ▫ SM_Apply_penalty__c=true ▫ SM_Penalty_value__c=$25.000
+02:02:37.70 (117897403)|USER_DEBUG|[262]|DEBUG|     SM_Fee_CB_Invoice__c = 3828 (a57UU000000czIbYAI) ▫ SM_LPF_CB_Invoice__c = 4182 (a57UU000000dDv4YAE)
+02:02:37.70 (117908893)|USER_DEBUG|[264]|DEBUG|     SM_Next_Transaction_Date__c = 2026-09-26 00:00:00 (cobro inmediato)
+02:02:37.70 (117925013)|USER_DEBUG|[257]|DEBUG| → ACH Order Late Payment Fee: SM_Total__c = $79.000 (Total_Amount__c es fórmula, se calcula solo)  (base 6005 $79.000)  ▫ SM_Apply_penalty__c=false
+02:02:37.70 (117931843)|USER_DEBUG|[262]|DEBUG|     SM_Fee_CB_Invoice__c = 6005 (a57UU000000fYybYAE) ▫ SM_LPF_CB_Invoice__c = N/A (sin multa pendiente)
+02:02:37.70 (117938533)|USER_DEBUG|[264]|DEBUG|     SM_Next_Transaction_Date__c = 2026-10-16 00:00:00 (PTP -- Is_PTP__c=true, SM_PTP_Montly__c='octubre PTP')
+02:02:37.70 (117956483)|USER_DEBUG|[257]|DEBUG| → ACH Order Late Payment Fee: SM_Total__c = $104.000 (Total_Amount__c es fórmula, se calcula solo)  (base 8411 $79.000 + multa 8858 $25.000)  ▫ SM_Apply_penalty__c=true ▫ SM_Penalty_value__c=$25.000
+02:02:37.70 (117965503)|USER_DEBUG|[262]|DEBUG|     SM_Fee_CB_Invoice__c = 8411 (a57UU000000iYkLYAU) ▫ SM_LPF_CB_Invoice__c = 8858 (a57UU000000iqAzYAI)
+02:02:37.70 (117971474)|USER_DEBUG|[264]|DEBUG|     SM_Next_Transaction_Date__c = 2026-10-30 00:00:00 (PTP -- Is_PTP__c=true, SM_PTP_Montly__c='octubre PTP')
+02:02:37.70 (117982704)|USER_DEBUG|[270]|DEBUG|
+── PASO 4. CANCELACIÓN CHARGEBEE (orden: Invoice -> Request -> Subscription) -- nota: "Paso de TC a ACH" ──
+02:02:37.70 (118007254)|USER_DEBUG|[272]|DEBUG| → VOID Invoice 3828 (CB Id 3828) vía POST /invoices/.../void, comment="Paso de TC a ACH"
+02:02:37.70 (118015194)|USER_DEBUG|[272]|DEBUG| → VOID Invoice 4182 (CB Id 4182) vía POST /invoices/.../void, comment="Paso de TC a ACH"
+02:02:37.70 (118020604)|USER_DEBUG|[272]|DEBUG| → VOID Invoice 6005 (CB Id 6005) vía POST /invoices/.../void, comment="Paso de TC a ACH"
+02:02:37.70 (118026084)|USER_DEBUG|[272]|DEBUG| → VOID Invoice 8411 (CB Id 8411) vía POST /invoices/.../void, comment="Paso de TC a ACH"
+02:02:37.70 (118031384)|USER_DEBUG|[272]|DEBUG| → VOID Invoice 8858 (CB Id 8858) vía POST /invoices/.../void, comment="Paso de TC a ACH"
+02:02:37.70 (118050924)|USER_DEBUG|[278]|DEBUG| → Cancelar Subscription Azqdg3VKpUkw31JWz vía POST /subscriptions/.../cancel_for_items, comment="Paso de TC a ACH" -- SOLO después de que los invoices arriba queden resueltos.
+02:02:37.70 (118165925)|USER_DEBUG|[292]|DEBUG|
+── PASO 5. TASK DE AUDITORÍA (nuevo -- no se toca el Task existente de Raiza) ──
+02:02:37.70 (118172525)|USER_DEBUG|[293]|DEBUG| Subject: Migración ChargeBee (TC) a ACH
+02:02:37.70 (118182965)|USER_DEBUG|[294]|DEBUG| WhatId: 800UU00000MIxpuYAD (Contract 00314430)
+02:02:37.70 (118186825)|USER_DEBUG|[295]|DEBUG| RecordTypeId: 0121U00000085XiQAI (mismo RT que usa CancelarContratosRunner)
+02:02:37.70 (118191965)|USER_DEBUG|[296]|DEBUG| Description:
+AUTO: TC_to_ACH_Migracion - 9/26/2026
+Se completó el paso de ChargeBee (TC) a ACH del contrato 00314430:
+- Chargebee: Subscription Azqdg3VKpUkw31JWz cancelada + 5 invoice(s) anulados ($287.000 total) - nota "Paso de TC a ACH"
+- ACH: Subscription Order creada ($79.00/mes)
+- ACH: 3 Late Payment Fee creadas ($287.000 total)
+- AC: ya estaba cobrado ($99.00), no se generó orden de AC
+Referencia: Task "Collections-Change Payment Method" de Raiza Montiel (2026-09-25)
+02:02:37.70 (118198245)|USER_DEBUG|[299]|DEBUG|
+════════════════════════════════════════════════════════
+02:02:37.70 (118203505)|USER_DEBUG|[300]|DEBUG|RESUMEN DEL PLAN (A EJECUTAR)
+02:02:37.70 (118207405)|USER_DEBUG|[301]|DEBUG|════════════════════════════════════════════════════════
+02:02:37.70 (118216505)|USER_DEBUG|[302]|DEBUG|1. VOID en Chargebee: 5 invoice(s) pendientes -- comment="Paso de TC a ACH".
+02:02:37.70 (118228476)|USER_DEBUG|[303]|DEBUG|   Cancelar Request(s) activos: 0 de 4 (Request_Status__c='Cancelled', Notes__c="Paso de TC a ACH") -- los "Sent" no se tocan.
+02:02:37.70 (118236406)|USER_DEBUG|[304]|DEBUG|   Cancelar Subscription Azqdg3VKpUkw31JWz (status actual: ACTIVE) -- comment="Paso de TC a ACH", SOLO después de que los invoices queden resueltos.
+02:02:37.70 (118245336)|USER_DEBUG|[306]|DEBUG|2. Crear ACH Order tipo Subscription: $79.00/mes.
+02:02:37.70 (118254746)|USER_DEBUG|[307]|DEBUG|3. Crear 3 ACH Order(es) tipo Late Payment Fee por $287.000 total, con SM_Fee_CB_Invoice__c / SM_LPF_CB_Invoice__c poblados.
+02:02:37.70 (118268546)|USER_DEBUG|[308]|DEBUG|   AC: ya cobrado ($99.00) -- NO se crea ACH Order de AC.
+02:02:37.70 (118272486)|USER_DEBUG|[311]|DEBUG|4. Crear 1 Task nuevo de auditoría en el contrato (ver detalle arriba).
+02:02:40.92 (3092940384)|CODE_UNIT_STARTED|[EXTERNAL]|Flow:01IUU000005TicS
+02:02:40.92 (3092998235)|CODE_UNIT_FINISHED|Flow:01IUU000005TicS
+02:02:40.92 (3096538844)|CODE_UNIT_STARTED|[EXTERNAL]|01qUU000005vwnZ|dlrs_chargebeeapps_CB_InvoiceTrigger on CB_Invoice trigger event BeforeUpdate|__sfdc_trigger/dlrs_chargebeeapps_CB_InvoiceTrigger
+02:02:40.97 (3097056538)|CUMULATIVE_LIMIT_USAGE
+02:02:40.97 (3097056538)|LIMIT_USAGE_FOR_NS|(default)|
+  Number of SOQL queries: 3 out of 100
+  Number of query rows: 14 out of 50000
+  Number of SOSL queries: 0 out of 20
+  Number of DML statements: 1 out of 150
+  Number of Publish Immediate DML: 0 out of 150
+  Number of DML rows: 5 out of 10000
+  Maximum CPU time: 79 out of 10000
+  Maximum heap size: 0 out of 6000000
+  Number of callouts: 6 out of 100
+  Number of Email Invocations: 0 out of 10
+  Number of future calls: 0 out of 50
+  Number of queueable jobs added to the queue: 0 out of 50
+  Number of Mobile Apex push calls: 0 out of 10
+
+02:02:40.97 (3097056538)|CUMULATIVE_LIMIT_USAGE_END
+
+02:02:40.92 (3097261180)|CODE_UNIT_FINISHED|dlrs_chargebeeapps_CB_InvoiceTrigger on CB_Invoice trigger event BeforeUpdate|__sfdc_trigger/dlrs_chargebeeapps_CB_InvoiceTrigger
+02:02:40.179 (3179810917)|CUMULATIVE_LIMIT_USAGE
+02:02:40.179 (3179810917)|LIMIT_USAGE_FOR_NS|(default)|
+  Number of SOQL queries: 3 out of 100
+  Number of query rows: 14 out of 50000
+  Number of SOSL queries: 0 out of 20
+  Number of DML statements: 1 out of 150
+  Number of Publish Immediate DML: 0 out of 150
+  Number of DML rows: 5 out of 10000
+  Maximum CPU time: 79 out of 10000
+  Maximum heap size: 0 out of 6000000
+  Number of callouts: 6 out of 100
+  Number of Email Invocations: 0 out of 10
+  Number of future calls: 0 out of 50
+  Number of queueable jobs added to the queue: 0 out of 50
+  Number of Mobile Apex push calls: 0 out of 10
+
+02:02:40.179 (3179810917)|LIMIT_USAGE_FOR_NS|chargebeeapps|
+  Number of SOQL queries: 2 out of 100
+  Number of query rows: 1 out of 50000
+  Number of SOSL queries: 0 out of 20
+  Number of DML statements: 1 out of 150
+  Number of Publish Immediate DML: 0 out of 150
+  Number of DML rows: 1 out of 10000
+  Maximum CPU time: 0 out of 10000
+  Maximum heap size: 0 out of 6000000
+  Number of callouts: 0 out of 100
+  Number of Email Invocations: 0 out of 10
+  Number of future calls: 0 out of 50
+  Number of queueable jobs added to the queue: 0 out of 50
+  Number of Mobile Apex push calls: 0 out of 10
+
+02:02:40.179 (3179810917)|CUMULATIVE_LIMIT_USAGE_END
+
+02:02:40.92 (3180431712)|CODE_UNIT_STARTED|[EXTERNAL]|01qUU000005vwnZ|dlrs_chargebeeapps_CB_InvoiceTrigger on CB_Invoice trigger event AfterUpdate|__sfdc_trigger/dlrs_chargebeeapps_CB_InvoiceTrigger
+02:02:40.346 (3346158971)|CUMULATIVE_LIMIT_USAGE
+02:02:40.346 (3346158971)|LIMIT_USAGE_FOR_NS|(default)|
+  Number of SOQL queries: 3 out of 100
+  Number of query rows: 14 out of 50000
+  Number of SOSL queries: 0 out of 20
+  Number of DML statements: 1 out of 150
+  Number of Publish Immediate DML: 0 out of 150
+  Number of DML rows: 5 out of 10000
+  Maximum CPU time: 232 out of 10000
+  Maximum heap size: 0 out of 6000000
+  Number of callouts: 6 out of 100
+  Number of Email Invocations: 0 out of 10
+  Number of future calls: 0 out of 50
+  Number of queueable jobs added to the queue: 0 out of 50
+  Number of Mobile Apex push calls: 0 out of 10
+
+02:02:40.346 (3346158971)|LIMIT_USAGE_FOR_NS|chargebeeapps|
+  Number of SOQL queries: 2 out of 100
+  Number of query rows: 1 out of 50000
+  Number of SOSL queries: 0 out of 20
+  Number of DML statements: 1 out of 150
+  Number of Publish Immediate DML: 0 out of 150
+  Number of DML rows: 1 out of 10000
+  Maximum CPU time: 0 out of 10000
+  Maximum heap size: 0 out of 6000000
+  Number of callouts: 0 out of 100
+  Number of Email Invocations: 0 out of 10
+  Number of future calls: 0 out of 50
+  Number of queueable jobs added to the queue: 0 out of 50
+  Number of Mobile Apex push calls: 0 out of 10
+
+02:02:40.346 (3346158971)|LIMIT_USAGE_FOR_NS|dlrs|
+  Number of SOQL queries: 4 out of 100
+  Number of query rows: 2 out of 50000
+  Number of SOSL queries: 0 out of 20
+  Number of DML statements: 0 out of 150
+  Number of Publish Immediate DML: 0 out of 150
+  Number of DML rows: 0 out of 10000
+  Maximum CPU time: 0 out of 10000
+  Maximum heap size: 0 out of 6000000
+  Number of callouts: 0 out of 100
+  Number of Email Invocations: 0 out of 10
+  Number of future calls: 0 out of 50
+  Number of queueable jobs added to the queue: 0 out of 50
+  Number of Mobile Apex push calls: 0 out of 10
+
+02:02:40.346 (3346158971)|CUMULATIVE_LIMIT_USAGE_END
+
+02:02:40.92 (3346426543)|CODE_UNIT_FINISHED|dlrs_chargebeeapps_CB_InvoiceTrigger on CB_Invoice trigger event AfterUpdate|__sfdc_trigger/dlrs_chargebeeapps_CB_InvoiceTrigger
+02:02:40.92 (3347424881)|CODE_UNIT_STARTED|[EXTERNAL]|Flow:01IUU000005TicS
+02:02:40.92 (3347437871)|CODE_UNIT_FINISHED|Flow:01IUU000005TicS
+02:02:40.92 (3349243275)|CODE_UNIT_STARTED|[EXTERNAL]|Flow:01IUU000005TicS
+02:02:40.92 (3350072502)|CODE_UNIT_FINISHED|Flow:01IUU000005TicS
+02:02:40.92 (3352544512)|USER_DEBUG|[154]|DEBUG|✔️ DML OK [Invoice mirror VOIDED] Id=a57UU000000czIbYAI
+02:02:40.92 (3352570572)|USER_DEBUG|[154]|DEBUG|✔️ DML OK [Invoice mirror VOIDED] Id=a57UU000000dDv4YAE
+02:02:40.92 (3352585952)|USER_DEBUG|[154]|DEBUG|✔️ DML OK [Invoice mirror VOIDED] Id=a57UU000000fYybYAE
+02:02:40.92 (3352594232)|USER_DEBUG|[154]|DEBUG|✔️ DML OK [Invoice mirror VOIDED] Id=a57UU000000iYkLYAU
+02:02:40.92 (3352601762)|USER_DEBUG|[154]|DEBUG|✔️ DML OK [Invoice mirror VOIDED] Id=a57UU000000iqAzYAI
+02:02:40.92 (3357873965)|CODE_UNIT_STARTED|[EXTERNAL]|Flow:01IUU000005Ticl
+02:02:40.92 (3357889575)|CODE_UNIT_FINISHED|Flow:01IUU000005Ticl
+02:02:40.92 (3364091995)|CODE_UNIT_STARTED|[EXTERNAL]|Flow:01IUU000005Ticl
+02:02:40.92 (3364104365)|CODE_UNIT_FINISHED|Flow:01IUU000005Ticl
+02:02:40.92 (3364128886)|CODE_UNIT_STARTED|[EXTERNAL]|Flow:01IUU000005Ticl
+02:02:40.92 (3364188556)|CODE_UNIT_FINISHED|Flow:01IUU000005Ticl
+02:02:40.92 (3365289335)|USER_DEBUG|[154]|DEBUG|✔️ DML OK [Subscription mirror CANCELLED] Id=a5QUU0000004QNJ2A2
+02:02:40.92 (3445656544)|CODE_UNIT_STARTED|[EXTERNAL]|01q1U000001iMYW|SM_ACHOrderTrigger on SM_ACH_Order trigger event BeforeInsert|__sfdc_trigger/SM_ACHOrderTrigger
+02:02:40.92 (3506486055)|USER_DEBUG|[23]|DEBUG|Executing disableValidationRules: SM_Bypasser__c:{Id=a201U000000sM7PQAU, IsDeleted=false, Name=Bypasser (Profile), SetupOwnerId=00e1U000001XfCgQAK, CreatedDate=2021-04-21 02:07:03, CreatedById=0051U0000089GwCQAU, LastModifiedDate=2026-09-25 14:57:34, LastModifiedById=0051U000007bbx5QAA, SystemModstamp=2026-09-25 14:57:34, SM_Disable_Validation_Rules__c=false}
+02:02:40.92 (3562037665)|CODE_UNIT_STARTED|[EXTERNAL]|Flow:Contract
+02:02:40.92 (3566619273)|CODE_UNIT_FINISHED|Flow:Contract
+02:02:40.92 (3569938159)|CODE_UNIT_STARTED|[EXTERNAL]|01q1U000001e9g3|SM_ContractTrigger on Contract trigger event BeforeUpdate|__sfdc_trigger/SM_ContractTrigger
+02:02:40.575 (3575486804)|CUMULATIVE_LIMIT_USAGE
+02:02:40.575 (3575486804)|LIMIT_USAGE_FOR_NS|(default)|
+  Number of SOQL queries: 4 out of 100
+  Number of query rows: 163 out of 50000
+  Number of SOSL queries: 0 out of 20
+  Number of DML statements: 5 out of 150
+  Number of Publish Immediate DML: 0 out of 150
+  Number of DML rows: 12 out of 10000
+  Maximum CPU time: 276 out of 10000
+  Maximum heap size: 0 out of 6000000
+  Number of callouts: 6 out of 100
+  Number of Email Invocations: 0 out of 10
+  Number of future calls: 0 out of 50
+  Number of queueable jobs added to the queue: 0 out of 50
+  Number of Mobile Apex push calls: 0 out of 10
+
+02:02:40.575 (3575486804)|LIMIT_USAGE_FOR_NS|chargebeeapps|
+  Number of SOQL queries: 2 out of 100
+  Number of query rows: 1 out of 50000
+  Number of SOSL queries: 0 out of 20
+  Number of DML statements: 1 out of 150
+  Number of Publish Immediate DML: 0 out of 150
+  Number of DML rows: 1 out of 10000
+  Maximum CPU time: 0 out of 10000
+  Maximum heap size: 0 out of 6000000
+  Number of callouts: 0 out of 100
+  Number of Email Invocations: 0 out of 10
+  Number of future calls: 0 out of 50
+  Number of queueable jobs added to the queue: 0 out of 50
+  Number of Mobile Apex push calls: 0 out of 10
+
+02:02:40.575 (3575486804)|LIMIT_USAGE_FOR_NS|dlrs|
+  Number of SOQL queries: 4 out of 100
+  Number of query rows: 2 out of 50000
+  Number of SOSL queries: 0 out of 20
+  Number of DML statements: 0 out of 150
+  Number of Publish Immediate DML: 0 out of 150
+  Number of DML rows: 0 out of 10000
+  Maximum CPU time: 0 out of 10000
+  Maximum heap size: 0 out of 6000000
+  Number of callouts: 0 out of 100
+  Number of Email Invocations: 0 out of 10
+  Number of future calls: 0 out of 50
+  Number of queueable jobs added to the queue: 0 out of 50
+  Number of Mobile Apex push calls: 0 out of 10
+
+02:02:40.575 (3575486804)|CUMULATIVE_LIMIT_USAGE_END
+
+02:02:40.92 (3575644085)|CODE_UNIT_FINISHED|SM_ContractTrigger on Contract trigger event BeforeUpdate|__sfdc_trigger/SM_ContractTrigger
+02:02:40.92 (3576887745)|CODE_UNIT_STARTED|[EXTERNAL]|01qUU000006wHpq|dlrs_ContractTrigger on Contract trigger event BeforeUpdate|__sfdc_trigger/dlrs_ContractTrigger
+02:02:40.577 (3577979854)|CUMULATIVE_LIMIT_USAGE
+02:02:40.577 (3577979854)|LIMIT_USAGE_FOR_NS|(default)|
+  Number of SOQL queries: 4 out of 100
+  Number of query rows: 163 out of 50000
+  Number of SOSL queries: 0 out of 20
+  Number of DML statements: 5 out of 150
+  Number of Publish Immediate DML: 0 out of 150
+  Number of DML rows: 12 out of 10000
+  Maximum CPU time: 276 out of 10000
+  Maximum heap size: 0 out of 6000000
+  Number of callouts: 6 out of 100
+  Number of Email Invocations: 0 out of 10
+  Number of future calls: 0 out of 50
+  Number of queueable jobs added to the queue: 0 out of 50
+  Number of Mobile Apex push calls: 0 out of 10
+
+02:02:40.577 (3577979854)|LIMIT_USAGE_FOR_NS|chargebeeapps|
+  Number of SOQL queries: 2 out of 100
+  Number of query rows: 1 out of 50000
+  Number of SOSL queries: 0 out of 20
+  Number of DML statements: 1 out of 150
+  Number of Publish Immediate DML: 0 out of 150
+  Number of DML rows: 1 out of 10000
+  Maximum CPU time: 0 out of 10000
+  Maximum heap size: 0 out of 6000000
+  Number of callouts: 0 out of 100
+  Number of Email Invocations: 0 out of 10
+  Number of future calls: 0 out of 50
+  Number of queueable jobs added to the queue: 0 out of 50
+  Number of Mobile Apex push calls: 0 out of 10
+
+02:02:40.577 (3577979854)|LIMIT_USAGE_FOR_NS|dlrs|
+  Number of SOQL queries: 4 out of 100
+  Number of query rows: 2 out of 50000
+  Number of SOSL queries: 0 out of 20
+  Number of DML statements: 0 out of 150
+  Number of Publish Immediate DML: 0 out of 150
+  Number of DML rows: 0 out of 10000
+  Maximum CPU time: 0 out of 10000
+  Maximum heap size: 0 out of 6000000
+  Number of callouts: 0 out of 100
+  Number of Email Invocations: 0 out of 10
+  Number of future calls: 0 out of 50
+  Number of queueable jobs added to the queue: 0 out of 50
+  Number of Mobile Apex push calls: 0 out of 10
+
+02:02:40.577 (3577979854)|CUMULATIVE_LIMIT_USAGE_END
+
+02:02:40.92 (3578060324)|CODE_UNIT_FINISHED|dlrs_ContractTrigger on Contract trigger event BeforeUpdate|__sfdc_trigger/dlrs_ContractTrigger
+02:02:40.92 (3637531645)|CODE_UNIT_STARTED|[EXTERNAL]|Validation:Contract:800UU00000MIxpu
+02:02:40.92 (3644194029)|CODE_UNIT_FINISHED|Validation:Contract:800UU00000MIxpu
+02:02:40.92 (3654275820)|CODE_UNIT_STARTED|[EXTERNAL]|01q1U000001e9g3|SM_ContractTrigger on Contract trigger event AfterUpdate|__sfdc_trigger/SM_ContractTrigger
+02:02:40.656 (3656596549)|CUMULATIVE_LIMIT_USAGE
+02:02:40.656 (3656596549)|LIMIT_USAGE_FOR_NS|(default)|
+  Number of SOQL queries: 4 out of 100
+  Number of query rows: 164 out of 50000
+  Number of SOSL queries: 0 out of 20
+  Number of DML statements: 5 out of 150
+  Number of Publish Immediate DML: 0 out of 150
+  Number of DML rows: 12 out of 10000
+  Maximum CPU time: 276 out of 10000
+  Maximum heap size: 0 out of 6000000
+  Number of callouts: 6 out of 100
+  Number of Email Invocations: 0 out of 10
+  Number of future calls: 0 out of 50
+  Number of queueable jobs added to the queue: 0 out of 50
+  Number of Mobile Apex push calls: 0 out of 10
+
+02:02:40.656 (3656596549)|LIMIT_USAGE_FOR_NS|chargebeeapps|
+  Number of SOQL queries: 2 out of 100
+  Number of query rows: 1 out of 50000
+  Number of SOSL queries: 0 out of 20
+  Number of DML statements: 1 out of 150
+  Number of Publish Immediate DML: 0 out of 150
+  Number of DML rows: 1 out of 10000
+  Maximum CPU time: 0 out of 10000
+  Maximum heap size: 0 out of 6000000
+  Number of callouts: 0 out of 100
+  Number of Email Invocations: 0 out of 10
+  Number of future calls: 0 out of 50
+  Number of queueable jobs added to the queue: 0 out of 50
+  Number of Mobile Apex push calls: 0 out of 10
+
+02:02:40.656 (3656596549)|LIMIT_USAGE_FOR_NS|dlrs|
+  Number of SOQL queries: 4 out of 100
+  Number of query rows: 2 out of 50000
+  Number of SOSL queries: 0 out of 20
+  Number of DML statements: 0 out of 150
+  Number of Publish Immediate DML: 0 out of 150
+  Number of DML rows: 0 out of 10000
+  Maximum CPU time: 0 out of 10000
+  Maximum heap size: 0 out of 6000000
+  Number of callouts: 0 out of 100
+  Number of Email Invocations: 0 out of 10
+  Number of future calls: 0 out of 50
+  Number of queueable jobs added to the queue: 0 out of 50
+  Number of Mobile Apex push calls: 0 out of 10
+
+02:02:40.656 (3656596549)|CUMULATIVE_LIMIT_USAGE_END
+
+02:02:40.92 (3656771480)|CODE_UNIT_FINISHED|SM_ContractTrigger on Contract trigger event AfterUpdate|__sfdc_trigger/SM_ContractTrigger
+02:02:40.92 (3657087683)|CODE_UNIT_STARTED|[EXTERNAL]|01qUU000006wHpq|dlrs_ContractTrigger on Contract trigger event AfterUpdate|__sfdc_trigger/dlrs_ContractTrigger
+02:02:40.663 (3663821228)|CUMULATIVE_LIMIT_USAGE
+02:02:40.663 (3663821228)|LIMIT_USAGE_FOR_NS|(default)|
+  Number of SOQL queries: 4 out of 100
+  Number of query rows: 164 out of 50000
+  Number of SOSL queries: 0 out of 20
+  Number of DML statements: 5 out of 150
+  Number of Publish Immediate DML: 0 out of 150
+  Number of DML rows: 12 out of 10000
+  Maximum CPU time: 276 out of 10000
+  Maximum heap size: 0 out of 6000000
+  Number of callouts: 6 out of 100
+  Number of Email Invocations: 0 out of 10
+  Number of future calls: 0 out of 50
+  Number of queueable jobs added to the queue: 0 out of 50
+  Number of Mobile Apex push calls: 0 out of 10
+
+02:02:40.663 (3663821228)|LIMIT_USAGE_FOR_NS|chargebeeapps|
+  Number of SOQL queries: 2 out of 100
+  Number of query rows: 1 out of 50000
+  Number of SOSL queries: 0 out of 20
+  Number of DML statements: 1 out of 150
+  Number of Publish Immediate DML: 0 out of 150
+  Number of DML rows: 1 out of 10000
+  Maximum CPU time: 0 out of 10000
+  Maximum heap size: 0 out of 6000000
+  Number of callouts: 0 out of 100
+  Number of Email Invocations: 0 out of 10
+  Number of future calls: 0 out of 50
+  Number of queueable jobs added to the queue: 0 out of 50
+  Number of Mobile Apex push calls: 0 out of 10
+
+02:02:40.663 (3663821228)|LIMIT_USAGE_FOR_NS|dlrs|
+  Number of SOQL queries: 4 out of 100
+  Number of query rows: 2 out of 50000
+  Number of SOSL queries: 0 out of 20
+  Number of DML statements: 0 out of 150
+  Number of Publish Immediate DML: 0 out of 150
+  Number of DML rows: 0 out of 10000
+  Maximum CPU time: 0 out of 10000
+  Maximum heap size: 0 out of 6000000
+  Number of callouts: 0 out of 100
+  Number of Email Invocations: 0 out of 10
+  Number of future calls: 0 out of 50
+  Number of queueable jobs added to the queue: 0 out of 50
+  Number of Mobile Apex push calls: 0 out of 10
+
+02:02:40.663 (3663821228)|CUMULATIVE_LIMIT_USAGE_END
+
+02:02:40.92 (3663963499)|CODE_UNIT_FINISHED|dlrs_ContractTrigger on Contract trigger event AfterUpdate|__sfdc_trigger/dlrs_ContractTrigger
+02:02:40.92 (3665042427)|CODE_UNIT_STARTED|[EXTERNAL]|Workflow:Contract
+02:02:40.92 (3735239015)|CODE_UNIT_FINISHED|Workflow:Contract
+02:02:40.92 (3735356896)|CODE_UNIT_STARTED|[EXTERNAL]|Flow:Contract
+02:02:40.92 (3737871206)|CODE_UNIT_FINISHED|Flow:Contract
+02:02:40.92 (3737935157)|CODE_UNIT_STARTED|[EXTERNAL]|Flow:Contract
+02:02:40.92 (3738225859)|CODE_UNIT_FINISHED|Flow:Contract
+02:02:40.92 (3739674031)|USER_DEBUG|[32]|DEBUG|Executing enableValidationRules: SM_Bypasser__c:{Id=a201U000000sM7PQAU, IsDeleted=false, Name=Bypasser (Profile), SetupOwnerId=00e1U000001XfCgQAK, CreatedDate=2021-04-21 02:07:03, CreatedById=0051U0000089GwCQAU, LastModifiedDate=2026-09-26 00:02:40, LastModifiedById=0051U000007bbx5QAA, SystemModstamp=2026-09-26 00:02:40, SM_Disable_Validation_Rules__c=true}
+02:02:40.92 (3748685353)|USER_DEBUG|[510]|DEBUG|rs: [{"id":"800UU00000MIxpuYAD","success":true,"errors":[]}]
+02:02:40.768 (3768950947)|CUMULATIVE_LIMIT_USAGE
+02:02:40.768 (3768950947)|LIMIT_USAGE_FOR_NS|(default)|
+  Number of SOQL queries: 5 out of 100
+  Number of query rows: 165 out of 50000
+  Number of SOSL queries: 0 out of 20
+  Number of DML statements: 6 out of 150
+  Number of Publish Immediate DML: 0 out of 150
+  Number of DML rows: 13 out of 10000
+  Maximum CPU time: 332 out of 10000
+  Maximum heap size: 0 out of 6000000
+  Number of callouts: 6 out of 100
+  Number of Email Invocations: 0 out of 10
+  Number of future calls: 0 out of 50
+  Number of queueable jobs added to the queue: 0 out of 50
+  Number of Mobile Apex push calls: 0 out of 10
+
+02:02:40.768 (3768950947)|LIMIT_USAGE_FOR_NS|chargebeeapps|
+  Number of SOQL queries: 2 out of 100
+  Number of query rows: 1 out of 50000
+  Number of SOSL queries: 0 out of 20
+  Number of DML statements: 1 out of 150
+  Number of Publish Immediate DML: 0 out of 150
+  Number of DML rows: 1 out of 10000
+  Maximum CPU time: 0 out of 10000
+  Maximum heap size: 0 out of 6000000
+  Number of callouts: 0 out of 100
+  Number of Email Invocations: 0 out of 10
+  Number of future calls: 0 out of 50
+  Number of queueable jobs added to the queue: 0 out of 50
+  Number of Mobile Apex push calls: 0 out of 10
+
+02:02:40.768 (3768950947)|LIMIT_USAGE_FOR_NS|dlrs|
+  Number of SOQL queries: 4 out of 100
+  Number of query rows: 2 out of 50000
+  Number of SOSL queries: 0 out of 20
+  Number of DML statements: 0 out of 150
+  Number of Publish Immediate DML: 0 out of 150
+  Number of DML rows: 0 out of 10000
+  Maximum CPU time: 0 out of 10000
+  Maximum heap size: 0 out of 6000000
+  Number of callouts: 0 out of 100
+  Number of Email Invocations: 0 out of 10
+  Number of future calls: 0 out of 50
+  Number of queueable jobs added to the queue: 0 out of 50
+  Number of Mobile Apex push calls: 0 out of 10
+
+02:02:40.768 (3768950947)|CUMULATIVE_LIMIT_USAGE_END
+
+02:02:40.92 (3769142909)|CODE_UNIT_FINISHED|SM_ACHOrderTrigger on SM_ACH_Order trigger event BeforeInsert|__sfdc_trigger/SM_ACHOrderTrigger
+02:02:40.92 (3783908248)|CODE_UNIT_STARTED|[EXTERNAL]|Validation:SM_ACH_Order:new
+02:02:40.92 (3783985498)|CODE_UNIT_FINISHED|Validation:SM_ACH_Order:new
+02:02:40.92 (3784000319)|CODE_UNIT_STARTED|[EXTERNAL]|Validation:SM_ACH_Order:new
+02:02:40.92 (3784020389)|CODE_UNIT_FINISHED|Validation:SM_ACH_Order:new
+02:02:40.92 (3784028229)|CODE_UNIT_STARTED|[EXTERNAL]|Validation:SM_ACH_Order:new
+02:02:40.92 (3784045359)|CODE_UNIT_FINISHED|Validation:SM_ACH_Order:new
+02:02:40.92 (3784052159)|CODE_UNIT_STARTED|[EXTERNAL]|Validation:SM_ACH_Order:new
+02:02:40.92 (3784069109)|CODE_UNIT_FINISHED|Validation:SM_ACH_Order:new
+02:02:40.92 (3815017719)|CODE_UNIT_STARTED|[EXTERNAL]|01q1U000001iMYW|SM_ACHOrderTrigger on SM_ACH_Order trigger event AfterInsert|__sfdc_trigger/SM_ACHOrderTrigger
+02:02:40.92 (3818120445)|USER_DEBUG|[58]|DEBUG|Executing createAssetsFee
+02:02:40.92 (3853807183)|USER_DEBUG|[299]|DEBUG|Ready to execute queueable - SM_UpdateACHOrderInfoQueueable - PaymentCondition
+02:02:40.92 (3853847033)|USER_DEBUG|[306]|DEBUG|Executing setPaymentCondition
+02:02:40.92 (3853881853)|USER_DEBUG|[307]|DEBUG|contractIdByACHOrderId: {a04UU00000HXrF3YAL=800UU00000MIxpuYAD}
+02:02:40.92 (3885122546)|CODE_UNIT_STARTED|[EXTERNAL]|01q1U000001iMYW|SM_ACHOrderTrigger on SM_ACH_Order trigger event BeforeUpdate|__sfdc_trigger/SM_ACHOrderTrigger
+02:02:40.92 (3891282456)|USER_DEBUG|[444]|DEBUG|newRecords: (SM_ACH_Order__c:{Id=a04UU00000HXrF3YAL, IsDeleted=false, Name=ACH-29897, CreatedDate=2026-09-26 00:02:41, CreatedById=0051U000007bbx5QAA, LastModifiedDate=2026-09-26 00:02:41, LastModifiedById=0051U000007bbx5QAA, SystemModstamp=2026-09-26 00:02:41, LastViewedDate=null, LastReferencedDate=null, SM_Contract__c=800UU00000MIxpuYAD, SM_Billing_Email__c=manolo264@gmail.com, SM_Charge_Date__c=null, SM_Failed_AC_Transactions__c=null, SM_Failed_Transactions__c=null, SM_IVU_Municipal_Amount__c=0.00, SM_Id_Salesforce_LCS__c=null, IVU_State_Amount__c=0.00, SM_Next_Transaction_Date__c=2026-09-30 00:00:00, SM_Payment_Count__c=1, SM_Payment_End_Date__c=null, SM_Payment_Frequency__c=Monthly, SM_Payment_Method__c=a10UU00000Es4hhYAB, SM_Payment_Start_Date__c=2026-09-30 00:00:00, SM_Payment_Status__c=Pending, SM_Payment_Stop__c=null, SM_Payment_Type__c=Subscription, SM_Quantity_of_scheduled_fees__c=null, SM_Total__c=79.00, SM_Fee_to_collect__c=1, SM_Payment_Condition__c=Fixed value, SM_Apply_penalty__c=false, SM_Failed_payment__c=null, SM_Is_Migrated__c=false, SM_Migration_Date__c=null, SM_Penalty_date__c=null, SM_Penalty_value__c=null, SM_User_who_applies_the_penalty__c=null, SM_Approval_status__c=null, SM_Reason_to_approve_exoneration__c=null, Total_Amount__c=79.00, SM_Bank__c=COOP DE AHORRA Y CREDITO AIBONITENA, SM_DaystocollectPrincipalpayment__c=null, SM_FinalStatus__c=PENDING, SM_last_update_date_transmitted__c=null, SM_Date_ACH_Transmitted__c=null, SM_IsApplyingDaysCollectedPenalty__c=false, SM_Apply_Discount__c=false, SM_Discount_Applies_Date__c=null, Discount_Original_Subtotal__c=null, SM_Discount_Percentage__c=null, SM_Discount_Reason__c=null, SM_Discount_Status__c=null, SM_Discount_Type__c=null, SM_Discount_Value_Afer__c=0.00, SM_Discount_Value__c=null, SM_User_Who_Request_Discount__c=null, SM_User_Who_Applies_Discount__c=null, Invoice__c=null, SM_Original_Type__c=null, Payment_Catery__c=NONE, Order_To_Be_Collected__c=4, SM_PTP_Montly__c=null, Is_PTP__c=true, User_Who_Approve_Discount__c=null, Discount_Value_Afer_Discount_IVU__c=0.00, Discount_Original_Total__c=null, ACH_Tax__c=0.00, SM_Fee_CB_Invoice__c=null, SM_LPF_CB_Invoice__c=null})
+02:02:40.901 (3901433758)|CUMULATIVE_LIMIT_USAGE
+02:02:40.901 (3901433758)|LIMIT_USAGE_FOR_NS|(default)|
+  Number of SOQL queries: 10 out of 100
+  Number of query rows: 171 out of 50000
+  Number of SOSL queries: 0 out of 20
+  Number of DML statements: 7 out of 150
+  Number of Publish Immediate DML: 0 out of 150
+  Number of DML rows: 14 out of 10000
+  Maximum CPU time: 332 out of 10000
+  Maximum heap size: 0 out of 6000000
+  Number of callouts: 6 out of 100
+  Number of Email Invocations: 0 out of 10
+  Number of future calls: 0 out of 50
+  Number of queueable jobs added to the queue: 0 out of 50
+  Number of Mobile Apex push calls: 0 out of 10
+
+02:02:40.901 (3901433758)|LIMIT_USAGE_FOR_NS|chargebeeapps|
+  Number of SOQL queries: 2 out of 100
+  Number of query rows: 1 out of 50000
+  Number of SOSL queries: 0 out of 20
+  Number of DML statements: 1 out of 150
+  Number of Publish Immediate DML: 0 out of 150
+  Number of DML rows: 1 out of 10000
+  Maximum CPU time: 0 out of 10000
+  Maximum heap size: 0 out of 6000000
+  Number of callouts: 0 out of 100
+  Number of Email Invocations: 0 out of 10
+  Number of future calls: 0 out of 50
+  Number of queueable jobs added to the queue: 0 out of 50
+  Number of Mobile Apex push calls: 0 out of 10
+
+02:02:40.901 (3901433758)|LIMIT_USAGE_FOR_NS|dlrs|
+  Number of SOQL queries: 4 out of 100
+  Number of query rows: 2 out of 50000
+  Number of SOSL queries: 0 out of 20
+  Number of DML statements: 0 out of 150
+  Number of Publish Immediate DML: 0 out of 150
+  Number of DML rows: 0 out of 10000
+  Maximum CPU time: 0 out of 10000
+  Maximum heap size: 0 out of 6000000
+  Number of callouts: 0 out of 100
+  Number of Email Invocations: 0 out of 10
+  Number of future calls: 0 out of 50
+  Number of queueable jobs added to the queue: 0 out of 50
+  Number of Mobile Apex push calls: 0 out of 10
+
+02:02:40.901 (3901433758)|CUMULATIVE_LIMIT_USAGE_END
+
+02:02:40.92 (3901690980)|CODE_UNIT_FINISHED|SM_ACHOrderTrigger on SM_ACH_Order trigger event BeforeUpdate|__sfdc_trigger/SM_ACHOrderTrigger
+02:02:40.92 (3903408074)|CODE_UNIT_STARTED|[EXTERNAL]|Validation:SM_ACH_Order:a04UU00000HXrF3
+02:02:40.92 (3903469805)|CODE_UNIT_FINISHED|Validation:SM_ACH_Order:a04UU00000HXrF3
+02:02:40.92 (3908919709)|CODE_UNIT_STARTED|[EXTERNAL]|01q1U000001iMYW|SM_ACHOrderTrigger on SM_ACH_Order trigger event AfterUpdate|__sfdc_trigger/SM_ACHOrderTrigger
+02:02:40.918 (3918295264)|CUMULATIVE_LIMIT_USAGE
+02:02:40.918 (3918295264)|LIMIT_USAGE_FOR_NS|(default)|
+  Number of SOQL queries: 11 out of 100
+  Number of query rows: 172 out of 50000
+  Number of SOSL queries: 0 out of 20
+  Number of DML statements: 7 out of 150
+  Number of Publish Immediate DML: 0 out of 150
+  Number of DML rows: 14 out of 10000
+  Maximum CPU time: 332 out of 10000
+  Maximum heap size: 0 out of 6000000
+  Number of callouts: 6 out of 100
+  Number of Email Invocations: 0 out of 10
+  Number of future calls: 0 out of 50
+  Number of queueable jobs added to the queue: 0 out of 50
+  Number of Mobile Apex push calls: 0 out of 10
+
+02:02:40.918 (3918295264)|LIMIT_USAGE_FOR_NS|chargebeeapps|
+  Number of SOQL queries: 2 out of 100
+  Number of query rows: 1 out of 50000
+  Number of SOSL queries: 0 out of 20
+  Number of DML statements: 1 out of 150
+  Number of Publish Immediate DML: 0 out of 150
+  Number of DML rows: 1 out of 10000
+  Maximum CPU time: 0 out of 10000
+  Maximum heap size: 0 out of 6000000
+  Number of callouts: 0 out of 100
+  Number of Email Invocations: 0 out of 10
+  Number of future calls: 0 out of 50
+  Number of queueable jobs added to the queue: 0 out of 50
+  Number of Mobile Apex push calls: 0 out of 10
+
+02:02:40.918 (3918295264)|LIMIT_USAGE_FOR_NS|dlrs|
+  Number of SOQL queries: 4 out of 100
+  Number of query rows: 2 out of 50000
+  Number of SOSL queries: 0 out of 20
+  Number of DML statements: 0 out of 150
+  Number of Publish Immediate DML: 0 out of 150
+  Number of DML rows: 0 out of 10000
+  Maximum CPU time: 0 out of 10000
+  Maximum heap size: 0 out of 6000000
+  Number of callouts: 0 out of 100
+  Number of Email Invocations: 0 out of 10
+  Number of future calls: 0 out of 50
+  Number of queueable jobs added to the queue: 0 out of 50
+  Number of Mobile Apex push calls: 0 out of 10
+
+02:02:40.918 (3918295264)|CUMULATIVE_LIMIT_USAGE_END
+
+02:02:40.92 (3918433685)|CODE_UNIT_FINISHED|SM_ACHOrderTrigger on SM_ACH_Order trigger event AfterUpdate|__sfdc_trigger/SM_ACHOrderTrigger
+02:02:40.92 (3920461862)|USER_DEBUG|[332]|DEBUG|sr: [{"id":"a04UU00000HXrF3YAL","success":true,"errors":[]}]
+02:02:40.92 (3933582557)|CODE_UNIT_STARTED|[EXTERNAL]|Flow:Contract
+02:02:40.92 (3937140176)|CODE_UNIT_FINISHED|Flow:Contract
+02:02:40.92 (3937627270)|CODE_UNIT_STARTED|[EXTERNAL]|01q1U000001e9g3|SM_ContractTrigger on Contract trigger event BeforeUpdate|__sfdc_trigger/SM_ContractTrigger
+02:02:40.939 (3939606046)|CUMULATIVE_LIMIT_USAGE
+02:02:40.939 (3939606046)|LIMIT_USAGE_FOR_NS|(default)|
+  Number of SOQL queries: 12 out of 100
+  Number of query rows: 324 out of 50000
+  Number of SOSL queries: 0 out of 20
+  Number of DML statements: 8 out of 150
+  Number of Publish Immediate DML: 0 out of 150
+  Number of DML rows: 15 out of 10000
+  Maximum CPU time: 412 out of 10000
+  Maximum heap size: 0 out of 6000000
+  Number of callouts: 6 out of 100
+  Number of Email Invocations: 0 out of 10
+  Number of future calls: 0 out of 50
+  Number of queueable jobs added to the queue: 0 out of 50
+  Number of Mobile Apex push calls: 0 out of 10
+
+02:02:40.939 (3939606046)|LIMIT_USAGE_FOR_NS|chargebeeapps|
+  Number of SOQL queries: 2 out of 100
+  Number of query rows: 1 out of 50000
+  Number of SOSL queries: 0 out of 20
+  Number of DML statements: 1 out of 150
+  Number of Publish Immediate DML: 0 out of 150
+  Number of DML rows: 1 out of 10000
+  Maximum CPU time: 0 out of 10000
+  Maximum heap size: 0 out of 6000000
+  Number of callouts: 0 out of 100
+  Number of Email Invocations: 0 out of 10
+  Number of future calls: 0 out of 50
+  Number of queueable jobs added to the queue: 0 out of 50
+  Number of Mobile Apex push calls: 0 out of 10
+
+02:02:40.939 (3939606046)|LIMIT_USAGE_FOR_NS|dlrs|
+  Number of SOQL queries: 4 out of 100
+  Number of query rows: 2 out of 50000
+  Number of SOSL queries: 0 out of 20
+  Number of DML statements: 0 out of 150
+  Number of Publish Immediate DML: 0 out of 150
+  Number of DML rows: 0 out of 10000
+  Maximum CPU time: 0 out of 10000
+  Maximum heap size: 0 out of 6000000
+  Number of callouts: 0 out of 100
+  Number of Email Invocations: 0 out of 10
+  Number of future calls: 0 out of 50
+  Number of queueable jobs added to the queue: 0 out of 50
+  Number of Mobile Apex push calls: 0 out of 10
+
+02:02:40.939 (3939606046)|CUMULATIVE_LIMIT_USAGE_END
+
+02:02:40.92 (3939752857)|CODE_UNIT_FINISHED|SM_ContractTrigger on Contract trigger event BeforeUpdate|__sfdc_trigger/SM_ContractTrigger
+02:02:40.92 (3940098070)|CODE_UNIT_STARTED|[EXTERNAL]|01qUU000006wHpq|dlrs_ContractTrigger on Contract trigger event BeforeUpdate|__sfdc_trigger/dlrs_ContractTrigger
+02:02:40.940 (3940998577)|CUMULATIVE_LIMIT_USAGE
+02:02:40.940 (3940998577)|LIMIT_USAGE_FOR_NS|(default)|
+  Number of SOQL queries: 12 out of 100
+  Number of query rows: 324 out of 50000
+  Number of SOSL queries: 0 out of 20
+  Number of DML statements: 8 out of 150
+  Number of Publish Immediate DML: 0 out of 150
+  Number of DML rows: 15 out of 10000
+  Maximum CPU time: 412 out of 10000
+  Maximum heap size: 0 out of 6000000
+  Number of callouts: 6 out of 100
+  Number of Email Invocations: 0 out of 10
+  Number of future calls: 0 out of 50
+  Number of queueable jobs added to the queue: 0 out of 50
+  Number of Mobile Apex push calls: 0 out of 10
+
+02:02:40.940 (3940998577)|LIMIT_USAGE_FOR_NS|chargebeeapps|
+  Number of SOQL queries: 2 out of 100
+  Number of query rows: 1 out of 50000
+  Number of SOSL queries: 0 out of 20
+  Number of DML statements: 1 out of 150
+  Number of Publish Immediate DML: 0 out of 150
+  Number of DML rows: 1 out of 10000
+  Maximum CPU time: 0 out of 10000
+  Maximum heap size: 0 out of 6000000
+  Number of callouts: 0 out of 100
+  Number of Email Invocations: 0 out of 10
+  Number of future calls: 0 out of 50
+  Number of queueable jobs added to the queue: 0 out of 50
+  Number of Mobile Apex push calls: 0 out of 10
+
+02:02:40.940 (3940998577)|LIMIT_USAGE_FOR_NS|dlrs|
+  Number of SOQL queries: 4 out of 100
+  Number of query rows: 2 out of 50000
+  Number of SOSL queries: 0 out of 20
+  Number of DML statements: 0 out of 150
+  Number of Publish Immediate DML: 0 out of 150
+  Number of DML rows: 0 out of 10000
+  Maximum CPU time: 0 out of 10000
+  Maximum heap size: 0 out of 6000000
+  Number of callouts: 0 out of 100
+  Number of Email Invocations: 0 out of 10
+  Number of future calls: 0 out of 50
+  Number of queueable jobs added to the queue: 0 out of 50
+  Number of Mobile Apex push calls: 0 out of 10
+
+02:02:40.940 (3940998577)|CUMULATIVE_LIMIT_USAGE_END
+
+02:02:40.92 (3941074628)|CODE_UNIT_FINISHED|dlrs_ContractTrigger on Contract trigger event BeforeUpdate|__sfdc_trigger/dlrs_ContractTrigger
+02:02:40.92 (3943890541)|CODE_UNIT_STARTED|[EXTERNAL]|Validation:Contract:800UU00000MIxpu
+02:02:40.92 (3947049867)|CODE_UNIT_FINISHED|Validation:Contract:800UU00000MIxpu
+02:02:40.92 (3954755458)|CODE_UNIT_STARTED|[EXTERNAL]|01q1U000001e9g3|SM_ContractTrigger on Contract trigger event AfterUpdate|__sfdc_trigger/SM_ContractTrigger
+02:02:40.956 (3956897126)|CUMULATIVE_LIMIT_USAGE
+02:02:40.956 (3956897126)|LIMIT_USAGE_FOR_NS|(default)|
+  Number of SOQL queries: 12 out of 100
+  Number of query rows: 325 out of 50000
+  Number of SOSL queries: 0 out of 20
+  Number of DML statements: 8 out of 150
+  Number of Publish Immediate DML: 0 out of 150
+  Number of DML rows: 15 out of 10000
+  Maximum CPU time: 412 out of 10000
+  Maximum heap size: 0 out of 6000000
+  Number of callouts: 6 out of 100
+  Number of Email Invocations: 0 out of 10
+  Number of future calls: 0 out of 50
+  Number of queueable jobs added to the queue: 0 out of 50
+  Number of Mobile Apex push calls: 0 out of 10
+
+02:02:40.956 (3956897126)|LIMIT_USAGE_FOR_NS|chargebeeapps|
+  Number of SOQL queries: 2 out of 100
+  Number of query rows: 1 out of 50000
+  Number of SOSL queries: 0 out of 20
+  Number of DML statements: 1 out of 150
+  Number of Publish Immediate DML: 0 out of 150
+  Number of DML rows: 1 out of 10000
+  Maximum CPU time: 0 out of 10000
+  Maximum heap size: 0 out of 6000000
+  Number of callouts: 0 out of 100
+  Number of Email Invocations: 0 out of 10
+  Number of future calls: 0 out of 50
+  Number of queueable jobs added to the queue: 0 out of 50
+  Number of Mobile Apex push calls: 0 out of 10
+
+02:02:40.956 (3956897126)|LIMIT_USAGE_FOR_NS|dlrs|
+  Number of SOQL queries: 4 out of 100
+  Number of query rows: 2 out of 50000
+  Number of SOSL queries: 0 out of 20
+  Number of DML statements: 0 out of 150
+  Number of Publish Immediate DML: 0 out of 150
+  Number of DML rows: 0 out of 10000
+  Maximum CPU time: 0 out of 10000
+  Maximum heap size: 0 out of 6000000
+  Number of callouts: 0 out of 100
+  Number of Email Invocations: 0 out of 10
+  Number of future calls: 0 out of 50
+  Number of queueable jobs added to the queue: 0 out of 50
+  Number of Mobile Apex push calls: 0 out of 10
+
+02:02:40.956 (3956897126)|CUMULATIVE_LIMIT_USAGE_END
+
+02:02:40.92 (3957053767)|CODE_UNIT_FINISHED|SM_ContractTrigger on Contract trigger event AfterUpdate|__sfdc_trigger/SM_ContractTrigger
+02:02:40.92 (3957384349)|CODE_UNIT_STARTED|[EXTERNAL]|01qUU000006wHpq|dlrs_ContractTrigger on Contract trigger event AfterUpdate|__sfdc_trigger/dlrs_ContractTrigger
+02:02:40.962 (3962219159)|CUMULATIVE_LIMIT_USAGE
+02:02:40.962 (3962219159)|LIMIT_USAGE_FOR_NS|(default)|
+  Number of SOQL queries: 12 out of 100
+  Number of query rows: 325 out of 50000
+  Number of SOSL queries: 0 out of 20
+  Number of DML statements: 8 out of 150
+  Number of Publish Immediate DML: 0 out of 150
+  Number of DML rows: 15 out of 10000
+  Maximum CPU time: 412 out of 10000
+  Maximum heap size: 0 out of 6000000
+  Number of callouts: 6 out of 100
+  Number of Email Invocations: 0 out of 10
+  Number of future calls: 0 out of 50
+  Number of queueable jobs added to the queue: 0 out of 50
+  Number of Mobile Apex push calls: 0 out of 10
+
+02:02:40.962 (3962219159)|LIMIT_USAGE_FOR_NS|chargebeeapps|
+  Number of SOQL queries: 2 out of 100
+  Number of query rows: 1 out of 50000
+  Number of SOSL queries: 0 out of 20
+  Number of DML statements: 1 out of 150
+  Number of Publish Immediate DML: 0 out of 150
+  Number of DML rows: 1 out of 10000
+  Maximum CPU time: 0 out of 10000
+  Maximum heap size: 0 out of 6000000
+  Number of callouts: 0 out of 100
+  Number of Email Invocations: 0 out of 10
+  Number of future calls: 0 out of 50
+  Number of queueable jobs added to the queue: 0 out of 50
+  Number of Mobile Apex push calls: 0 out of 10
+
+02:02:40.962 (3962219159)|LIMIT_USAGE_FOR_NS|dlrs|
+  Number of SOQL queries: 4 out of 100
+  Number of query rows: 2 out of 50000
+  Number of SOSL queries: 0 out of 20
+  Number of DML statements: 0 out of 150
+  Number of Publish Immediate DML: 0 out of 150
+  Number of DML rows: 0 out of 10000
+  Maximum CPU time: 0 out of 10000
+  Maximum heap size: 0 out of 6000000
+  Number of callouts: 0 out of 100
+  Number of Email Invocations: 0 out of 10
+  Number of future calls: 0 out of 50
+  Number of queueable jobs added to the queue: 0 out of 50
+  Number of Mobile Apex push calls: 0 out of 10
+
+02:02:40.962 (3962219159)|CUMULATIVE_LIMIT_USAGE_END
+
+02:02:40.92 (3962373810)|CODE_UNIT_FINISHED|dlrs_ContractTrigger on Contract trigger event AfterUpdate|__sfdc_trigger/dlrs_ContractTrigger
+02:02:40.92 (3962514761)|CODE_UNIT_STARTED|[EXTERNAL]|Workflow:Contract
+02:02:40.92 (3983525941)|CODE_UNIT_FINISHED|Workflow:Contract
+02:02:40.92 (3983635422)|CODE_UNIT_STARTED|[EXTERNAL]|Flow:Contract
+02:02:40.92 (3986172423)|CODE_UNIT_FINISHED|Flow:Contract
+02:02:40.92 (3986239723)|CODE_UNIT_STARTED|[EXTERNAL]|Flow:Contract
+02:02:40.92 (3986512525)|CODE_UNIT_FINISHED|Flow:Contract
+02:02:40.92 (3987775636)|USER_DEBUG|[486]|DEBUG|sr: (Database.SaveResult[getErrors=();getId=800UU00000MIxpuYAD;isSuccess=true;])
+02:02:40.92 (3992015559)|CODE_UNIT_STARTED|[EXTERNAL]|01q1U000001iMYW|SM_ACHOrderTrigger on SM_ACH_Order trigger event BeforeUpdate|__sfdc_trigger/SM_ACHOrderTrigger
+02:02:40.92 (3996080232)|USER_DEBUG|[444]|DEBUG|newRecords: (SM_ACH_Order__c:{Id=a04UU00000HXrF3YAL, IsDeleted=false, Name=ACH-29897, CreatedDate=2026-09-26 00:02:41, CreatedById=0051U000007bbx5QAA, LastModifiedDate=2026-09-26 00:02:41, LastModifiedById=0051U000007bbx5QAA, SystemModstamp=2026-09-26 00:02:41, LastViewedDate=null, LastReferencedDate=null, SM_Contract__c=800UU00000MIxpuYAD, SM_Billing_Email__c=manolo264@gmail.com, SM_Charge_Date__c=null, SM_Failed_AC_Transactions__c=null, SM_Failed_Transactions__c=null, SM_IVU_Municipal_Amount__c=0.00, SM_Id_Salesforce_LCS__c=null, IVU_State_Amount__c=0.00, SM_Next_Transaction_Date__c=2026-09-30 00:00:00, SM_Payment_Count__c=1, SM_Payment_End_Date__c=null, SM_Payment_Frequency__c=Monthly, SM_Payment_Method__c=a10UU00000Es4hhYAB, SM_Payment_Start_Date__c=2026-09-30 00:00:00, SM_Payment_Status__c=Pending, SM_Payment_Stop__c=null, SM_Payment_Type__c=Subscription, SM_Quantity_of_scheduled_fees__c=null, SM_Total__c=79.00, SM_Fee_to_collect__c=1, SM_Payment_Condition__c=Fixed value, SM_Apply_penalty__c=false, SM_Failed_payment__c=null, SM_Is_Migrated__c=false, SM_Migration_Date__c=null, SM_Penalty_date__c=null, SM_Penalty_value__c=null, SM_User_who_applies_the_penalty__c=null, SM_Approval_status__c=null, SM_Reason_to_approve_exoneration__c=null, Total_Amount__c=79.00, SM_Bank__c=COOP DE AHORRA Y CREDITO AIBONITENA, SM_DaystocollectPrincipalpayment__c=null, SM_FinalStatus__c=PENDING, SM_last_update_date_transmitted__c=null, SM_Date_ACH_Transmitted__c=null, SM_IsApplyingDaysCollectedPenalty__c=false, SM_Apply_Discount__c=false, SM_Discount_Applies_Date__c=null, Discount_Original_Subtotal__c=null, SM_Discount_Percentage__c=null, SM_Discount_Reason__c=null, SM_Discount_Status__c=null, SM_Discount_Type__c=null, SM_Discount_Value_Afer__c=0.00, SM_Discount_Value__c=null, SM_User_Who_Request_Discount__c=null, SM_User_Who_Applies_Discount__c=null, Invoice__c=null, SM_Original_Type__c=null, Payment_Catery__c=NONE, Order_To_Be_Collected__c=4, SM_PTP_Montly__c=null, Is_PTP__c=true, User_Who_Approve_Discount__c=null, Discount_Value_Afer_Discount_IVU__c=0.00, Discount_Original_Total__c=null, ACH_Tax__c=0.00, SM_Fee_CB_Invoice__c=null, SM_LPF_CB_Invoice__c=null})
+02:02:41.1 (4001587847)|CUMULATIVE_LIMIT_USAGE
+02:02:41.1 (4001587847)|LIMIT_USAGE_FOR_NS|(default)|
+  Number of SOQL queries: 14 out of 100
+  Number of query rows: 327 out of 50000
+  Number of SOSL queries: 0 out of 20
+  Number of DML statements: 9 out of 150
+  Number of Publish Immediate DML: 0 out of 150
+  Number of DML rows: 16 out of 10000
+  Maximum CPU time: 442 out of 10000
+  Maximum heap size: 0 out of 6000000
+  Number of callouts: 6 out of 100
+  Number of Email Invocations: 0 out of 10
+  Number of future calls: 0 out of 50
+  Number of queueable jobs added to the queue: 0 out of 50
+  Number of Mobile Apex push calls: 0 out of 10
+
+02:02:41.1 (4001587847)|LIMIT_USAGE_FOR_NS|chargebeeapps|
+  Number of SOQL queries: 2 out of 100
+  Number of query rows: 1 out of 50000
+  Number of SOSL queries: 0 out of 20
+  Number of DML statements: 1 out of 150
+  Number of Publish Immediate DML: 0 out of 150
+  Number of DML rows: 1 out of 10000
+  Maximum CPU time: 0 out of 10000
+  Maximum heap size: 0 out of 6000000
+  Number of callouts: 0 out of 100
+  Number of Email Invocations: 0 out of 10
+  Number of future calls: 0 out of 50
+  Number of queueable jobs added to the queue: 0 out of 50
+  Number of Mobile Apex push calls: 0 out of 10
+
+02:02:41.1 (4001587847)|LIMIT_USAGE_FOR_NS|dlrs|
+  Number of SOQL queries: 4 out of 100
+  Number of query rows: 2 out of 50000
+  Number of SOSL queries: 0 out of 20
+  Number of DML statements: 0 out of 150
+  Number of Publish Immediate DML: 0 out of 150
+  Number of DML rows: 0 out of 10000
+  Maximum CPU time: 0 out of 10000
+  Maximum heap size: 0 out of 6000000
+  Number of callouts: 0 out of 100
+  Number of Email Invocations: 0 out of 10
+  Number of future calls: 0 out of 50
+  Number of queueable jobs added to the queue: 0 out of 50
+  Number of Mobile Apex push calls: 0 out of 10
+
+02:02:41.1 (4001587847)|CUMULATIVE_LIMIT_USAGE_END
+
+02:02:40.92 (4001824529)|CODE_UNIT_FINISHED|SM_ACHOrderTrigger on SM_ACH_Order trigger event BeforeUpdate|__sfdc_trigger/SM_ACHOrderTrigger
+02:02:40.92 (4003402002)|CODE_UNIT_STARTED|[EXTERNAL]|Validation:SM_ACH_Order:a04UU00000HXrF3
+02:02:40.92 (4003461442)|CODE_UNIT_FINISHED|Validation:SM_ACH_Order:a04UU00000HXrF3
+02:02:40.92 (4008163380)|CODE_UNIT_STARTED|[EXTERNAL]|01q1U000001iMYW|SM_ACHOrderTrigger on SM_ACH_Order trigger event AfterUpdate|__sfdc_trigger/SM_ACHOrderTrigger
+02:02:41.13 (4013849796)|CUMULATIVE_LIMIT_USAGE
+02:02:41.13 (4013849796)|LIMIT_USAGE_FOR_NS|(default)|
+  Number of SOQL queries: 15 out of 100
+  Number of query rows: 328 out of 50000
+  Number of SOSL queries: 0 out of 20
+  Number of DML statements: 9 out of 150
+  Number of Publish Immediate DML: 0 out of 150
+  Number of DML rows: 16 out of 10000
+  Maximum CPU time: 442 out of 10000
+  Maximum heap size: 0 out of 6000000
+  Number of callouts: 6 out of 100
+  Number of Email Invocations: 0 out of 10
+  Number of future calls: 0 out of 50
+  Number of queueable jobs added to the queue: 0 out of 50
+  Number of Mobile Apex push calls: 0 out of 10
+
+02:02:41.13 (4013849796)|LIMIT_USAGE_FOR_NS|chargebeeapps|
+  Number of SOQL queries: 2 out of 100
+  Number of query rows: 1 out of 50000
+  Number of SOSL queries: 0 out of 20
+  Number of DML statements: 1 out of 150
+  Number of Publish Immediate DML: 0 out of 150
+  Number of DML rows: 1 out of 10000
+  Maximum CPU time: 0 out of 10000
+  Maximum heap size: 0 out of 6000000
+  Number of callouts: 0 out of 100
+  Number of Email Invocations: 0 out of 10
+  Number of future calls: 0 out of 50
+  Number of queueable jobs added to the queue: 0 out of 50
+  Number of Mobile Apex push calls: 0 out of 10
+
+02:02:41.13 (4013849796)|LIMIT_USAGE_FOR_NS|dlrs|
+  Number of SOQL queries: 4 out of 100
+  Number of query rows: 2 out of 50000
+  Number of SOSL queries: 0 out of 20
+  Number of DML statements: 0 out of 150
+  Number of Publish Immediate DML: 0 out of 150
+  Number of DML rows: 0 out of 10000
+  Maximum CPU time: 0 out of 10000
+  Maximum heap size: 0 out of 6000000
+  Number of callouts: 0 out of 100
+  Number of Email Invocations: 0 out of 10
+  Number of future calls: 0 out of 50
+  Number of queueable jobs added to the queue: 0 out of 50
+  Number of Mobile Apex push calls: 0 out of 10
+
+02:02:41.13 (4013849796)|CUMULATIVE_LIMIT_USAGE_END
+
+02:02:40.92 (4014009867)|CODE_UNIT_FINISHED|SM_ACHOrderTrigger on SM_ACH_Order trigger event AfterUpdate|__sfdc_trigger/SM_ACHOrderTrigger
+02:02:40.92 (4015412018)|USER_DEBUG|[611]|DEBUG|sr: [{"id":"a04UU00000HXrF3YAL","success":true,"errors":[]}]
+02:02:41.15 (4015449248)|CUMULATIVE_LIMIT_USAGE
+02:02:41.15 (4015449248)|LIMIT_USAGE_FOR_NS|(default)|
+  Number of SOQL queries: 15 out of 100
+  Number of query rows: 328 out of 50000
+  Number of SOSL queries: 0 out of 20
+  Number of DML statements: 9 out of 150
+  Number of Publish Immediate DML: 0 out of 150
+  Number of DML rows: 16 out of 10000
+  Maximum CPU time: 442 out of 10000
+  Maximum heap size: 0 out of 6000000
+  Number of callouts: 6 out of 100
+  Number of Email Invocations: 0 out of 10
+  Number of future calls: 0 out of 50
+  Number of queueable jobs added to the queue: 0 out of 50
+  Number of Mobile Apex push calls: 0 out of 10
+
+02:02:41.15 (4015449248)|LIMIT_USAGE_FOR_NS|chargebeeapps|
+  Number of SOQL queries: 2 out of 100
+  Number of query rows: 1 out of 50000
+  Number of SOSL queries: 0 out of 20
+  Number of DML statements: 1 out of 150
+  Number of Publish Immediate DML: 0 out of 150
+  Number of DML rows: 1 out of 10000
+  Maximum CPU time: 0 out of 10000
+  Maximum heap size: 0 out of 6000000
+  Number of callouts: 0 out of 100
+  Number of Email Invocations: 0 out of 10
+  Number of future calls: 0 out of 50
+  Number of queueable jobs added to the queue: 0 out of 50
+  Number of Mobile Apex push calls: 0 out of 10
+
+02:02:41.15 (4015449248)|LIMIT_USAGE_FOR_NS|dlrs|
+  Number of SOQL queries: 4 out of 100
+  Number of query rows: 2 out of 50000
+  Number of SOSL queries: 0 out of 20
+  Number of DML statements: 0 out of 150
+  Number of Publish Immediate DML: 0 out of 150
+  Number of DML rows: 0 out of 10000
+  Maximum CPU time: 0 out of 10000
+  Maximum heap size: 0 out of 6000000
+  Number of callouts: 0 out of 100
+  Number of Email Invocations: 0 out of 10
+  Number of future calls: 0 out of 50
+  Number of queueable jobs added to the queue: 0 out of 50
+  Number of Mobile Apex push calls: 0 out of 10
+
+02:02:41.15 (4015449248)|CUMULATIVE_LIMIT_USAGE_END
+
+02:02:40.92 (4015542469)|CODE_UNIT_FINISHED|SM_ACHOrderTrigger on SM_ACH_Order trigger event AfterInsert|__sfdc_trigger/SM_ACHOrderTrigger
+02:02:40.92 (4021273166)|CODE_UNIT_STARTED|[EXTERNAL]|Workflow:01I1U000002p7m5
+02:02:40.92 (4021309536)|CODE_UNIT_FINISHED|Workflow:01I1U000002p7m5
+02:02:40.92 (4026121915)|CODE_UNIT_STARTED|[EXTERNAL]|Flow:Contract
+02:02:40.92 (4028110451)|CODE_UNIT_FINISHED|Flow:Contract
+02:02:40.92 (4028497254)|CODE_UNIT_STARTED|[EXTERNAL]|01q1U000001e9g3|SM_ContractTrigger on Contract trigger event BeforeUpdate|__sfdc_trigger/SM_ContractTrigger
+02:02:41.30 (4030614851)|CUMULATIVE_LIMIT_USAGE
+02:02:41.30 (4030614851)|LIMIT_USAGE_FOR_NS|(default)|
+  Number of SOQL queries: 15 out of 100
+  Number of query rows: 329 out of 50000
+  Number of SOSL queries: 0 out of 20
+  Number of DML statements: 9 out of 150
+  Number of Publish Immediate DML: 0 out of 150
+  Number of DML rows: 16 out of 10000
+  Maximum CPU time: 466 out of 10000
+  Maximum heap size: 0 out of 6000000
+  Number of callouts: 6 out of 100
+  Number of Email Invocations: 0 out of 10
+  Number of future calls: 0 out of 50
+  Number of queueable jobs added to the queue: 0 out of 50
+  Number of Mobile Apex push calls: 0 out of 10
+
+02:02:41.30 (4030614851)|LIMIT_USAGE_FOR_NS|chargebeeapps|
+  Number of SOQL queries: 2 out of 100
+  Number of query rows: 1 out of 50000
+  Number of SOSL queries: 0 out of 20
+  Number of DML statements: 1 out of 150
+  Number of Publish Immediate DML: 0 out of 150
+  Number of DML rows: 1 out of 10000
+  Maximum CPU time: 0 out of 10000
+  Maximum heap size: 0 out of 6000000
+  Number of callouts: 0 out of 100
+  Number of Email Invocations: 0 out of 10
+  Number of future calls: 0 out of 50
+  Number of queueable jobs added to the queue: 0 out of 50
+  Number of Mobile Apex push calls: 0 out of 10
+
+02:02:41.30 (4030614851)|LIMIT_USAGE_FOR_NS|dlrs|
+  Number of SOQL queries: 4 out of 100
+  Number of query rows: 2 out of 50000
+  Number of SOSL queries: 0 out of 20
+  Number of DML statements: 0 out of 150
+  Number of Publish Immediate DML: 0 out of 150
+  Number of DML rows: 0 out of 10000
+  Maximum CPU time: 0 out of 10000
+  Maximum heap size: 0 out of 6000000
+  Number of callouts: 0 out of 100
+  Number of Email Invocations: 0 out of 10
+  Number of future calls: 0 out of 50
+  Number of queueable jobs added to the queue: 0 out of 50
+  Number of Mobile Apex push calls: 0 out of 10
+
+02:02:41.30 (4030614851)|CUMULATIVE_LIMIT_USAGE_END
+
+02:02:40.92 (4030757762)|CODE_UNIT_FINISHED|SM_ContractTrigger on Contract trigger event BeforeUpdate|__sfdc_trigger/SM_ContractTrigger
+02:02:40.92 (4031094165)|CODE_UNIT_STARTED|[EXTERNAL]|01qUU000006wHpq|dlrs_ContractTrigger on Contract trigger event BeforeUpdate|__sfdc_trigger/dlrs_ContractTrigger
+02:02:41.31 (4031888381)|CUMULATIVE_LIMIT_USAGE
+02:02:41.31 (4031888381)|LIMIT_USAGE_FOR_NS|(default)|
+  Number of SOQL queries: 15 out of 100
+  Number of query rows: 329 out of 50000
+  Number of SOSL queries: 0 out of 20
+  Number of DML statements: 9 out of 150
+  Number of Publish Immediate DML: 0 out of 150
+  Number of DML rows: 16 out of 10000
+  Maximum CPU time: 466 out of 10000
+  Maximum heap size: 0 out of 6000000
+  Number of callouts: 6 out of 100
+  Number of Email Invocations: 0 out of 10
+  Number of future calls: 0 out of 50
+  Number of queueable jobs added to the queue: 0 out of 50
+  Number of Mobile Apex push calls: 0 out of 10
+
+02:02:41.31 (4031888381)|LIMIT_USAGE_FOR_NS|chargebeeapps|
+  Number of SOQL queries: 2 out of 100
+  Number of query rows: 1 out of 50000
+  Number of SOSL queries: 0 out of 20
+  Number of DML statements: 1 out of 150
+  Number of Publish Immediate DML: 0 out of 150
+  Number of DML rows: 1 out of 10000
+  Maximum CPU time: 0 out of 10000
+  Maximum heap size: 0 out of 6000000
+  Number of callouts: 0 out of 100
+  Number of Email Invocations: 0 out of 10
+  Number of future calls: 0 out of 50
+  Number of queueable jobs added to the queue: 0 out of 50
+  Number of Mobile Apex push calls: 0 out of 10
+
+02:02:41.31 (4031888381)|LIMIT_USAGE_FOR_NS|dlrs|
+  Number of SOQL queries: 4 out of 100
+  Number of query rows: 2 out of 50000
+  Number of SOSL queries: 0 out of 20
+  Number of DML statements: 0 out of 150
+  Number of Publish Immediate DML: 0 out of 150
+  Number of DML rows: 0 out of 10000
+  Maximum CPU time: 0 out of 10000
+  Maximum heap size: 0 out of 6000000
+  Number of callouts: 0 out of 100
+  Number of Email Invocations: 0 out of 10
+  Number of future calls: 0 out of 50
+  Number of queueable jobs added to the queue: 0 out of 50
+  Number of Mobile Apex push calls: 0 out of 10
+
+02:02:41.31 (4031888381)|CUMULATIVE_LIMIT_USAGE_END
+
+02:02:40.92 (4031964932)|CODE_UNIT_FINISHED|dlrs_ContractTrigger on Contract trigger event BeforeUpdate|__sfdc_trigger/dlrs_ContractTrigger
+02:02:40.92 (4034713024)|CODE_UNIT_STARTED|[EXTERNAL]|Validation:Contract:800UU00000MIxpu
+02:02:40.92 (4034991496)|CODE_UNIT_FINISHED|Validation:Contract:800UU00000MIxpu
+02:02:40.92 (4045164889)|CODE_UNIT_STARTED|[EXTERNAL]|01q1U000001e9g3|SM_ContractTrigger on Contract trigger event AfterUpdate|__sfdc_trigger/SM_ContractTrigger
+02:02:41.46 (4046990334)|CUMULATIVE_LIMIT_USAGE
+02:02:41.46 (4046990334)|LIMIT_USAGE_FOR_NS|(default)|
+  Number of SOQL queries: 15 out of 100
+  Number of query rows: 330 out of 50000
+  Number of SOSL queries: 0 out of 20
+  Number of DML statements: 9 out of 150
+  Number of Publish Immediate DML: 0 out of 150
+  Number of DML rows: 16 out of 10000
+  Maximum CPU time: 466 out of 10000
+  Maximum heap size: 0 out of 6000000
+  Number of callouts: 6 out of 100
+  Number of Email Invocations: 0 out of 10
+  Number of future calls: 0 out of 50
+  Number of queueable jobs added to the queue: 0 out of 50
+  Number of Mobile Apex push calls: 0 out of 10
+
+02:02:41.46 (4046990334)|LIMIT_USAGE_FOR_NS|chargebeeapps|
+  Number of SOQL queries: 2 out of 100
+  Number of query rows: 1 out of 50000
+  Number of SOSL queries: 0 out of 20
+  Number of DML statements: 1 out of 150
+  Number of Publish Immediate DML: 0 out of 150
+  Number of DML rows: 1 out of 10000
+  Maximum CPU time: 0 out of 10000
+  Maximum heap size: 0 out of 6000000
+  Number of callouts: 0 out of 100
+  Number of Email Invocations: 0 out of 10
+  Number of future calls: 0 out of 50
+  Number of queueable jobs added to the queue: 0 out of 50
+  Number of Mobile Apex push calls: 0 out of 10
+
+02:02:41.46 (4046990334)|LIMIT_USAGE_FOR_NS|dlrs|
+  Number of SOQL queries: 4 out of 100
+  Number of query rows: 2 out of 50000
+  Number of SOSL queries: 0 out of 20
+  Number of DML statements: 0 out of 150
+  Number of Publish Immediate DML: 0 out of 150
+  Number of DML rows: 0 out of 10000
+  Maximum CPU time: 0 out of 10000
+  Maximum heap size: 0 out of 6000000
+  Number of callouts: 0 out of 100
+  Number of Email Invocations: 0 out of 10
+  Number of future calls: 0 out of 50
+  Number of queueable jobs added to the queue: 0 out of 50
+  Number of Mobile Apex push calls: 0 out of 10
+
+02:02:41.46 (4046990334)|CUMULATIVE_LIMIT_USAGE_END
+
+02:02:40.92 (4047099235)|CODE_UNIT_FINISHED|SM_ContractTrigger on Contract trigger event AfterUpdate|__sfdc_trigger/SM_ContractTrigger
+02:02:40.92 (4047374897)|CODE_UNIT_STARTED|[EXTERNAL]|01qUU000006wHpq|dlrs_ContractTrigger on Contract trigger event AfterUpdate|__sfdc_trigger/dlrs_ContractTrigger
+02:02:41.50 (4050678434)|CUMULATIVE_LIMIT_USAGE
+02:02:41.50 (4050678434)|LIMIT_USAGE_FOR_NS|(default)|
+  Number of SOQL queries: 15 out of 100
+  Number of query rows: 330 out of 50000
+  Number of SOSL queries: 0 out of 20
+  Number of DML statements: 9 out of 150
+  Number of Publish Immediate DML: 0 out of 150
+  Number of DML rows: 16 out of 10000
+  Maximum CPU time: 466 out of 10000
+  Maximum heap size: 0 out of 6000000
+  Number of callouts: 6 out of 100
+  Number of Email Invocations: 0 out of 10
+  Number of future calls: 0 out of 50
+  Number of queueable jobs added to the queue: 0 out of 50
+  Number of Mobile Apex push calls: 0 out of 10
+
+02:02:41.50 (4050678434)|LIMIT_USAGE_FOR_NS|chargebeeapps|
+  Number of SOQL queries: 2 out of 100
+  Number of query rows: 1 out of 50000
+  Number of SOSL queries: 0 out of 20
+  Number of DML statements: 1 out of 150
+  Number of Publish Immediate DML: 0 out of 150
+  Number of DML rows: 1 out of 10000
+  Maximum CPU time: 0 out of 10000
+  Maximum heap size: 0 out of 6000000
+  Number of callouts: 0 out of 100
+  Number of Email Invocations: 0 out of 10
+  Number of future calls: 0 out of 50
+  Number of queueable jobs added to the queue: 0 out of 50
+  Number of Mobile Apex push calls: 0 out of 10
+
+02:02:41.50 (4050678434)|LIMIT_USAGE_FOR_NS|dlrs|
+  Number of SOQL queries: 4 out of 100
+  Number of query rows: 2 out of 50000
+  Number of SOSL queries: 0 out of 20
+  Number of DML statements: 0 out of 150
+  Number of Publish Immediate DML: 0 out of 150
+  Number of DML rows: 0 out of 10000
+  Maximum CPU time: 0 out of 10000
+  Maximum heap size: 0 out of 6000000
+  Number of callouts: 0 out of 100
+  Number of Email Invocations: 0 out of 10
+  Number of future calls: 0 out of 50
+  Number of queueable jobs added to the queue: 0 out of 50
+  Number of Mobile Apex push calls: 0 out of 10
+
+02:02:41.50 (4050678434)|CUMULATIVE_LIMIT_USAGE_END
+
+02:02:40.92 (4050771895)|CODE_UNIT_FINISHED|dlrs_ContractTrigger on Contract trigger event AfterUpdate|__sfdc_trigger/dlrs_ContractTrigger
+02:02:40.92 (4050876396)|CODE_UNIT_STARTED|[EXTERNAL]|Workflow:Contract
+02:02:40.92 (4069108923)|CODE_UNIT_FINISHED|Workflow:Contract
+02:02:40.92 (4069186143)|CODE_UNIT_STARTED|[EXTERNAL]|Flow:Contract
+02:02:40.92 (4070246192)|CODE_UNIT_FINISHED|Flow:Contract
+02:02:40.92 (4070300382)|CODE_UNIT_STARTED|[EXTERNAL]|Flow:Contract
+02:02:40.92 (4070498494)|CODE_UNIT_FINISHED|Flow:Contract
+02:02:40.92 (4073272577)|USER_DEBUG|[154]|DEBUG|✔️ DML OK [ACH Order insert] Id=a04UU00000HXrF3YAL
+02:02:40.92 (4073298337)|USER_DEBUG|[154]|DEBUG|✔️ DML OK [ACH Order insert] Id=a04UU00000HXrF4YAL
+02:02:40.92 (4073308187)|USER_DEBUG|[154]|DEBUG|✔️ DML OK [ACH Order insert] Id=a04UU00000HXrF5YAL
+02:02:40.92 (4073315967)|USER_DEBUG|[154]|DEBUG|✔️ DML OK [ACH Order insert] Id=a04UU00000HXrF6YAL
+02:02:40.92 (4087231779)|CODE_UNIT_STARTED|[EXTERNAL]|01q1U000001mLEb|SM_TaskTrigger on Task trigger event BeforeInsert|__sfdc_trigger/SM_TaskTrigger
+02:02:41.111 (4111646996)|CUMULATIVE_LIMIT_USAGE
+02:02:41.111 (4111646996)|LIMIT_USAGE_FOR_NS|(default)|
+  Number of SOQL queries: 15 out of 100
+  Number of query rows: 405 out of 50000
+  Number of SOSL queries: 0 out of 20
+  Number of DML statements: 10 out of 150
+  Number of Publish Immediate DML: 0 out of 150
+  Number of DML rows: 17 out of 10000
+  Maximum CPU time: 495 out of 10000
+  Maximum heap size: 0 out of 6000000
+  Number of callouts: 6 out of 100
+  Number of Email Invocations: 0 out of 10
+  Number of future calls: 0 out of 50
+  Number of queueable jobs added to the queue: 0 out of 50
+  Number of Mobile Apex push calls: 0 out of 10
+
+02:02:41.111 (4111646996)|LIMIT_USAGE_FOR_NS|chargebeeapps|
+  Number of SOQL queries: 2 out of 100
+  Number of query rows: 1 out of 50000
+  Number of SOSL queries: 0 out of 20
+  Number of DML statements: 1 out of 150
+  Number of Publish Immediate DML: 0 out of 150
+  Number of DML rows: 1 out of 10000
+  Maximum CPU time: 0 out of 10000
+  Maximum heap size: 0 out of 6000000
+  Number of callouts: 0 out of 100
+  Number of Email Invocations: 0 out of 10
+  Number of future calls: 0 out of 50
+  Number of queueable jobs added to the queue: 0 out of 50
+  Number of Mobile Apex push calls: 0 out of 10
+
+02:02:41.111 (4111646996)|LIMIT_USAGE_FOR_NS|dlrs|
+  Number of SOQL queries: 4 out of 100
+  Number of query rows: 2 out of 50000
+  Number of SOSL queries: 0 out of 20
+  Number of DML statements: 0 out of 150
+  Number of Publish Immediate DML: 0 out of 150
+  Number of DML rows: 0 out of 10000
+  Maximum CPU time: 0 out of 10000
+  Maximum heap size: 0 out of 6000000
+  Number of callouts: 0 out of 100
+  Number of Email Invocations: 0 out of 10
+  Number of future calls: 0 out of 50
+  Number of queueable jobs added to the queue: 0 out of 50
+  Number of Mobile Apex push calls: 0 out of 10
+
+02:02:41.111 (4111646996)|CUMULATIVE_LIMIT_USAGE_END
+
+02:02:41.111 (4111858418)|CODE_UNIT_FINISHED|SM_TaskTrigger on Task trigger event BeforeInsert|__sfdc_trigger/SM_TaskTrigger
+02:02:41.111 (4157843940)|CODE_UNIT_STARTED|[EXTERNAL]|01q1U000001mLEb|SM_TaskTrigger on Task trigger event AfterInsert|__sfdc_trigger/SM_TaskTrigger
+02:02:41.111 (4164306012)|USER_DEBUG|[40]|DEBUG|afterInsert: Carlos Lopez
+02:02:41.111 (4171945303)|USER_DEBUG|[41]|DEBUG|afterInsert: (Task:{Id=00TUU00000uq3L02AI, RecordTypeId=0121U00000085XiQAI, WhoId=null, WhatId=800UU00000MIxpuYAD, WhoCount=0, WhatCount=1, Subject=Migración ChargeBee (TC) a ACH, ActivityDate=2026-09-26 00:00:00, Status=Open, Priority=Normal, IsHighPriority=false, OwnerId=0051U000001MRFeQAO, Description=AUTO: TC_to_ACH_Migracion - 9/26/2026
+Se completó el paso de ChargeBee (TC) a ACH del contrato 00314430:
+- Chargebee: Subscription Azqdg3VKpUkw31JWz cancelada + 5 invoice(s) anulados ($287.000 total) - nota "Paso de TC a ACH"
+- ACH: Subscription Order creada ($79.00/mes)
+- ACH: 3 Late Payment Fee creadas ($287.000 total)
+- AC: ya estaba cobrado ($99.00), no se generó orden de AC
+Referencia: Task "Collections-Change Payment Method" de Raiza Montiel (2026-09-25), Type=null, IsDeleted=false, AccountId=001UU00000H21izYAB, IsClosed=false, CreatedDate=2026-09-26 00:02:41, CreatedById=0051U000007bbx5QAA, LastModifiedDate=2026-09-26 00:02:41, LastModifiedById=0051U000007bbx5QAA, SystemModstamp=2026-09-26 00:02:41, IsArchived=false, CallDurationInSeconds=null, CallType=null, CallDisposition=null, CallObject=null, ReminderDateTime=null, IsReminderSet=false, RecurrenceActivityId=null, IsRecurrence=false, RecurrenceStartDateOnly=null, RecurrenceEndDateOnly=null, RecurrenceTimeZoneSidKey=null, RecurrenceType=null, RecurrenceInterval=null, RecurrenceDayOfWeekMask=null, RecurrenceDayOfMonth=null, RecurrenceInstance=null, RecurrenceMonthOfYear=null, RecurrenceRegeneratedType=null, TaskSubtype=Task, CompletedDateTime=null, Five9__Five9SessionId__c=null, Five9__Five9TaskType__c=null, Five9ANI__c=null, Five9AgentExtension__c=null, Five9AgentName__c=null, Five9Agent__c=null, Five9CallType__c=null, Five9Campaign__c=null, Five9DNIS__c=null, Five9HandleTime__c=null, Five9InteractionDuration__c=null, Five9WrapTime__c=null, SM_Description_Filter__c=null, SM_TextAssignedTo__c=null, SM_Id_Salesforce_LCS__c=null, SM_Migration_Date__c=null, SM_Is_Migrated__c=false, Data_Quality_Score__c=60, Data_Quality_Description__c=Missing: Contact/Lead Reference, , Campaign__c=null})
+02:02:41.111 (4172080535)|USER_DEBUG|[56]|DEBUG|executing udpateRelatedObject
+02:02:41.111 (4172375567)|USER_DEBUG|[90]|DEBUG|sr: ()
+02:02:41.172 (4172403027)|CUMULATIVE_LIMIT_USAGE
+02:02:41.172 (4172403027)|LIMIT_USAGE_FOR_NS|(default)|
+  Number of SOQL queries: 15 out of 100
+  Number of query rows: 480 out of 50000
+  Number of SOSL queries: 0 out of 20
+  Number of DML statements: 10 out of 150
+  Number of Publish Immediate DML: 0 out of 150
+  Number of DML rows: 17 out of 10000
+  Maximum CPU time: 495 out of 10000
+  Maximum heap size: 0 out of 6000000
+  Number of callouts: 6 out of 100
+  Number of Email Invocations: 0 out of 10
+  Number of future calls: 0 out of 50
+  Number of queueable jobs added to the queue: 0 out of 50
+  Number of Mobile Apex push calls: 0 out of 10
+
+02:02:41.172 (4172403027)|LIMIT_USAGE_FOR_NS|chargebeeapps|
+  Number of SOQL queries: 2 out of 100
+  Number of query rows: 1 out of 50000
+  Number of SOSL queries: 0 out of 20
+  Number of DML statements: 1 out of 150
+  Number of Publish Immediate DML: 0 out of 150
+  Number of DML rows: 1 out of 10000
+  Maximum CPU time: 0 out of 10000
+  Maximum heap size: 0 out of 6000000
+  Number of callouts: 0 out of 100
+  Number of Email Invocations: 0 out of 10
+  Number of future calls: 0 out of 50
+  Number of queueable jobs added to the queue: 0 out of 50
+  Number of Mobile Apex push calls: 0 out of 10
+
+02:02:41.172 (4172403027)|LIMIT_USAGE_FOR_NS|dlrs|
+  Number of SOQL queries: 4 out of 100
+  Number of query rows: 2 out of 50000
+  Number of SOSL queries: 0 out of 20
+  Number of DML statements: 0 out of 150
+  Number of Publish Immediate DML: 0 out of 150
+  Number of DML rows: 0 out of 10000
+  Maximum CPU time: 0 out of 10000
+  Maximum heap size: 0 out of 6000000
+  Number of callouts: 0 out of 100
+  Number of Email Invocations: 0 out of 10
+  Number of future calls: 0 out of 50
+  Number of queueable jobs added to the queue: 0 out of 50
+  Number of Mobile Apex push calls: 0 out of 10
+
+02:02:41.172 (4172403027)|CUMULATIVE_LIMIT_USAGE_END
+
+02:02:41.111 (4172595159)|CODE_UNIT_FINISHED|SM_TaskTrigger on Task trigger event AfterInsert|__sfdc_trigger/SM_TaskTrigger
+02:02:41.263 (4263046960)|CUMULATIVE_LIMIT_USAGE
+02:02:41.263 (4263046960)|LIMIT_USAGE_FOR_NS|(default)|
+  Number of SOQL queries: 15 out of 100
+  Number of query rows: 480 out of 50000
+  Number of SOSL queries: 0 out of 20
+  Number of DML statements: 10 out of 150
+  Number of Publish Immediate DML: 0 out of 150
+  Number of DML rows: 17 out of 10000
+  Maximum CPU time: 608 out of 10000
+  Maximum heap size: 0 out of 6000000
+  Number of callouts: 6 out of 100
+  Number of Email Invocations: 0 out of 10
+  Number of future calls: 0 out of 50
+  Number of queueable jobs added to the queue: 0 out of 50
+  Number of Mobile Apex push calls: 0 out of 10
+
+02:02:41.263 (4263046960)|LIMIT_USAGE_FOR_NS|chargebeeapps|
+  Number of SOQL queries: 2 out of 100
+  Number of query rows: 1 out of 50000
+  Number of SOSL queries: 0 out of 20
+  Number of DML statements: 1 out of 150
+  Number of Publish Immediate DML: 0 out of 150
+  Number of DML rows: 1 out of 10000
+  Maximum CPU time: 0 out of 10000
+  Maximum heap size: 0 out of 6000000
+  Number of callouts: 0 out of 100
+  Number of Email Invocations: 0 out of 10
+  Number of future calls: 0 out of 50
+  Number of queueable jobs added to the queue: 0 out of 50
+  Number of Mobile Apex push calls: 0 out of 10
+
+02:02:41.263 (4263046960)|LIMIT_USAGE_FOR_NS|dlrs|
+  Number of SOQL queries: 4 out of 100
+  Number of query rows: 2 out of 50000
+  Number of SOSL queries: 0 out of 20
+  Number of DML statements: 0 out of 150
+  Number of Publish Immediate DML: 0 out of 150
+  Number of DML rows: 0 out of 10000
+  Maximum CPU time: 0 out of 10000
+  Maximum heap size: 0 out of 6000000
+  Number of callouts: 0 out of 100
+  Number of Email Invocations: 0 out of 10
+  Number of future calls: 0 out of 50
+  Number of queueable jobs added to the queue: 0 out of 50
+  Number of Mobile Apex push calls: 0 out of 10
+
+02:02:41.263 (4263046960)|LIMIT_USAGE_FOR_NS|rh2|
+  Number of SOQL queries: 2 out of 100
+  Number of query rows: 2 out of 50000
+  Number of SOSL queries: 0 out of 20
+  Number of DML statements: 0 out of 150
+  Number of Publish Immediate DML: 0 out of 150
+  Number of DML rows: 0 out of 10000
+  Maximum CPU time: 0 out of 10000
+  Maximum heap size: 0 out of 6000000
+  Number of callouts: 0 out of 100
+  Number of Email Invocations: 0 out of 10
+  Number of future calls: 0 out of 50
+  Number of queueable jobs added to the queue: 0 out of 50
+  Number of Mobile Apex push calls: 0 out of 10
+
+02:02:41.263 (4263046960)|CUMULATIVE_LIMIT_USAGE_END
+
+02:02:41.111 (4267741128)|USER_DEBUG|[154]|DEBUG|✔️ DML OK [Task insert] Id=00TUU00000uq3L02AI
+02:02:41.111 (4267788349)|USER_DEBUG|[465]|DEBUG|
+✔️ EJECUCIÓN REAL completada -- ver detalle arriba de cada callout/DML.
+02:02:41.301 (4301177028)|CUMULATIVE_LIMIT_USAGE
+02:02:41.301 (4301177028)|LIMIT_USAGE_FOR_NS|(default)|
+  Number of SOQL queries: 15 out of 100
+  Number of query rows: 480 out of 50000
+  Number of SOSL queries: 0 out of 20
+  Number of DML statements: 10 out of 150
+  Number of Publish Immediate DML: 0 out of 150
+  Number of DML rows: 17 out of 10000
+  Maximum CPU time: 608 out of 10000
+  Maximum heap size: 0 out of 6000000
+  Number of callouts: 6 out of 100
+  Number of Email Invocations: 0 out of 10
+  Number of future calls: 0 out of 50
+  Number of queueable jobs added to the queue: 0 out of 50
+  Number of Mobile Apex push calls: 0 out of 10
+
+02:02:41.301 (4301177028)|LIMIT_USAGE_FOR_NS|chargebeeapps|
+  Number of SOQL queries: 2 out of 100
+  Number of query rows: 1 out of 50000
+  Number of SOSL queries: 0 out of 20
+  Number of DML statements: 1 out of 150
+  Number of Publish Immediate DML: 0 out of 150
+  Number of DML rows: 1 out of 10000
+  Maximum CPU time: 0 out of 10000
+  Maximum heap size: 0 out of 6000000
+  Number of callouts: 0 out of 100
+  Number of Email Invocations: 0 out of 10
+  Number of future calls: 0 out of 50
+  Number of queueable jobs added to the queue: 0 out of 50
+  Number of Mobile Apex push calls: 0 out of 10
+
+02:02:41.301 (4301177028)|LIMIT_USAGE_FOR_NS|dlrs|
+  Number of SOQL queries: 4 out of 100
+  Number of query rows: 2 out of 50000
+  Number of SOSL queries: 0 out of 20
+  Number of DML statements: 0 out of 150
+  Number of Publish Immediate DML: 0 out of 150
+  Number of DML rows: 0 out of 10000
+  Maximum CPU time: 0 out of 10000
+  Maximum heap size: 0 out of 6000000
+  Number of callouts: 0 out of 100
+  Number of Email Invocations: 0 out of 10
+  Number of future calls: 0 out of 50
+  Number of queueable jobs added to the queue: 0 out of 50
+  Number of Mobile Apex push calls: 0 out of 10
+
+02:02:41.301 (4301177028)|LIMIT_USAGE_FOR_NS|rh2|
+  Number of SOQL queries: 2 out of 100
+  Number of query rows: 2 out of 50000
+  Number of SOSL queries: 0 out of 20
+  Number of DML statements: 0 out of 150
+  Number of Publish Immediate DML: 0 out of 150
+  Number of DML rows: 0 out of 10000
+  Maximum CPU time: 0 out of 10000
+  Maximum heap size: 0 out of 6000000
+  Number of callouts: 0 out of 100
+  Number of Email Invocations: 0 out of 10
+  Number of future calls: 0 out of 50
+  Number of queueable jobs added to the queue: 0 out of 50
+  Number of Mobile Apex push calls: 0 out of 10
+
+02:02:41.301 (4301177028)|CUMULATIVE_LIMIT_USAGE_END
+
+02:02:41.111 (4301272729)|CODE_UNIT_FINISHED|execute_anonymous_apex
+02:02:41.111 (4301317319)|EXECUTION_FINISHED
+
