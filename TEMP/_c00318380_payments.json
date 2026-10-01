@@ -1,0 +1,30 @@
+{
+  "status": 0,
+  "result": {
+    "records": [
+      {
+        "attributes": {
+          "type": "SM_Payment__c",
+          "url": "/services/data/v67.0/sobjects/SM_Payment__c/a24UU000005KHLwYAO"
+        },
+        "Name": "PY-01895410",
+        "Payment_Status__c": "REJECTED",
+        "SM_Check_Collection_Status__c": "PENDING",
+        "SM_Return_code__c": "R10",
+        "SM_Amount__c": 99,
+        "SM_Transmission_Date_ACH_File__c": "2026-09-03",
+        "SM_Type__c": "AC",
+        "SM_Contract__r": {
+          "attributes": {
+            "type": "Contract",
+            "url": "/services/data/v67.0/sobjects/Contract/800UU00000knUVdYAM"
+          },
+          "Status": "Cancelled"
+        }
+      }
+    ],
+    "totalSize": 1,
+    "done": true
+  },
+  "warnings": []
+}

@@ -7,11 +7,11 @@ Returns (ACH), Collections (Check Collection Daily) o ACH Reportados
      SM_Check_Collection_Status__c / SM_Return_code__c / etc. quedan
      guardados ahi tras cada import, asi que reflejan el ULTIMO evento
      (Returns o Collections) que toco ese payment.
-  2) El indice historico de TODOS los PDFs archivados en OneDrive
+  2) El de TODOS los PDFs archivados en OneDrive
      (COMPILADO COLLECTIONS/ACH Returns y /Check Collection, ver
      build_index.py), asi que encuentra el payment sin importar el mes
      en que fue reportado -- no solo el ultimo import del dia.
-  3) El indice historico de transmision ACH (COMPILADO COLLECTIONS/ACH
+  3) El de transmision ACH (COMPILADO COLLECTIONS/ACH
      Reportados + Files de Salesforce, ver ACH_REPORTADOS/build_index.py),
      que registra cuando un payment fue transmitido (no si fue
      retornado/cobrado).
@@ -179,34 +179,40 @@ def print_result(payment_name: str):
     coll_rows = search_index(COLLECTIONS_INDEX_CSV, payment_name)
     transmission_rows = search_index(TRANSMISSION_INDEX_CSV, payment_name)
 
+    # Orden cronologico real del pipeline (no alfabetico) -- decision explicita
+    # del usuario, 2026-09-30: primero se transmite (ACH Reportados), despues
+    # -si el banco lo devuelve- llega un Return, y despues -cuando se resuelve
+    # de verdad- llega Collections; si nunca llega ningun reporte, se acepta
+    # solo por dias (mark_transmitted_accepted.apex). Transmission va primero
+    # para que el reporte se lea en el mismo orden en que ocurren los eventos.
+    if transmission_rows:
+        print(f"\n  [ACH REPORTADOS (Transmission)] {len(transmission_rows)} coincidencia(s):")
+        for row in transmission_rows:
+            print(f"    - {row.get('SM_Transmission_Date_ACH_File__c')}"
+                  f"  |  Monto: {row.get('Amount')}"
+                  f"  |  Fuente: {row.get('Source_File')}")
+    else:
+        print("\n  [ACH REPORTADOS (Transmission)] no aparece en ningun archivo indexado")
+
     if returns_rows:
-        print(f"\n  [Indice historico RETURNS] {len(returns_rows)} coincidencia(s):")
+        print(f"\n  [RETURNS] {len(returns_rows)} coincidencia(s):")
         for row in returns_rows:
             print(f"    - {row.get('SM_Check_Collection_Date__c')}"
                   f"  |  Codigo: {row.get('SM_Return_code__c')}"
                   f"  |  Motivo: {row.get('Reason_Description')}"
                   f"  |  Fuente: {row.get('Source_File')}")
     else:
-        print("  [Indice historico RETURNS] no aparece en ningun PDF indexado")
+        print("\n  [RETURNS] no aparece en ningun PDF indexado")
 
     if coll_rows:
-        print(f"\n  [Indice historico COLLECTIONS] {len(coll_rows)} coincidencia(s):")
+        print(f"\n  [COLLECTIONS] {len(coll_rows)} coincidencia(s):")
         for row in coll_rows:
             print(f"    - {row.get('SM_Check_Collection_Date__c')}"
                   f"  |  Seccion: {row.get('Section')}"
                   f"  |  Razon: {row.get('Reason')}"
                   f"  |  Fuente: {row.get('Source_File')}")
     else:
-        print("\n  [Indice historico COLLECTIONS] no aparece en ningun PDF indexado")
-
-    if transmission_rows:
-        print(f"\n  [Indice historico ACH REPORTADOS (Transmission)] {len(transmission_rows)} coincidencia(s):")
-        for row in transmission_rows:
-            print(f"    - {row.get('SM_Transmission_Date_ACH_File__c')}"
-                  f"  |  Monto: {row.get('Amount')}"
-                  f"  |  Fuente: {row.get('Source_File')}")
-    else:
-        print("\n  [Indice historico ACH REPORTADOS (Transmission)] no aparece en ningun archivo indexado")
+        print("\n  [COLLECTIONS] no aparece en ningun PDF indexado")
 
     print(f"\n  Historical Collection Status: {historical_status or '(vacio)'}")
 
@@ -225,7 +231,7 @@ def main():
         sys.exit(1)
 
     if update:
-        print("Actualizando indice historico (solo archivos nuevos)...")
+        print("Actualizando (solo archivos nuevos)...")
         build_index.update_indexes(quiet=True)
         try:
             transmission_build_index.update_index(quiet=True)
