@@ -38,7 +38,7 @@ System.debug('\u2192  ⚠ Trigger SM_PaymentTrigger DESACTIVADO temporalmente');
 Id ownerId         = '0051U000001MRFeQAO';
 Id logRecordTypeId = '0121U000000KY48QAG';
 String fileName    = 'Cargue Manual scr';
-Date dateValue     = Date.valueOf('2026-09-25'); //System.today().addDays(-3);
+Date dateValue     = System.today().addDays(-1); // Date.valueOf('2026-09-25'); //
 String dateStr     = dateValue.format(); 
 //DateTime.newInstance(System.today(), Time.newInstance(18,0,0,0)).format('yyyy-MM-dd');
 
@@ -91,7 +91,8 @@ SM_Nacha_File__c nacha = new SM_Nacha_File__c(
     SM_Payments_Transmitidos__c     = cantidad,
     SM_Total_Valor_Transaccione__c  = total,
     SM_Supera_Monto_Diario__c       = false,
-    SM_Retransmision__c             = false
+    SM_Retransmision__c             = false,
+    CreatedDate                     = DateTime.newInstance(dateValue, Time.newInstance(18,0,0,0))
 );
 insert nacha;
 
