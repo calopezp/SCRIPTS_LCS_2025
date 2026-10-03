@@ -1,0 +1,13 @@
+<?xml version="1.0" encoding="UTF-8"?>
+<CustomField xmlns="http://soap.sforce.com/2006/04/metadata">
+    <fullName>SM_Bank_Reference_Number__c</fullName>
+    <description>Identificador(es) unico(s) de la transaccion segun el banco para este payment -- ORIG TRACE NO. del reporte de ACH Returns (tag "RTN:") y/o CHECK NUMBER del reporte de Check Collection (tag "COL:"), separados por " | ". Se COMPLEMENTA, nunca se pisa -- update_ach_returns.apex y update_check_collection.apex agregan su valor sin borrar el que ya haya puesto el otro pipeline (confirmado 2026-10-03). Se llena solo cuando el payment aparece en alguno de esos 2 reportes -- un payment ACCEPTED a la primera, sin rebote, nunca va a tener este campo lleno porque el banco nunca lo reporta por ninguna de esas 2 vias. Permite diferenciar 2 SM_Payment__c que, por un envio ACH duplicado por error, terminan compartiendo el mismo Name en el archivo que le mandamos al banco pero son 2 transacciones reales distintas (caso real 2026-10-03, PY-01907641/00318012).</description>
+    <externalId>false</externalId>
+    <label>Bank Reference Number (Trace/Check)</label>
+    <length>120</length>
+    <required>false</required>
+    <trackHistory>false</trackHistory>
+    <trackTrending>false</trackTrending>
+    <type>Text</type>
+    <unique>false</unique>
+</CustomField>

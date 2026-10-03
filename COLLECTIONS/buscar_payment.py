@@ -45,6 +45,11 @@ SCRIPT_DIR = Path(__file__).resolve().parent
 RETURNS_INDEX_CSV = build_index.RETURNS_INDEX_CSV
 COLLECTIONS_INDEX_CSV = build_index.COLLECTIONS_INDEX_CSV
 TRANSMISSION_INDEX_CSV = transmission_build_index.INDEX_CSV
+# El indice final esta deduplicado a 1 fila por payment (fecha mas reciente) --
+# para no ocultar un posible envio duplicado (2 archivos reales con fecha
+# distinta), la busqueda de un payment puntual lee el log CRUDO completo,
+# no el indice. Ver build_index.py / posibles_duplicados_transmision.csv.
+TRANSMISSION_RAW_LOG_CSV = transmission_build_index.RAW_LOG_CSV
 
 SOQL_FIELDS = [
     "Id", "Name", "Payment_Status__c", "SM_Amount__c",
@@ -158,14 +163,16 @@ def print_result(payment_name: str):
             print(f"    LastModifiedDate                     : {rec.get('LastModifiedDate')}")
             print(f"    CreatedDate                          : {rec.get('CreatedDate')}")
             print(f"    SM_Date_ACH_Transmitted__c           : {rec.get('SM_Date_ACH_Transmitted__c')}")
-            print(f"    SM_Transmission_Date_ACH_File__c     : {rec.get('SM_Transmission_Date_ACH_File__c')}")
+            trx_date = rec.get('SM_Transmission_Date_ACH_File__c')
+            trx_days = days_since(trx_date)
+            trx_suffix = f"   ({trx_days} dias desde trx)" if trx_days is not None else ""
+            print(f"    SM_Transmission_Date_ACH_File__c     : {trx_date}{trx_suffix}")
 
             # Avisos informativos -- solo texto, no cambian nada en Salesforce.
             payment_status = (rec.get("Payment_Status__c") or "").strip()
             if payment_status == "ACH TRANSMITTED":
-                n = days_since(rec.get("SM_Transmission_Date_ACH_File__c"))
-                if n is not None and n >= DAYS_PENDING_ACCEPT:
-                    print(f"    >>> AVISO: Payment pendiente por Aceptar por dias -- transmitido hace {n} dias"
+                if trx_days is not None and trx_days >= DAYS_PENDING_ACCEPT:
+                    print(f"    >>> AVISO: Payment pendiente por Aceptar por dias -- transmitido hace {trx_days} dias"
                           f" (umbral {DAYS_PENDING_ACCEPT}, falta correr mark_transmitted_accepted.apex)")
             if status.upper() == "PENDING":
                 n = days_since(rec.get("SM_Check_Collection_Date__c"))
@@ -177,7 +184,16 @@ def print_result(payment_name: str):
 
     returns_rows = search_index(RETURNS_INDEX_CSV, payment_name)
     coll_rows = search_index(COLLECTIONS_INDEX_CSV, payment_name)
-    transmission_rows = search_index(TRANSMISSION_INDEX_CSV, payment_name)
+    # Del log CRUDO, no del indice deduplicado -- 1 fila por fecha REAL distinta
+    # (ignora copias "_sf_", que son el mismo archivo de OneDrive respaldado en
+    # Salesforce Files, no un envio aparte -- ver build_index.py).
+    transmission_rows_raw = search_index(TRANSMISSION_RAW_LOG_CSV, payment_name)
+    transmission_by_date = {}
+    for row in transmission_rows_raw:
+        d = row.get("SM_Transmission_Date_ACH_File__c")
+        if d not in transmission_by_date or "_sf_" not in row.get("Source_File", ""):
+            transmission_by_date[d] = row
+    transmission_rows = [transmission_by_date[d] for d in sorted(transmission_by_date)]
 
     # Orden cronologico real del pipeline (no alfabetico) -- decision explicita
     # del usuario, 2026-09-30: primero se transmite (ACH Reportados), despues
@@ -191,6 +207,10 @@ def print_result(payment_name: str):
             print(f"    - {row.get('SM_Transmission_Date_ACH_File__c')}"
                   f"  |  Monto: {row.get('Amount')}"
                   f"  |  Fuente: {row.get('Source_File')}")
+        fechas_trx = {row.get("SM_Transmission_Date_ACH_File__c") for row in transmission_rows}
+        if len(fechas_trx) > 1:
+            print(f"    >>> ALERTA: transmitido en {len(fechas_trx)} fechas distintas ({', '.join(sorted(fechas_trx))})"
+                  f" -- posible envio duplicado al banco, revisar si se cobro 2 veces")
     else:
         print("\n  [ACH REPORTADOS (Transmission)] no aparece en ningun archivo indexado")
 

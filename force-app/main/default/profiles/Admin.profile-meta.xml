@@ -6,6 +6,11 @@
         <readable>true</readable>
     </fieldPermissions>
     <fieldPermissions>
+        <editable>true</editable>
+        <field>SM_Payment__c.SM_Bank_Reference_Number__c</field>
+        <readable>true</readable>
+    </fieldPermissions>
+    <fieldPermissions>
         <editable>false</editable>
         <field>Contract.SM_Plan_Months_Whole_Text__c</field>
         <readable>true</readable>

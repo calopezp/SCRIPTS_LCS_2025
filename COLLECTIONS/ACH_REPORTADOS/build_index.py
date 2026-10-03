@@ -59,6 +59,12 @@ RAW_LOG_CSV = INDEX_DIR / "transmission_raw_log.csv"
 DELTA_CSV = INDEX_DIR / "last_run_delta.csv"
 SCANNED_LOG_CSV = INDEX_DIR / "scanned_files_log.csv"
 ARCHIVOS_VIEJOS_CSV = INDEX_DIR / "archivos_viejos_pendientes_confirmacion.csv"
+POSIBLES_DUPLICADOS_CSV = INDEX_DIR / "posibles_duplicados_transmision.csv"
+# Regla de los 6 meses (CLAUDE.md seccion 1, confirmada 2026-10-03): cualquier
+# revision/barrido de historico se limita a 6 meses atras salvo que el usuario
+# pida o confirme mas alcance -- aplica solo a este analisis de duplicados
+# (bulk), NO al indice principal de busqueda por payment individual.
+DUPLICADOS_MAX_AGE_DAYS = 183
 NEW_FILE_MAX_AGE_DAYS = 120  # ~4 meses
 
 SOURCE_DIR = Path(r"C:\OneDrive - LCS\COMPILADO COLLECTIONS\ACH Reportados")
@@ -134,7 +140,7 @@ def _find_files():
 def update_index(rebuild=False, quiet=False):
     INDEX_DIR.mkdir(exist_ok=True)
     if rebuild:
-        for p in (INDEX_CSV, RAW_LOG_CSV, DELTA_CSV, SCANNED_LOG_CSV, ARCHIVOS_VIEJOS_CSV):
+        for p in (INDEX_CSV, RAW_LOG_CSV, DELTA_CSV, SCANNED_LOG_CSV, ARCHIVOS_VIEJOS_CSV, POSIBLES_DUPLICADOS_CSV):
             if p.exists():
                 p.unlink()
 
@@ -247,24 +253,59 @@ def _write_delta(delta_rows, quiet=False):
         for name in sorted(best):
             writer.writerow(best[name])
 
+    fechas_por_payment = {}
+    for row in delta_rows:
+        if "_sf_" not in row["Source_File"]:
+            fechas_por_payment.setdefault(row["Payment_Name"], set()).add(row["SM_Transmission_Date_ACH_File__c"])
+    duplicados_hoy = {n: f for n, f in fechas_por_payment.items() if len(f) > 1}
+
     if not quiet:
         print(f"Delta de esta corrida (para aplicar hoy): {len(best)} payment(s) -> {DELTA_CSV}")
+        if duplicados_hoy:
+            for name, fechas in sorted(duplicados_hoy.items()):
+                print(f"ALERTA: {name} transmitido en {len(fechas)} fechas distintas en esta corrida"
+                      f" ({', '.join(sorted(fechas))}) -- revisar antes de aplicar, ver {POSIBLES_DUPLICADOS_CSV}")
 
 
 def _rebuild_deduped_index(quiet=False):
     """Colapsa transmission_raw_log.csv a un registro por Payment_Name,
-    quedándose con la fecha de transmisión MÁS RECIENTE."""
+    quedándose con la fecha de transmisión MÁS RECIENTE -- esto es correcto
+    cuando el mismo payment aparece repetido por 2 canales del mismo envío
+    (OneDrive + Salesforce Files, misma fecha o con 1 dia de diferencia por
+    el momento de la subida -- ver _sync_salesforce_files, archivos
+    "ACH_<fecha>_sf_<ContentVersionId>.csv"). Pero si aparece en FECHAS
+    DISTINTAS entre archivos REALES (ambos sin el sufijo "_sf_", es decir
+    2 archivos de OneDrive genuinamente distintos), eso ya no es una
+    repeticion del mismo envio por 2 canales -- es un posible envio
+    duplicado real al banco (caso real 2026-10-03: PY-01907644 transmitido
+    en ACH_20260922.csv Y ACH_20260923.csv, 2 archivos reales distintos).
+    Por eso la comparación de fechas solo usa archivos SIN "_sf_" -- las
+    copias de Salesforce Files se ignoran para esta comparación (solo son
+    un respaldo del mismo archivo OneDrive, no una transmisión aparte).
+    Los casos reales encontrados NO se pierden en el colapso: se escriben
+    aparte en POSIBLES_DUPLICADOS_CSV para revisión manual -- nunca se
+    decide solo aquí si fue un cobro doble de verdad."""
     if not RAW_LOG_CSV.exists():
         return
 
+    cutoff = date.today().toordinal() - DUPLICADOS_MAX_AGE_DAYS
+
     best = {}
+    fechas_por_payment = {}
     with RAW_LOG_CSV.open(newline="", encoding="utf-8") as f:
         for row in csv.DictReader(f):
             name = row["Payment_Name"]
-            date = row["SM_Transmission_Date_ACH_File__c"]
+            date_str = row["SM_Transmission_Date_ACH_File__c"]
             current = best.get(name)
-            if current is None or date > current["SM_Transmission_Date_ACH_File__c"]:
+            if current is None or date_str > current["SM_Transmission_Date_ACH_File__c"]:
                 best[name] = row
+            if "_sf_" not in row["Source_File"]:
+                try:
+                    is_recent = date.fromisoformat(date_str).toordinal() >= cutoff
+                except ValueError:
+                    is_recent = False
+                if is_recent:
+                    fechas_por_payment.setdefault(name, set()).add(date_str)
 
     with INDEX_CSV.open("w", newline="", encoding="utf-8") as f:
         writer = csv.DictWriter(f, fieldnames=RAW_FIELDNAMES)
@@ -272,8 +313,19 @@ def _rebuild_deduped_index(quiet=False):
         for name in sorted(best):
             writer.writerow(best[name])
 
+    duplicados = {name: fechas for name, fechas in fechas_por_payment.items() if len(fechas) > 1}
+    with POSIBLES_DUPLICADOS_CSV.open("w", newline="", encoding="utf-8") as f:
+        writer = csv.writer(f)
+        writer.writerow(["Payment_Name", "Fechas_Transmision", "Cantidad_Fechas"])
+        for name in sorted(duplicados):
+            fechas = sorted(duplicados[name])
+            writer.writerow([name, ", ".join(fechas), len(fechas)])
+
     if not quiet:
         print(f"Índice final (deduplicado, fecha más reciente por payment): {len(best)} payment(s) -> {INDEX_CSV}")
+        if duplicados:
+            print(f"ALERTA: {len(duplicados)} payment(s) con transmision en mas de 1 fecha distinta"
+                  f" -- posible envio duplicado -> {POSIBLES_DUPLICADOS_CSV}")
 
 
 def main():

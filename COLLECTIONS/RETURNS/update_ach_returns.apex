@@ -30,12 +30,23 @@
  * habia (se conserva el historico, nunca se pisa). El campo es Text(150),
  * asi que si no alcanza se trunca desde el final (se pierde el historico
  * mas viejo, se conserva siempre lo mas reciente).
+ *
+ * SM_Bank_Reference_Number__c (confirmado 2026-10-03): se llena con el
+ * ORIG TRACE NO. del reporte (columna 'Orig_Trace' del CSV, capturada por
+ * extract_ach_returns.py) en cada update real -- NO forma parte del check
+ * de "ya aplicado" (para no forzar un re-procesamiento masivo de todo el
+ * historico solo por este campo nuevo); se va llenando organicamente a
+ * medida que el pipeline normal toca cada registro. Permite diferenciar 2
+ * Payments que, por un envio ACH duplicado por error, comparten Name en lo
+ * que le mandamos al banco pero son 2 transacciones reales distintas (ver
+ * caso real PY-01907641/00318012).
  */
 
 // ============ CONFIGURACION ============
 Boolean DRY_RUN = true; // <-- cambiar a false para ejecutar el update real
 String STATIC_RESOURCE_NAME = 'ACHReturnsImport';
 Integer HISTORICAL_MAX_LENGTH = 150; // Text(150) -- SM_Historical_Collection_Status__c
+Integer BANK_REF_MAX_LENGTH = 120;   // Text(120) -- SM_Bank_Reference_Number__c
 // ========================================
 
 System.debug(' -> ======================================================');
@@ -65,6 +76,7 @@ Integer idxColl          = headers.indexOf('SM_Check_Collection__c');
 Integer idxCollStatus    = headers.indexOf('SM_Check_Collection_Status__c');
 Integer idxReturnCode    = headers.indexOf('SM_Return_code__c');
 Integer idxReturnChange  = headers.indexOf('SM_Return_Change__c');
+Integer idxOrigTrace     = headers.indexOf('Orig_Trace'); // puede no existir en CSVs viejos -- ver abajo
 
 // Wrapper para llevar la data parseada + el resultado del match
 class RowData {
@@ -75,10 +87,12 @@ class RowData {
     String collStatus;
     String returnCode;
     String returnChange;
+    String origTrace;
     Id matchedPaymentId;
     Id achOrderId;
     String contractNumber;
     String newHistorical;
+    String newBankRef;
 }
 
 List<RowData> rows = new List<RowData>();
@@ -101,6 +115,7 @@ for (Integer i = 1; i < lines.size(); i++) {
         r.collStatus   = cols[idxCollStatus].trim();
         r.returnCode   = cols[idxReturnCode].trim();
         r.returnChange = idxReturnChange < cols.size() ? cols[idxReturnChange].trim() : '';
+        r.origTrace = (idxOrigTrace >= 0 && idxOrigTrace < cols.size()) ? cols[idxOrigTrace].trim() : null;
 
         rows.add(r);
         paymentNames.add(r.paymentName);
@@ -119,7 +134,8 @@ Map<String, SM_Payment__c> paymentByName = new Map<String, SM_Payment__c>();
 for (SM_Payment__c p : [
     SELECT Id, Name, SM_ACH_Order__c, Payment_Status__c, SM_Check_Collection_Date__c,
            SM_Check_Collection__c, SM_Check_Collection_Status__c, SM_Return_code__c, SM_Return_Change__c,
-           SM_Historical_Collection_Status__c, SM_Contract__r.ContractNumber, SM_Contract__r.Status,
+           SM_Historical_Collection_Status__c, SM_Bank_Reference_Number__c,
+           SM_Contract__r.ContractNumber, SM_Contract__r.Status,
            SM_Contract__r.Is_Test_Contract__c, SM_Contract__r.Is_VIP_Contract__c
     FROM SM_Payment__c
     WHERE Name IN :paymentNames
@@ -289,6 +305,23 @@ for (RowData r : rows) {
         newHistorical = newHistorical.substring(0, HISTORICAL_MAX_LENGTH);
     }
     r.newHistorical = newHistorical;
+
+    // SM_Bank_Reference_Number__c SIEMPRE se COMPLEMENTA, nunca se pisa --
+    // si Check Collection ya habia puesto su COL:, ese valor se conserva.
+    if (String.isNotBlank(r.origTrace)) {
+        String newTag = 'RTN:' + r.origTrace;
+        String currentRef = match.SM_Bank_Reference_Number__c;
+        if (String.isBlank(currentRef)) {
+            r.newBankRef = newTag;
+        } else if (currentRef.contains(newTag)) {
+            r.newBankRef = currentRef; // mismo trace ya registrado, no duplicar
+        } else {
+            String combined = currentRef + ' | ' + newTag;
+            r.newBankRef = combined.length() > BANK_REF_MAX_LENGTH
+                ? combined.substring(combined.length() - BANK_REF_MAX_LENGTH)
+                : combined;
+        }
+    }
     matchedRows.add(r);
 }
 
@@ -325,7 +358,8 @@ for (RowData r : matchedRows) {
         ' | SM_Check_Collection_Status__c: ' + r.collStatus +
         ' | SM_Return_code__c: ' + r.returnCode +
         ' | SM_Return_Change__c: ' + (String.isBlank(r.returnChange) ? '(vacio)' : r.returnChange) +
-        ' | SM_Historical_Collection_Status__c -> [' + r.newHistorical + ']'
+        ' | SM_Historical_Collection_Status__c -> [' + r.newHistorical + ']' +
+        ' | SM_Bank_Reference_Number__c -> [' + (String.isBlank(r.newBankRef) ? '(sin cambio -- CSV viejo sin esta columna)' : r.newBankRef) + ']'
     );
 }
 
@@ -407,7 +441,7 @@ if (!DRY_RUN) {
             List<RowData> waveRows = waves.get(w);
             List<SM_Payment__c> waveUpdate = new List<SM_Payment__c>();
             for (RowData r : waveRows) {
-                waveUpdate.add(new SM_Payment__c(
+                SM_Payment__c p = new SM_Payment__c(
                     Id = r.matchedPaymentId,
                     Payment_Status__c = r.status,
                     SM_Check_Collection_Date__c = r.collDate,
@@ -416,7 +450,15 @@ if (!DRY_RUN) {
                     SM_Return_code__c = r.returnCode,
                     SM_Return_Change__c = r.returnChange,
                     SM_Historical_Collection_Status__c = r.newHistorical
-                ));
+                );
+                // Solo se incluye en el DML cuando SI hay un valor nuevo que
+                // complementar -- dejarlo siempre presente (aunque sea null)
+                // borraria lo que Check Collection ya habia puesto (mismo bug
+                // que PY-01895480 perdiendo su R01, ver update_check_collection.apex).
+                if (r.newBankRef != null) {
+                    p.SM_Bank_Reference_Number__c = r.newBankRef;
+                }
+                waveUpdate.add(p);
             }
             List<Database.SaveResult> results = Database.update(waveUpdate, false);
             Integer okCount = 0;

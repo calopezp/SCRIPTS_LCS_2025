@@ -37,12 +37,22 @@
  * habia (se conserva el historico, nunca se pisa). El campo es Text(150),
  * asi que si no alcanza se trunca desde el final (se pierde el historico
  * mas viejo, se conserva siempre lo mas reciente).
+ *
+ * SM_Bank_Reference_Number__c (confirmado 2026-10-03): se llena con el
+ * CHECK NUMBER del reporte (columna 'Check_Number' del CSV) en cada update
+ * real -- EXCEPTO cuando DRAWEE NAME ya es un PY-xxxxx (ver
+ * extract_check_collection.py, ese Check Number no es confiable para esa
+ * fila). No forma parte del check de "ya aplicado". Equivalente al ORIG
+ * TRACE NO. que update_ach_returns.apex guarda en el mismo campo para
+ * Returns -- permite diferenciar 2 Payments que comparten Name por un
+ * envio ACH duplicado por error pero son 2 transacciones reales distintas.
  */
 
 // ============ CONFIGURACION ============
 Boolean DRY_RUN = true; // <-- cambiar a false para ejecutar el update real
 String STATIC_RESOURCE_NAME = 'CheckCollectionImport';
 Integer HISTORICAL_MAX_LENGTH = 150; // Text(150) -- SM_Historical_Collection_Status__c
+Integer BANK_REF_MAX_LENGTH = 120;   // Text(120) -- SM_Bank_Reference_Number__c
 // ========================================
 
 System.debug('\u2192 ' +' -> ======================================================');
@@ -71,6 +81,8 @@ Integer idxCollDate    = headers.indexOf('SM_Check_Collection_Date__c');
 Integer idxColl        = headers.indexOf('SM_Check_Collection__c');
 Integer idxCollStatus  = headers.indexOf('SM_Check_Collection_Status__c');
 Integer idxReason      = headers.indexOf('Reason');
+Integer idxCheckNumber = headers.indexOf('Check_Number'); // puede no existir en CSVs viejos
+Integer idxDraweeName  = headers.indexOf('Drawee_Name');
 
 // Valores validos del picklist SM_Return_code__c (codigos NACHA Return/NOC),
 // ver SM_Payment__c.SM_Return_code__c.field-meta.xml. Si el codigo corto del
@@ -93,7 +105,9 @@ class RowData {
     String collStatus;
     String reasonShort;   // -> SM_Check_Collection_Return_Reason__c (siempre)
     String returnCode;    // -> SM_Return_code__c (solo si es un codigo valido del picklist)
+    String checkNumber;   // -> SM_Bank_Reference_Number__c (solo si Drawee_Name NO es ya un PY-xxxxx, ver nota abajo)
     Id matchedPaymentId;
+    String newBankRef;
     Id achOrderId;
     String contractNumber;
     String newHistorical;
@@ -129,6 +143,18 @@ for (Integer i = 1; i < lines.size(); i++) {
         r.reasonShort = looksLikeCode ? firstToken : rawReason;
         r.returnCode = (looksLikeCode && VALID_RETURN_CODES.contains(firstToken)) ? firstToken : null;
 
+        // Check_Number solo es confiable como identificador bancario cuando
+        // DRAWEE NAME trae el nombre real del cliente -- si DRAWEE NAME ya es
+        // un PY-xxxxx (caso documentado en extract_check_collection.py, el
+        // Payment Name se deriva distinto en ese caso), el Check_Number de ESA
+        // fila puede apuntar a un pago totalmente distinto. No se escribe en
+        // SM_Bank_Reference_Number__c en ese caso -- mejor vacio que un dato
+        // enganoso en el campo pensado justo para diferenciar duplicados.
+        String draweeName = (idxDraweeName >= 0 && cols.size() > idxDraweeName) ? cols[idxDraweeName].trim() : '';
+        Boolean draweeIsPaymentName = Pattern.matches('^PY-\\d+$', draweeName);
+        r.checkNumber = (!draweeIsPaymentName && idxCheckNumber >= 0 && cols.size() > idxCheckNumber)
+            ? cols[idxCheckNumber].trim() : null;
+
         rows.add(r);
         paymentNames.add(r.paymentName);
     } catch (Exception ex) {
@@ -146,7 +172,7 @@ Map<String, SM_Payment__c> paymentByName = new Map<String, SM_Payment__c>();
 for (SM_Payment__c p : [
     SELECT Id, Name, SM_ACH_Order__c, Payment_Status__c, SM_Check_Collection_Date__c,
            SM_Check_Collection__c, SM_Check_Collection_Status__c, SM_Historical_Collection_Status__c,
-           SM_Check_Collection_Return_Reason__c, SM_Return_code__c,
+           SM_Check_Collection_Return_Reason__c, SM_Return_code__c, SM_Bank_Reference_Number__c,
            SM_Contract__r.ContractNumber, SM_Contract__r.Status,
            SM_Contract__r.Is_Test_Contract__c, SM_Contract__r.Is_VIP_Contract__c
     FROM SM_Payment__c
@@ -310,6 +336,23 @@ for (RowData r : rows) {
         newHistorical = newHistorical.substring(0, HISTORICAL_MAX_LENGTH);
     }
     r.newHistorical = newHistorical;
+
+    // SM_Bank_Reference_Number__c SIEMPRE se COMPLEMENTA, nunca se pisa --
+    // si Returns ya habia puesto su RTN:, ese valor se conserva.
+    if (String.isNotBlank(r.checkNumber)) {
+        String newTag = 'COL:' + r.checkNumber;
+        String currentRef = match.SM_Bank_Reference_Number__c;
+        if (String.isBlank(currentRef)) {
+            r.newBankRef = newTag;
+        } else if (currentRef.contains(newTag)) {
+            r.newBankRef = currentRef; // mismo check number ya registrado, no duplicar
+        } else {
+            String combined = currentRef + ' | ' + newTag;
+            r.newBankRef = combined.length() > BANK_REF_MAX_LENGTH
+                ? combined.substring(combined.length() - BANK_REF_MAX_LENGTH)
+                : combined;
+        }
+    }
     matchedRows.add(r);
 }
 
@@ -339,7 +382,8 @@ for (RowData r : matchedRows) {
         ' ｜ CheckColl_Status: ' + r.collStatus +
         ' ｜ CheckColl_Return_Reason: ' + r.reasonShort +
         ' ｜ Return_code: ' + r.returnCode +
-        ' ｜ Historical_CheckColl -> [' + r.newHistorical + ']\n'
+        ' ｜ Historical_CheckColl -> [' + r.newHistorical + ']' +
+        ' ｜ Bank_Reference_Number -> [' + (String.isBlank(r.newBankRef) ? '(sin cambio -- CSV viejo, o Drawee Name no confiable)' : r.newBankRef) + ']\n'
     );
 }
 
@@ -438,6 +482,9 @@ if (!DRY_RUN) {
                 // encontrado 2026-09-14: PY-01895480 perdio su R01 asi).
                 if (r.returnCode != null) {
                     p.SM_Return_code__c = r.returnCode;
+                }
+                if (r.newBankRef != null) {
+                    p.SM_Bank_Reference_Number__c = r.newBankRef;
                 }
                 waveUpdate.add(p);
             }

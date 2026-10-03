@@ -111,6 +111,7 @@ def extract_records(pdf_path: str):
     current_eff_date_iso = None
     current_individual_name = None
     pending_entry = None  # dict acumulando datos del entry en curso
+    pending_retn_trace = None  # trace de la linea de NOMBRE (formato A), antes del entry
 
     with pdfplumber.open(pdf_path) as pdf:
         for page in pdf.pages:
@@ -140,6 +141,7 @@ def extract_records(pdf_path: str):
                 name_m = NAME_LINE_RE.match(line)
                 if name_m and "PY-" not in line:
                     current_individual_name = name_m.group("name").strip()
+                    pending_retn_trace = name_m.group("retn_trace")
                     continue
 
                 # 3) Formato A: línea con Payment Name (PY-xxxxx) + montos juntos
@@ -152,7 +154,10 @@ def extract_records(pdf_path: str):
                         "CR_Amount": signed_amount(entry_m.group("cr"), negative=True),
                         "DB_Amount": signed_amount(entry_m.group("db"), negative=False),
                         "SM_Check_Collection_Date__c": current_eff_date_iso,
+                        "Orig_Trace": entry_m.group("orig_trace"),
+                        "Retn_Trace": pending_retn_trace,
                     }
+                    pending_retn_trace = None
                     continue
 
                 # 3b) Formato B: línea con Payment Name (PY-xxxxx) SIN montos
@@ -167,6 +172,8 @@ def extract_records(pdf_path: str):
                         "CR_Amount": None,
                         "DB_Amount": None,
                         "SM_Check_Collection_Date__c": current_eff_date_iso,
+                        "Orig_Trace": entry_no_amounts_m.group("orig_trace"),
+                        "Retn_Trace": None,
                     }
                     continue
 
@@ -176,6 +183,7 @@ def extract_records(pdf_path: str):
                 if amounts_only_m and pending_entry is not None and pending_entry.get("CR_Amount") is None:
                     pending_entry["CR_Amount"] = signed_amount(amounts_only_m.group("cr"), negative=True)
                     pending_entry["DB_Amount"] = signed_amount(amounts_only_m.group("db"), negative=False)
+                    pending_entry["Retn_Trace"] = amounts_only_m.group("retn_trace")
                     continue
 
                 # 4) Línea de REASON
@@ -215,6 +223,8 @@ FIELDNAMES = [
     "Reason_Description",
     "CR_Amount",
     "DB_Amount",
+    "Orig_Trace",
+    "Retn_Trace",
 ]
 
 

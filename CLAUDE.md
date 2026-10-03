@@ -73,6 +73,15 @@ Este archivo es la **fuente de verdad compartida entre las dos máquinas** del u
   tiene el límite más corto). Ya aplicado a `SM_ACPaymentActivationHandler`,
   `SM_LateFeeReconciliationHandler`, y los 3 flows de ACH (`PAYMENT_Accumulate_AC_On_Contract`,
   `CONTRACT_Create_ACH_AC_Order`, `CONTRACT_Create_ACH_Subscription_Order`).
+- **Regla de los 6 meses — cualquier revisión que implique mirar histórico se hace con un tope de
+  máximo 6 meses atrás, salvo que el usuario especifique otro alcance o lo confirme explícitamente
+  cuando se le pregunte.** Confirmado por el usuario 2026-10-03, a raíz de un barrido de posibles
+  duplicados de transmisión ACH (ver sección 2) que, sin este tope, terminó trayendo y analizando
+  datos de 2023-2024 sin que nadie lo pidiera. Aplica a cualquier análisis/barrido/validación nuevo
+  sobre datos históricos (Collections, ACH Reportados, Payments, lo que sea) — no es exclusiva de
+  un pipeline. Si hace falta mirar más atrás de 6 meses, preguntar primero (mismo espíritu que la
+  Rule 2 de Collections en la sección 2.2, que es el mismo principio pero con un tope de 2 meses
+  específico de ese pipeline — no confundir los dos topes).
 
 ---
 
