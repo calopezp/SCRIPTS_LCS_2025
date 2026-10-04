@@ -44,7 +44,7 @@ así que si movemos un archivo de carpeta algo se rompe. La tabla de abajo te di
 | Utilitario | Qué hace | Dónde vive | Ejemplo de uso |
 |---|---|---|---|
 | **`buscar_payment.py`** | Dado un número de Payment (`PY-xxxxx`), busca su estado en vivo en Salesforce y lo cruza contra los 3 índices históricos (Returns, Check Collection, ACH Reportados) — para saber "¿qué pasó con este pago?" sin tener que abrir PDFs a mano | `COLLECTIONS/buscar_payment.py` | `python COLLECTIONS/buscar_payment.py PY-01868511` |
-| **`estado_cobros.py`** | Reporte rápido y visual del estado de cobro de UN contrato Chargebee (Credit Card) — facturas pendientes, si el cobro se va a reintentar solo o necesita acción manual | `COLLECTIONS/estado_cobros.py` | `python COLLECTIONS/estado_cobros.py 00123456` |
+| **`estado_cobros.py`** | Reporte de estado de cobro de uno o varios contratos Chargebee (Credit Card) — **no es solo "facturas pendientes"**, combina 6 fuentes (Contract, Invoice, Dunning, Charge Request/PTP, historial ACH, órdenes ACH huérfanas tras un switch a TC) y solo se explaya cuando hay algo que decidir. **Lee el docstring completo del archivo (líneas 1-90) antes de usarlo en un caso real** — tiene, con fecha y contrato real, el porqué de cada tipo de alerta; no se repite aquí para no quedar desactualizado cuando el script cambie | `COLLECTIONS/estado_cobros.py` | `python COLLECTIONS/estado_cobros.py 00123456` |
 
 > Estos dos **sí dependen de estar físicamente dentro de `COLLECTIONS/`** (usan `build_index.py`
 > y otros módulos de esa carpeta para funcionar) — por eso no se copiaron sueltos a otro lado.
