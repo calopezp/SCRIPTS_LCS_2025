@@ -29,10 +29,10 @@ Este archivo es la **fuente de verdad compartida entre las dos máquinas** del u
    y mantenerlo actualizado (mover a "Cerrado recientemente" lo que se resuelva, agregar fila nueva
    cuando algo quede abierto).
 9. **[Tareas ocasionales](TAREAS_OCASIONALES.md)** — scripts/acciones que NO están colgados de
-   ningún proceso recurrente (Activar Contratos, Crear Late Payment Fee, Contracargo, Crear Notas
-   Masivas, Customer Cancellation, pasar contratos de ACH a TC y viceversa, consulta de Agreements
-   firmados sin fecha de firma, inventario de Monitoreos). Se corren manualmente cuando aparece un
-   requerimiento puntual — consultar antes de reinventar un script que ya existe.
+   ningún proceso recurrente (Activar Contratos, Crear Late Payment Fee / PTP, Contracargo, Crear
+   Notas Masivas, Customer Cancellation, pasar contratos de ACH a TC y viceversa, consulta de
+   Agreements firmados sin fecha de firma, inventario de Monitoreos). Se corren manualmente cuando
+   aparece un requerimiento puntual — consultar antes de reinventar un script que ya existe.
 
 ---
 

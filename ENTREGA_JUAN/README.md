@@ -77,3 +77,11 @@ trabajo diario en `COLLECTIONS/` o `scripts/apex/ACH_TRANSMISION/` (la ubicació
 esta carpeta) cambie, **hay que volver a copiar los archivos que cambiaron a `ENTREGA_JUAN/`** para
 que esta entrega no quede desactualizada. No hay ningún proceso automático que lo haga — es un
 paso manual, igual que cualquier otro commit.
+
+**Decisión confirmada (2026-10-05): la entrega oficial a Juan es acceso al repo completo vía
+Git** (no un ZIP aislado de esta carpeta). Con esto, Juan recibe automáticamente todo lo que esta
+carpeta NO duplica a propósito: `MANUAL_TRASPASO.md`, `CLAUDE.md`, `BITACORA_HALLAZGOS_TECNICOS.md`,
+`TAREAS_PENDIENTES.md`, `TAREAS_OCASIONALES.md`, los Skills (`.claude/skills/`), el metadata de
+Salesforce (`force-app/`) y los scripts de `scripts/apex/` de Tareas Ocasionales — `ENTREGA_JUAN/`
+sigue siendo útil como capa organizada de inicio rápido para el día a día (Procesos/Utilitarios),
+no como el único contenedor del handoff.

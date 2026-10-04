@@ -37,16 +37,61 @@ desde el dashboard de Chargebee (ver memoria `feedback_chargebee_activar_vs_cobr
 
 ---
 
-## 2. Crear Late Payment Fee (u otra orden manual AC/Subscription)
+## 2. Crear Late Payment Fee / Promesa de Pago (PTP)
 
-`scripts/apex/-B.New_LPF_Universal_Desc.apex` — un único script "universal" para ACH y Chargebee
-(TC). Configurar arriba del archivo:
+`scripts/apex/-B.New_LPF_Universal_Desc.apex` — un único script para crear una orden manual AC /
+Late Payment Fee / Subscription. Configurar arriba del archivo:
 - `contratoId`, `fechaCobro`
 - `ordType`: `'AC'`, `'Late Payment fee'` o `'Subscription'`
 - Descuento opcional (`applyDiscount`, con quién lo pidió/aprobó — `userReqDiscount`/`userApprDiscount`)
 
 **No tiene bandera de dry-run** — crea la orden apenas lo corres. Revisar bien los parámetros
 (sobre todo `ordType` y `fechaCobro`) antes de ejecutar; no hay preview.
+
+**Importante — en el estado actual del archivo, la rama de creación real solo cubre
+`SM_Payment_methods__c == 'ACH'`** (el `else` solo deja un `System.debug` de "tipo de pago no
+soportado"); aunque el encabezado del script dice "LPF – TC / ACH", hoy no crea nada para
+contratos Chargebee (TC). No es un problema para el flujo de PTP — en Chargebee el mecanismo es
+distinto y no pasa por Salesforce (ver abajo).
+
+### Uso más frecuente de este script: PTP (Promise To Pay)
+
+Cuando un agente de Comercial pide mover un cobro pendiente (AC o la mensualidad/Subscription) a
+una fecha posterior. Aplica a **ambos** canales, pero el mecanismo es distinto en cada uno.
+
+**Regla general (confirmada 2026-10-05) — cuándo SÍ se puede mover la fecha:**
+- **ACH:** solo si no hay ya un payment pendiente generado para ese cobro (si el banco ya tiene
+  algo en proceso, mover la fecha no sirve — hay que esperar a que ese payment resuelva primero).
+- **Chargebee (TC):** solo si el cobro todavía NO se ha ejecutado (el invoice sigue sin cobrar).
+- **En ambos casos, nunca si el cobro programado está a menos de 72 horas** — está demasiado
+  cerca, no se cambia la fecha.
+
+**Mecanismo ACH** (hecho con los **Utilitarios**, no hay un solo script que lo automatice de
+punta a punta):
+1. **Validar el payment primero** con `buscar_payment.py` (o `estado_cobros.py` si hiciera falta
+   mirar el contexto general del contrato) — confirmar que el cobro realmente está pendiente y que
+   cumple la regla de arriba antes de tocar nada.
+2. **Crear el Late Payment Fee del monto adeudado, sin multa** — correr
+   `-B.New_LPF_Universal_Desc.apex` con `ordType='Late Payment fee'`, `penalty=false` (es un PTP
+   acordado con el cliente, no una penalidad), `fechaCobro` = la fecha que pidió el agente, y
+   `PTP_Msg` describiendo el acuerdo.
+3. **Si el cobro movido era el de la Subscription (mensual):** además, mover a mano en Salesforce
+   la `SM_Next_Transaction_Date__c` del `SM_ACH_Order__c` tipo Subscription existente al ciclo
+   siguiente (mes próximo) — para que ese mes no se cobre dos veces (una por el LPF nuevo, otra por
+   la Subscription normal). **Este paso no tiene script todavía**, se edita el campo directo en el
+   registro.
+
+**Mecanismo Chargebee (TC):** se cambia la fecha directo en Chargebee (no en Salesforce, no hay
+script ni API involucrada aquí — mismo motivo que en el punto 1: programar una fecha de cobro en
+Chargebee es una acción exclusiva del dashboard, ver `feedback_chargebee_activar_vs_cobrar`) —
+sobre el **Invoice** (su fecha de cobro esperada) o, si ese campo no aplica al caso, sobre el
+**Dunning** (`Dunning_Next_Retry_Date__c`, el próximo reintento automático).
+
+**Cuidado conocido, sin resolver:** `SM_PTP_Montly__c` (picklist restringido en `SM_ACH_Order__c`,
+junto con el campo fórmula `Is_PTP__c`) tiene un bug documentado en
+`BITACORA_HALLAZGOS_TECNICOS.md` (2026-09-26) — una migración puso el valor `'octubre PTP'`, que
+no es un valor válido del picklist. Confirmar con Carlos el valor/formato correcto antes de
+poblar este campo a mano en un PTP nuevo.
 
 ---
 
