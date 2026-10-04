@@ -1,0 +1,488 @@
+/*
+ * update_ach_returns.apex
+ * -----------------------
+ * Ejecutar como Anonymous Apex (VS Code + SFDX CLI: "SFDX: Execute Anonymous Apex").
+ *
+ * PRE-REQUISITO:
+ *   1. Generar el CSV con extract_ach_returns.py
+ *   2. Copiarlo a: force-app/main/default/staticresources/ACHReturnsImport.csv
+ *   3. Crear el meta file: force-app/main/default/staticresources/ACHReturnsImport.resource-meta.xml
+ *        <?xml version="1.0" encoding="UTF-8"?>
+ *        <StaticResource xmlns="http://soap.sforce.com/2006/04/metadata">
+ *            <cacheControl>Private</cacheControl>
+ *            <contentType>text/csv</contentType>
+ *        </StaticResource>
+ *   4. Deploy: sf project deploy start -m StaticResource:ACHReturnsImport
+ *
+ * MODO DE USO:
+ *   - Corre primero con DRY_RUN = true  -> solo imprime el preview, NO actualiza nada.
+ *   - Revisa el debug log completo.
+ *   - Si todo esta correcto, cambia DRY_RUN a false y corre de nuevo -> aplica el UPDATE real.
+ *
+ * Antes de armar el update, compara cada fila del CSV contra el estado
+ * ACTUAL del Payment en Salesforce -- si ya coincide en todos los campos,
+ * se salta (no se re-aplica). Asi el CSV puede traer el historico completo
+ * de un mes (no solo lo nuevo de hoy) sin re-tocar lo que ya quedo bien.
+ *
+ * Cada vez que un Payment SI cambia (no para los que se saltan por ya
+ * estar aplicados), se antepone una marca al campo
+ * SM_Historical_Collection_Status__c: "PRC_AUT: <STATUS> //" + lo que ya
+ * habia (se conserva el historico, nunca se pisa). El campo es Text(150),
+ * asi que si no alcanza se trunca desde el final (se pierde el historico
+ * mas viejo, se conserva siempre lo mas reciente).
+ *
+ * SM_Bank_Reference_Number__c (confirmado 2026-10-03): se llena con el
+ * ORIG TRACE NO. del reporte (columna 'Orig_Trace' del CSV, capturada por
+ * extract_ach_returns.py) en cada update real -- NO forma parte del check
+ * de "ya aplicado" (para no forzar un re-procesamiento masivo de todo el
+ * historico solo por este campo nuevo); se va llenando organicamente a
+ * medida que el pipeline normal toca cada registro. Permite diferenciar 2
+ * Payments que, por un envio ACH duplicado por error, comparten Name en lo
+ * que le mandamos al banco pero son 2 transacciones reales distintas (ver
+ * caso real PY-01907641/00318012).
+ */
+
+// ============ CONFIGURACION ============
+Boolean DRY_RUN = true; // <-- cambiar a false para ejecutar el update real
+String STATIC_RESOURCE_NAME = 'ACHReturnsImport';
+Integer HISTORICAL_MAX_LENGTH = 150; // Text(150) -- SM_Historical_Collection_Status__c
+Integer BANK_REF_MAX_LENGTH = 120;   // Text(120) -- SM_Bank_Reference_Number__c
+// ========================================
+
+System.debug(' -> ======================================================');
+System.debug(' -> MODO: ' + (DRY_RUN ? 'DRY RUN (solo preview, sin cambios)' : 'EJECUCION REAL (se va a actualizar)'));
+System.debug(' -> ======================================================');
+
+// 1) Leer el Static Resource (CSV generado por el script Python)
+StaticResource sr = [
+    SELECT Body
+    FROM StaticResource
+    WHERE Name = :STATIC_RESOURCE_NAME
+    LIMIT 1
+];
+String csvBody = sr.Body.toString();
+
+// 2) Parsear el CSV (sin comas dentro de los valores, asi que split simple es seguro)
+List<String> lines = csvBody.split('\r\n');
+if (lines.size() == 1) {
+    lines = csvBody.split('\n'); // por si el line ending viene distinto
+}
+
+List<String> headers = lines[0].split(',');
+Integer idxPaymentName   = headers.indexOf('Payment_Name');
+Integer idxStatus        = headers.indexOf('Payment_Status__c');
+Integer idxCollDate      = headers.indexOf('SM_Check_Collection_Date__c');
+Integer idxColl          = headers.indexOf('SM_Check_Collection__c');
+Integer idxCollStatus    = headers.indexOf('SM_Check_Collection_Status__c');
+Integer idxReturnCode    = headers.indexOf('SM_Return_code__c');
+Integer idxReturnChange  = headers.indexOf('SM_Return_Change__c');
+Integer idxOrigTrace     = headers.indexOf('Orig_Trace'); // puede no existir en CSVs viejos -- ver abajo
+
+// Wrapper para llevar la data parseada + el resultado del match
+class RowData {
+    String paymentName;
+    String status;
+    Date collDate;
+    Boolean coll;
+    String collStatus;
+    String returnCode;
+    String returnChange;
+    String origTrace;
+    Id matchedPaymentId;
+    Id achOrderId;
+    String contractNumber;
+    String newHistorical;
+    String newBankRef;
+}
+
+List<RowData> rows = new List<RowData>();
+Set<String> paymentNames = new Set<String>();
+List<String> malformedRows = new List<String>();
+
+for (Integer i = 1; i < lines.size(); i++) {
+    if (String.isBlank(lines[i])) { continue; }
+    List<String> cols = lines[i].split(',');
+
+    // Una fila con un valor que no parsea (ej. fecha vacia -- caso raro de
+    // extraccion en el PDF de origen) no debe tumbar el batch completo: se
+    // salta y se reporta, no se aborta la ejecucion.
+    try {
+        RowData r = new RowData();
+        r.paymentName  = cols[idxPaymentName].trim();
+        r.status       = cols[idxStatus].trim();
+        r.collDate     = Date.valueOf(cols[idxCollDate].trim());
+        r.coll         = Boolean.valueOf(cols[idxColl].trim());
+        r.collStatus   = cols[idxCollStatus].trim();
+        r.returnCode   = cols[idxReturnCode].trim();
+        r.returnChange = idxReturnChange < cols.size() ? cols[idxReturnChange].trim() : '';
+        r.origTrace = (idxOrigTrace >= 0 && idxOrigTrace < cols.size()) ? cols[idxOrigTrace].trim() : null;
+
+        rows.add(r);
+        paymentNames.add(r.paymentName);
+    } catch (Exception ex) {
+        String badName = cols.size() > idxPaymentName ? cols[idxPaymentName].trim() : '(fila ' + i + ')';
+        malformedRows.add(badName + ' (' + ex.getMessage() + ')');
+    }
+}
+
+System.debug(' -> Total filas leidas del CSV: ' + rows.size());
+
+// 3) Buscar los registros SM_Payment__c que hagan match por Name (trayendo
+// tambien el estado ACTUAL de los campos que vamos a actualizar, para poder
+// comparar contra el target del CSV).
+Map<String, SM_Payment__c> paymentByName = new Map<String, SM_Payment__c>();
+for (SM_Payment__c p : [
+    SELECT Id, Name, SM_ACH_Order__c, Payment_Status__c, SM_Check_Collection_Date__c,
+           SM_Check_Collection__c, SM_Check_Collection_Status__c, SM_Return_code__c, SM_Return_Change__c,
+           SM_Historical_Collection_Status__c, SM_Bank_Reference_Number__c,
+           SM_Contract__r.ContractNumber, SM_Contract__r.Status,
+           SM_Contract__r.Is_Test_Contract__c, SM_Contract__r.Is_VIP_Contract__c
+    FROM SM_Payment__c
+    WHERE Name IN :paymentNames
+]) {
+    paymentByName.put(p.Name, p);
+}
+
+// 3b) Para los candidatos de contrato Cancelado con Payment_Status__c
+// cambiando (ver nota mas abajo), averiguar si su ACH Order tiene OTRO
+// Payment (distinto a este) todavia "ACH TRANSMITTED" -- solo eso es un
+// riesgo real de tumbar la oleada. Si el UNICO "ACH TRANSMITTED" de esa
+// orden es el propio registro que se esta actualizando, al aplicarse deja
+// de estarlo, asi que no hay conflicto real (confirmado 2026-09-08: 4 de
+// 5 casos bloqueados el dia anterior eran falsos positivos por esto).
+Set<Id> cancelledCandidateAchOrderIds = new Set<Id>();
+for (RowData r : rows) {
+    SM_Payment__c m = paymentByName.get(r.paymentName);
+    if (m != null && m.SM_Contract__r != null && m.SM_Contract__r.Status == 'Cancelled' && m.Payment_Status__c != r.status && m.SM_ACH_Order__c != null) {
+        cancelledCandidateAchOrderIds.add(m.SM_ACH_Order__c);
+    }
+}
+Map<Id, Set<Id>> achTransmittedPaymentIdsByOrder = new Map<Id, Set<Id>>();
+if (!cancelledCandidateAchOrderIds.isEmpty()) {
+    for (SM_Payment__c p : [
+        SELECT Id, SM_ACH_Order__c
+        FROM SM_Payment__c
+        WHERE SM_ACH_Order__c IN :cancelledCandidateAchOrderIds
+        AND Payment_Status__c = 'ACH TRANSMITTED'
+    ]) {
+        if (!achTransmittedPaymentIdsByOrder.containsKey(p.SM_ACH_Order__c)) {
+            achTransmittedPaymentIdsByOrder.put(p.SM_ACH_Order__c, new Set<Id>());
+        }
+        achTransmittedPaymentIdsByOrder.get(p.SM_ACH_Order__c).add(p.Id);
+    }
+}
+
+// 4) Separar: sin match / descartado por fuera de orden / ya aplicado (no
+// necesita cambios) / bloqueado por regresion (COLLECTED/ACCEPTED -> RETURN,
+// nunca automatico) / bloqueado por contrato Cancelado (ver nota antes de la
+// oleada 6) / pendiente de aplicar. Los reportes oficiales siempre priman --
+// no hay bucket de "superado por evento mas reciente" (ver nota mas abajo).
+List<RowData> matchedRows = new List<RowData>();
+List<RowData> alreadyAppliedRows = new List<RowData>();
+List<RowData> regressionBlockedRows = new List<RowData>();
+List<RowData> cancelledContractBlockedRows = new List<RowData>();
+List<RowData> testOrVipBlockedRows = new List<RowData>();
+List<RowData> staleRows = new List<RowData>();
+List<String> notFound = new List<String>();
+
+for (RowData r : rows) {
+    SM_Payment__c match = paymentByName.get(r.paymentName);
+    if (match == null) {
+        notFound.add(r.paymentName);
+        continue;
+    }
+    r.matchedPaymentId = match.Id;
+    r.achOrderId = match.SM_ACH_Order__c;
+    r.contractNumber = match.SM_Contract__r != null ? match.SM_Contract__r.ContractNumber : null;
+
+    // Contrato de prueba o VIP: nunca auto-aplicar (ver la misma nota en
+    // update_check_collection.apex, 2026-09-17).
+    if (match.SM_Contract__r != null && (match.SM_Contract__r.Is_Test_Contract__c == true || match.SM_Contract__r.Is_VIP_Contract__c == true)) {
+        testOrVipBlockedRows.add(r);
+        continue;
+    }
+
+    // Guard por fecha: si ya hay guardado un reporte MAS RECIENTE que este
+    // (ej. un catch-up de atraso procesando fechas viejas fuera de orden, o
+    // un PDF que llego tarde), esta fila NUNCA pisa lo que ya esta -- sin
+    // esto, aplicar el historico completo en desorden podria hacer que un
+    // Return viejo revierta un Check Collection mas nuevo (o viceversa)
+    // solo porque se proceso despues. No es lo mismo que el guard de
+    // regresion de abajo (ese bloquea COLLECTED/ACCEPTED->RETURN SIN
+    // IMPORTAR FECHAS, por ser un estado de exito que requiere revision
+    // manual); este es mas general y aplica a cualquier combinacion de
+    // estados.
+    if (match.SM_Check_Collection_Date__c != null && r.collDate < match.SM_Check_Collection_Date__c) {
+        staleRows.add(r);
+        continue;
+    }
+
+    String currentChange = match.SM_Return_Change__c == null ? '' : match.SM_Return_Change__c;
+    String targetChange = r.returnChange == null ? '' : r.returnChange;
+
+    Boolean alreadyApplied =
+        match.Payment_Status__c == r.status &&
+        match.SM_Check_Collection_Date__c == r.collDate &&
+        match.SM_Check_Collection__c == r.coll &&
+        match.SM_Check_Collection_Status__c == r.collStatus &&
+        match.SM_Return_code__c == r.returnCode &&
+        currentChange == targetChange;
+
+    if (alreadyApplied) {
+        alreadyAppliedRows.add(r);
+        continue;
+    }
+
+    // Un pago de un contrato Cancelado cuyo Payment_Status__c va a cambiar
+    // (ACCEPTED/REJECTED) dispara en SM_PaymentHandler.updateRelatedRecordsByPaymentStatusUpdates
+    // un intento de marcar SU ACH Order relacionada como Canceled. Ese
+    // metodo agrupa TODAS las ACH Orders de la oleada completa en un solo
+    // Database.update() (sin allOrNone=false) -- si ESA orden en particular
+    // tiene OTRO Payment (distinto a este) todavia "ACH TRANSMITTED"
+    // (validation rule "You cannot cancel ACH order if you have any
+    // Payment in Pending status transmitted"), tumba TODA la oleada, no
+    // solo este registro (bug real detectado 2026-09-07 en
+    // update_check_collection.apex: ACH-27553 / contrato 00317537 tumbo
+    // los 161 pagos de la oleada completa; misma logica vulnerable aca).
+    // Si el UNICO "ACH TRANSMITTED" de esa orden es el propio registro que
+    // se esta actualizando, no hay conflicto real (al aplicarse deja de
+    // estarlo) y se deja pasar normal. Probar a reintentar registro por
+    // registro despues de que el trigger falle demostro ser poco confiable
+    // (comportamiento inconsistente de la transaccion en Salesforce), asi
+    // que en vez de eso este caso se detecta ANTES del DML y se separa para
+    // revision manual -- igual que el guard de regresion de arriba.
+    Boolean paymentStatusChanging = match.Payment_Status__c != r.status;
+    Boolean contractCancelled = match.SM_Contract__r != null && match.SM_Contract__r.Status == 'Cancelled';
+    if (contractCancelled && paymentStatusChanging) {
+        Set<Id> stuckIds = achTransmittedPaymentIdsByOrder.get(match.SM_ACH_Order__c);
+        Boolean hasOtherStuckSibling = stuckIds != null && (stuckIds.size() > 1 || !stuckIds.contains(match.Id));
+        if (hasOtherStuckSibling) {
+            cancelledContractBlockedRows.add(r);
+            continue;
+        }
+    }
+
+    // Un pago que ya esta COLLECTED/ACCEPTED nunca se revierte
+    // automaticamente a RETURN/NOT_COLLECTED/PENDING -- sin importar
+    // fechas, eso siempre queda para revision manual (regla de negocio
+    // explicita). PENDING se agrego 2026-09-08 al ver el historico
+    // completo (sin ventana de 45 dias): pagos ya COLLECTED por una via
+    // que no quedo registrada en el indice local (reporte previo a que
+    // existiera build_index.py, o correccion manual) se recalculaban
+    // como "PENDING" (el ultimo estado que el indice SI conoce) y se
+    // hubieran revertido sin este guard.
+    // EXCEPCION: si ese COLLECTED/ACCEPTED viene de
+    // mark_transmitted_accepted.apex (marca "...D_SIN_REPORTE:" al frente
+    // del historico -- ver ese script), no es un cobro confirmado por el
+    // banco, es solo una aceptacion por defecto tras N dias sin reporte.
+    // Los reportes de Returns/Collection SIEMPRE priman sobre esa
+    // aceptacion por defecto, asi que en ese caso SI se deja corregir.
+    String latestHistoricalTag = match.SM_Historical_Collection_Status__c == null
+        ? '' : match.SM_Historical_Collection_Status__c.split('//', 2)[0];
+    Boolean acceptedByTimeoutRoutine = latestHistoricalTag.contains('D_SIN_REPORTE:');
+
+    Boolean isCurrentlySuccess =
+        (match.Payment_Status__c == 'ACCEPTED' || match.SM_Check_Collection_Status__c == 'COLLECTED')
+        && !acceptedByTimeoutRoutine;
+    Boolean isTargetRegression = r.collStatus == 'RETURN' || r.collStatus == 'NOT_COLLECTED' || r.collStatus == 'NOT COLLECTED' || r.collStatus == 'PENDING';
+
+    if (isCurrentlySuccess && isTargetRegression) {
+        regressionBlockedRows.add(r);
+        continue;
+    }
+
+    // Los reportes oficiales de Returns/Collection SIEMPRE priman -- sin
+    // importar que otro proceso (nuestro o externo, ej. el Flow que marca
+    // NOT_COLLECTED/COLLECTED con guion bajo) haya tocado el registro
+    // despues de la fecha del reporte. El unico caso que NO se aplica
+    // solo es el bloqueado arriba por el guard de regresion
+    // (COLLECTED/ACCEPTED -> RETURN/NOT COLLECTED), que es una regla
+    // aparte y explicita.
+    String tag = 'PRC_AUT: ' + r.collStatus.replace(' ', '_') + ' //';
+    String previousHistorical = match.SM_Historical_Collection_Status__c == null ? '' : match.SM_Historical_Collection_Status__c;
+    String newHistorical = tag + previousHistorical;
+    if (newHistorical.length() > HISTORICAL_MAX_LENGTH) {
+        newHistorical = newHistorical.substring(0, HISTORICAL_MAX_LENGTH);
+    }
+    r.newHistorical = newHistorical;
+
+    // SM_Bank_Reference_Number__c SIEMPRE se COMPLEMENTA, nunca se pisa --
+    // si Check Collection ya habia puesto su COL:, ese valor se conserva.
+    if (String.isNotBlank(r.origTrace)) {
+        String newTag = 'RTN:' + r.origTrace;
+        String currentRef = match.SM_Bank_Reference_Number__c;
+        if (String.isBlank(currentRef)) {
+            r.newBankRef = newTag;
+        } else if (currentRef.contains(newTag)) {
+            r.newBankRef = currentRef; // mismo trace ya registrado, no duplicar
+        } else {
+            String combined = currentRef + ' | ' + newTag;
+            r.newBankRef = combined.length() > BANK_REF_MAX_LENGTH
+                ? combined.substring(combined.length() - BANK_REF_MAX_LENGTH)
+                : combined;
+        }
+    }
+    matchedRows.add(r);
+}
+
+// 4b) Agrupar en OLEADAS por SM_ACH_Order__c: si varios returns del batch
+// pertenecen a la misma orden ACH (ej. Fee + Late Fee del mismo contrato),
+// actualizarlos todos en el mismo DML hace que SM_PaymentHandler (trigger
+// AfterUpdate) intente actualizar esa misma orden ACH dos veces en la misma
+// lista y falle con "Duplicate id in list", tumbando el batch completo.
+// Cada orden ACH repetida se reparte en oleadas (1 registro por orden por
+// oleada) y cada oleada se aplica con su propio Database.update() dentro de
+// esta misma ejecucion -- asi TODOS quedan aplicados, no solo el primero.
+Map<Id, Integer> waveByAchOrder = new Map<Id, Integer>();
+Map<Integer, List<RowData>> waves = new Map<Integer, List<RowData>>();
+Integer maxWave = 0;
+
+for (RowData r : matchedRows) {
+    Integer wave = 0;
+    if (r.achOrderId != null) {
+        wave = waveByAchOrder.containsKey(r.achOrderId) ? waveByAchOrder.get(r.achOrderId) + 1 : 0;
+        waveByAchOrder.put(r.achOrderId, wave);
+    }
+    if (wave > maxWave) { maxWave = wave; }
+    if (!waves.containsKey(wave)) { waves.put(wave, new List<RowData>()); }
+    waves.get(wave).add(r);
+}
+
+// 5) Preview (solo lo que realmente se va a tocar, en el orden original del CSV)
+for (RowData r : matchedRows) {
+    System.debug(
+        'PREVIEW -> ' + r.paymentName +
+        ' | Payment_Status__c: ' + r.status +
+        ' | SM_Check_Collection_Date__c: ' + r.collDate +
+        ' | SM_Check_Collection__c: ' + r.coll +
+        ' | SM_Check_Collection_Status__c: ' + r.collStatus +
+        ' | SM_Return_code__c: ' + r.returnCode +
+        ' | SM_Return_Change__c: ' + (String.isBlank(r.returnChange) ? '(vacio)' : r.returnChange) +
+        ' | SM_Historical_Collection_Status__c -> [' + r.newHistorical + ']' +
+        ' | SM_Bank_Reference_Number__c -> [' + (String.isBlank(r.newBankRef) ? '(sin cambio -- CSV viejo sin esta columna)' : r.newBankRef) + ']'
+    );
+}
+
+System.debug(' -> ======================================================');
+System.debug(' -> Total filas del CSV: ' + (rows.size() + malformedRows.size()));
+if (!malformedRows.isEmpty()) {
+    System.debug(' -> Filas MALFORMADAS (se saltan, revisar el PDF de origen): ' + malformedRows.size());
+    System.debug(' ->   -> ' + malformedRows);
+}
+System.debug(' -> Registros SIN match (PY-XXXX no existe como Payment): ' + notFound.size());
+if (!notFound.isEmpty()) {
+    System.debug(' ->   -> Nombres no encontrados: ' + notFound);
+}
+System.debug(' -> Ya aplicados anteriormente (sin cambios, se omiten): ' + alreadyAppliedRows.size());
+System.debug(' -> Descartados por ser mas viejos que el reporte ya guardado (fuera de orden): ' + staleRows.size());
+if (!staleRows.isEmpty()) {
+    List<String> staleNames = new List<String>();
+    for (RowData r : staleRows) { staleNames.add(r.paymentName); }
+    System.debug(' ->   -> Nombres: ' + staleNames);
+}
+if (!regressionBlockedRows.isEmpty()) {
+    List<String> regressionNames = new List<String>();
+    Set<String> regressionContracts = new Set<String>();
+    for (RowData r : regressionBlockedRows) {
+        regressionNames.add(r.paymentName);
+        if (r.contractNumber != null) { regressionContracts.add(r.contractNumber); }
+    }
+    List<String> regressionContractsQuoted = new List<String>();
+    for (String cn : regressionContracts) { regressionContractsQuoted.add('\'' + cn + '\''); }
+    System.debug(' -> ***** ALERTA: ' + regressionBlockedRows.size() + ' pago(s) ya COLLECTED/ACCEPTED que este reporte de RETURN queria revertir -- NO SE APLICARON, ANALIZAR MANUALMENTE *****');
+    System.debug(' ->   -> Nombres bloqueados por regresion: ' + regressionNames);
+    System.debug(' ->   -> Contratos a analizar manualmente: ' + String.join(regressionContractsQuoted, ', '));
+} else {
+    System.debug(' -> Bloqueados por regresion (COLLECTED/ACCEPTED -> RETURN, nunca automatico): 0');
+}
+if (!cancelledContractBlockedRows.isEmpty()) {
+    List<String> cancelledNames = new List<String>();
+    Set<String> cancelledContracts = new Set<String>();
+    for (RowData r : cancelledContractBlockedRows) {
+        cancelledNames.add(r.paymentName);
+        if (r.contractNumber != null) { cancelledContracts.add(r.contractNumber); }
+    }
+    List<String> cancelledContractsQuoted = new List<String>();
+    for (String cn : cancelledContracts) { cancelledContractsQuoted.add('\'' + cn + '\''); }
+    System.debug(' -> ***** ALERTA: ' + cancelledContractBlockedRows.size() + ' pago(s) de contrato(s) Cancelado(s) -- NO SE APLICARON (riesgo de tumbar la oleada completa por validation rule en la ACH Order), ANALIZAR MANUALMENTE *****');
+    System.debug(' ->   -> Nombres bloqueados por contrato cancelado: ' + cancelledNames);
+    System.debug(' ->   -> Contratos a analizar manualmente: ' + String.join(cancelledContractsQuoted, ', '));
+} else {
+    System.debug(' -> Bloqueados por contrato Cancelado (riesgo de tumbar la oleada): 0');
+}
+if (!testOrVipBlockedRows.isEmpty()) {
+    List<String> testVipNames = new List<String>();
+    for (RowData r : testOrVipBlockedRows) { testVipNames.add(r.paymentName); }
+    System.debug(' -> ***** ALERTA: ' + testOrVipBlockedRows.size() + ' pago(s) de contrato(s) de PRUEBA o VIP -- NO SE APLICARON automaticamente, revisar manualmente *****');
+    System.debug(' ->   -> Nombres bloqueados por Test/VIP: ' + testVipNames);
+} else {
+    System.debug(' -> Bloqueados por contrato de Prueba/VIP: 0');
+}
+System.debug(' -> Pendientes de aplicar en esta corrida: ' + matchedRows.size());
+System.debug(' -> Oleadas necesarias por colisiones de orden ACH repetida: ' + (matchedRows.isEmpty() ? 0 : (maxWave + 1)));
+for (Integer w = 0; w <= maxWave && !matchedRows.isEmpty(); w++) {
+    System.debug(' ->   -> Oleada ' + (w + 1) + ': ' + waves.get(w).size() + ' registro(s)');
+}
+System.debug(' -> ======================================================');
+
+// 6) Ejecutar el update SOLO si DRY_RUN = false -- una oleada a la vez.
+// Los pagos de contrato Cancelado que arriesgaban tumbar la oleada completa
+// (ver el bloque de arriba, cancelledContractBlockedRows) ya quedaron
+// afuera de matchedRows, asi que aca Database.update(waveUpdate, false)
+// puede confiar en que una falla de validacion normal en UN Payment se
+// reporta como SaveResult individual, sin tumbar al resto de la oleada.
+if (!DRY_RUN) {
+    if (matchedRows.isEmpty()) {
+        System.debug(' -> No hay registros pendientes de aplicar.');
+    } else {
+        Integer totalOk = 0;
+        Integer totalErr = 0;
+        for (Integer w = 0; w <= maxWave; w++) {
+            List<RowData> waveRows = waves.get(w);
+            List<SM_Payment__c> waveUpdate = new List<SM_Payment__c>();
+            for (RowData r : waveRows) {
+                SM_Payment__c p = new SM_Payment__c(
+                    Id = r.matchedPaymentId,
+                    Payment_Status__c = r.status,
+                    SM_Check_Collection_Date__c = r.collDate,
+                    SM_Check_Collection__c = r.coll,
+                    SM_Check_Collection_Status__c = r.collStatus,
+                    SM_Return_code__c = r.returnCode,
+                    SM_Return_Change__c = r.returnChange,
+                    SM_Historical_Collection_Status__c = r.newHistorical
+                );
+                // Solo se incluye en el DML cuando SI hay un valor nuevo que
+                // complementar -- dejarlo siempre presente (aunque sea null)
+                // borraria lo que Check Collection ya habia puesto (mismo bug
+                // que PY-01895480 perdiendo su R01, ver update_check_collection.apex).
+                if (r.newBankRef != null) {
+                    p.SM_Bank_Reference_Number__c = r.newBankRef;
+                }
+                waveUpdate.add(p);
+            }
+            List<Database.SaveResult> results = Database.update(waveUpdate, false);
+            Integer okCount = 0;
+            Integer errCount = 0;
+            for (Integer i = 0; i < results.size(); i++) {
+                Database.SaveResult res = results[i];
+                if (res.isSuccess()) {
+                    okCount++;
+                } else {
+                    errCount++;
+                    System.debug(
+                        'ERROR actualizando ' + waveUpdate[i].Id + ': ' +
+                        res.getErrors()[0].getMessage()
+                    );
+                }
+            }
+            System.debug(' ->   -> Oleada ' + (w + 1) + ' completada -> Exitos: ' + okCount + ' | Errores: ' + errCount);
+            totalOk += okCount;
+            totalErr += errCount;
+        }
+        System.debug(' -> ======================================================');
+        System.debug(' -> UPDATE COMPLETADO -> Exitos: ' + totalOk + ' | Errores: ' + totalErr);
+        System.debug(' -> ======================================================');
+    }
+} else {
+    System.debug(' -> DRY RUN activo: no se ejecuto ningun UPDATE. Cambia DRY_RUN a false para aplicar los cambios.');
+}

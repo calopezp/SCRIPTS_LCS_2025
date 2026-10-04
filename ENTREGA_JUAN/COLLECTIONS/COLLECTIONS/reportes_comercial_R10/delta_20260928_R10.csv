@@ -1,0 +1,2 @@
+Payment_Name,Payment_Status__c,SM_Check_Collection_Date__c,SM_Check_Collection__c,SM_Check_Collection_Status__c,Section,Drawee_Name,Check_Number,Reference_Number,Amount,Reason
+PY-01895410,REJECTED,2026-09-21,TRUE,PENDING,PENDING,PY-01895410,00002709430,0000132491575,99.00,R10 CUST ADV NOT
