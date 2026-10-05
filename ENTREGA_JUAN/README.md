@@ -52,6 +52,15 @@ así que si movemos un archivo de carpeta algo se rompe. La tabla de abajo te di
 > los dispara ningún script programado** — los corres tú mismo cuando necesitas revisar algo
 > puntual.
 
+### Automatizaciones en Salesforce que afectan el día a día (no requieren correr nada)
+
+No son código de esta carpeta (viven en `force-app/` y ya están activas en MONEE), pero cambian
+lo que vas a ver en los registros:
+
+| Automatización | Qué hace | Detalle |
+|---|---|---|
+| **Flow `ACH_ORDER_Subscription_Stopped_Monitoring`** (activo desde 2026-10-05) | Cuando cualquier usuario pasa una orden ACH `Subscription` a `Stopped`, marca el contrato en **Contract Monitoring** con ese usuario como responsable (si ya tenía responsable, lo respeta) y crea una Task `Open` "Collections-Subscription Stopped" como nota histórica. Desmarcar el monitoreo es manual. Si tú detienes Subscriptions desde scripts, también se dispara (a propósito, por trazabilidad) | `MANUAL_TRASPASO.md` sección 5.3 |
+
 ---
 
 ## 2. Por dónde empezar
