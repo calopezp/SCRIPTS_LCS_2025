@@ -280,17 +280,32 @@ los datos** (como se hizo repetidamente en `TAREAS_PENDIENTES.md`/`BITACORA_HALL
 Lista resumida — **la tabla completa y actualizada vive en `TAREAS_PENDIENTES.md`**, no la
 dupliques de memoria:
 
-- Proceso de contracargos R10/R11 (Tasks + flag `Historical_Claim_On_Record__c`) — en pausa,
-  esperando análisis con el banco.
-- Fix de `update_ach_returns.apex`/`update_check_collection.apex` para aplicar R10/R11-siempre-gana
-  automáticamente — propuesto, sin confirmar.
+- Proceso de contracargos R10/R11 — **piloto 2026 completo** (45 payments: Payment ACCEPTED/
+  COLLECTED + Payment REFUNDED + flag `Historical_Claim_On_Record__c`/`Has_Refund_History__c` +
+  Task `'TIADM - REFUND CONTRA CARGO (R10/R11)'`, ver `scripts/apex/-CONTRACARGO_ACH_R10_R11*.apex`).
+  **El resto del backlog histórico (pagos de antes de enero 2026, ~300 payments) queda
+  deliberadamente sin tocar — decisión explícita de Carlos: solo documentarlo en
+  `TAREAS_PENDIENTES.md`, no trabajarlo todavía.** Razón: esos payments se procesaron antes de que
+  existiera la regla de contracargo, con la lógica vieja (`NOT_COLLECTED`); aplicarles la regla
+  nueva ahora los pasaría a `ACCEPTED`/`COLLECTED`, lo que haría que esos contratos **pasen a deber
+  las cuotas siguientes** — un impacto financiero real sobre contratos ya resueltos de otra forma.
+  **No es una decisión técnica — requiere evaluarlo con Comercial primero** (¿se reclasifican bajo
+  la regla nueva, o se dejan tal como quedaron?). Si se decide retomarlo, los 3 scripts del piloto
+  (`_BATCH_CANCELLED_2026`, `_BATCH_PAYMENTPROCESS_2026`, `_BATCH_ACTIVATED_2026`) son la plantilla
+  a reutilizar.
 - 539 payments 2026 sin decisión final en algunos tiers ambiguos (ver detalle en el archivo).
 - Lista real de destinatarios de Comercial para los correos automáticos — pendiente que la
   definan (hoy todo llega solo a `clopez@legal-credit.com`).
 - Horario del job `SM Contracts Activated Monitor - Daily` — reprogramar cuando España salga de
   horario de verano (~fin de octubre 2026).
-- Winter '27 (aplica a MONEE el 10-oct-2026) — falta correr el Test Run de "Enable Profile
-  Filtering" como usuario no-admin antes de esa fecha.
+- ~~Winter '27 (aplica a MONEE el 10-oct-2026) — falta correr el Test Run de "Enable Profile
+  Filtering"~~ **Cerrado 2026-10-05.** Validado con login-as un usuario no-admin (Sales Agent) en
+  PREPROD (que ya tiene el release adelantado) usando la extensión Chrome "Salesforce Inspector":
+  una query de perfil ajeno (`'Standard User'`) devolvió 0 registros (bloqueada, confirma que el
+  filtro ya está activo), una del propio perfil (`'Sales Agent'`) devolvió 1 (exento por diseño,
+  como documenta Salesforce). Como `clopez@legal-credit.com` sigue con los 4 permisos bypass
+  intactos, el enforcement no afecta los deploys reales en MONEE — sin acción pendiente. Detalle en
+  `TAREAS_PENDIENTES.md` (Cerrado recientemente) y `CLAUDE.md` sección 4.
 - Varios casos de doble cobro / reembolso pendientes de decisión de negocio (`00317786`,
   contratos del caso 06, etc.).
 - 1 contrato (`00317915`) en cola de cancelación esperando el plazo normal de la Rule 3.
