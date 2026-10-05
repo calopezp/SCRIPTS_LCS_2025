@@ -27,6 +27,19 @@
  * llego ya este aplicado -- este script solo mira el estado ACTUAL en
  * Salesforce, no escanea PDFs.
  *
+ * EXCLUSION_NAMES (2026-10-04): un payment transmitido 2+ veces por el bug
+ * real de -A.ReporteACHFile (no excluye payments aun ACH PENDING de la
+ * siguiente corrida -- ver CLAUDE.md seccion 2.2) NO se puede auto-aceptar
+ * como cobrado una sola vez despues de N dias de silencio -- si de verdad
+ * nunca aparece en ningun reporte, significa que AMBAS transmisiones se
+ * cobraron limpio, y este script solo marcaria UN SM_Payment__c, dejando el
+ * segundo cobro real invisible (mismo patron que PY-01907641, ya corregido
+ * a mano). Apex no puede leer el CSV local de duplicados
+ * (ACH_REPORTADOS/index/posibles_duplicados_transmision.csv) directamente,
+ * asi que por ahora es una lista fija aqui -- mantenerla actualizada a mano
+ * mientras no exista un mecanismo mas durable (ej. subir ese CSV como
+ * Static Resource, como se hizo con BankReferenceBackfill).
+ *
  //#endregion titulo
  * MODO DE USO:
  *   - Corre primero con DRY_RUN = true  -> solo preview, NO actualiza nada.
@@ -39,6 +52,13 @@
 // ============ CONFIGURACION ============
 Boolean DRY_RUN = true; // <-- cambiar a false para ejecutar el update real
 Integer DAYS_SINCE_TRANSMITTED = 15; // Confirmado por Carlos 2026-09-21 -- valor validado por Comercial (2026-09-14), no 20
+
+// Payments transmitidos 2+ veces (lote 22/23-sep, ver CLAUDE.md 2.2) -- NUNCA
+// auto-aceptar, se excluyen de este script y se reportan aparte para
+// revision manual (confirmar si corresponde crear un 2do SM_Payment__c).
+Set<String> EXCLUSION_NAMES = new Set<String>{
+    'PY-01907643', 'PY-01907644', 'PY-01907645'
+};
 // ========================================
 
 Date cutoff = Date.today().addDays(-DAYS_SINCE_TRANSMITTED);
@@ -49,7 +69,7 @@ System.debug('\u2192 ' +'\u2192  -> Corte: ACH TRANSMITTED antes de ' + cutoff +
 System.debug('\u2192 ' +'\u2192  -> ======================================================');
 
 // 1) Candidatos: transmitidos hace rato, sin ningun reporte
-List<SM_Payment__c> candidates = [
+List<SM_Payment__c> allCandidates = [
     SELECT Id, Name, SM_ACH_Order__c, SM_Date_ACH_Transmitted__c, SM_Transmission_Date_ACH_File__c,
            SM_Historical_Collection_Status__c, SM_Type__c, SM_Original_Type__c, SM_Contract__r.ContractNumber
     FROM SM_Payment__c
@@ -64,9 +84,31 @@ List<SM_Payment__c> candidates = [
     ORDER BY SM_Transmission_Date_ACH_File__c ASC
 ];
 
+List<SM_Payment__c> candidates = new List<SM_Payment__c>();
+List<SM_Payment__c> excluidosPorDuplicado = new List<SM_Payment__c>();
+for (SM_Payment__c p : allCandidates) {
+    if (EXCLUSION_NAMES.contains(p.Name)) {
+        excluidosPorDuplicado.add(p);
+    } else {
+        candidates.add(p);
+    }
+}
+
 for (SM_Payment__c p : candidates) {
     Integer nDias = p.SM_Transmission_Date_ACH_File__c.daysBetween(Date.today());
     System.debug('\u2192 ' +'\u2192 PREVIEW -> ' + p.Name + ' \uFF5C Transmitido: ' + p.SM_Transmission_Date_ACH_File__c + ' -> Transmitido hace ' + nDias + ' días');
+}
+
+
+if (!excluidosPorDuplicado.isEmpty()) {
+    System.debug('→ ' +'→  -> ======================================================');
+    System.debug('→ ' +'→  -> EXCLUIDOS (transmitidos 2+ veces, NO auto-aceptar): ' + excluidosPorDuplicado.size());
+    for (SM_Payment__c p : excluidosPorDuplicado) {
+        Integer nDiasExcl = p.SM_Transmission_Date_ACH_File__c.daysBetween(Date.today());
+        System.debug('→ ' +'→   -> ' + p.Name + ' (' + p.SM_Contract__r.ContractNumber + ') ｜ ' + nDiasExcl +
+            ' dias sin ningun reporte -- si se cumple el plazo igual sin reporte, AMBOS cobros se hicieron, revisar manualmente');
+    }
+    System.debug('→ ' +'→  -> ======================================================');
 }
 
 // 2) Agrupar en OLEADAS por SM_ACH_Order__c -- mismo motivo que en

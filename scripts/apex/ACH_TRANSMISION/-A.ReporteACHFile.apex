@@ -21,6 +21,17 @@
 *  CSV y los sube como ContentVersion. El payment se queda en 'ACH PENDING' hasta que se
 *  confirme el cargue (ver Parte 2: "-B.ConfirmarCargueACH.apex"), que corre al día siguiente
 *  cuando llega la confirmación del banco por correo y es quien hace esos 3 cambios.
+*
+*  Corregido 2026-10-04 (bug real confirmado -- ver CLAUDE.md sección 2.2): como este script
+*  nunca cambia Payment_Status__c, si "-B" no alcanza a confirmar el cargue de un día antes de
+*  que "-A" corra de nuevo, el mismo payment seguía 'ACH PENDING' y volvía a salir en el
+*  archivo del día siguiente -- el banco trata cada aparición en un archivo como una
+*  transmisión real e independiente, así que esto causó un cobro duplicado real
+*  (PY-01907641/00318012, cobrado 2 veces; PY-01907642/00318146, disputado por el cliente vía
+*  R10 -- lote completo transmitido 22 y 23-sep). Fix: antes de armar el archivo de hoy, se
+*  revisan los reportes ACH_*.csv ya subidos (ContentVersion, últimos 60 días) y se excluye
+*  cualquier payment que ya haya salido en alguno de ellos y siga 'ACH PENDING' -- en vez de
+*  retransmitirlo en silencio, se reporta aparte para revisión manual (ver sección 1.5 abajo).
 ******************************************************************************************/
 
 // =========================================================================================
@@ -54,7 +65,7 @@ Map<Id,String> SUFIJOS_POR_RECORDTYPE = new Map<Id,String>{
 // (decisión explícita del usuario, 2026-10-02: no aflojar el filtro de Status).
 // =========================================================================================
 
-List<SM_Payment__c> pagos = [
+List<SM_Payment__c> pagosTodos = [
     SELECT Id, SM_ACH_Account_Routing_Number__c, SM_Payment_Method__r.SM_ACH_Account_Number__c,
            SM_ACH_Account_Type_Code__c, Name, SM_Net_Amount__c,
            SM_ACH_Order__r.Name, Payment_Status__c, SM_Contract__r.ContractNumber,
@@ -70,10 +81,69 @@ List<SM_Payment__c> pagos = [
     ORDER BY Name ASC
 ];
 
-system.debug(' → Payments a procesar : ' + pagos.size());
+system.debug(' → Payments ACH PENDING (antes de excluir ya reportados): ' + pagosTodos.size());
+
+if (pagosTodos.isEmpty()) {
+    System.debug(' →  No hay pagos ACH PENDING para procesar. Script finalizado.');
+    return;
+}
+
+// =========================================================================================
+// 1.5️⃣ EXCLUIR PAYMENTS QUE YA SALIERON EN UN REPORTE ANTERIOR SIN CONFIRMAR
+// Ver nota de "Corregido 2026-10-04" en el encabezado -- esto es lo que evita que un payment
+// se transmita 2 veces de verdad cuando "-B" se atrasa un día. Se leen los reportes ACH_*.csv
+// ya subidos (ContentVersion, últimos LOOKBACK_DIAS_REPORTES días) y se arma el set de
+// payments ya reportados; cualquiera que siga ACH PENDING y ya este en ese set se EXCLUYE del
+// archivo de hoy (no se transmite de nuevo) y se reporta aparte para revisión manual -- no se
+// toca Payment_Status__c ni ningún otro campo, es solo un filtro sobre qué se incluye hoy.
+// =========================================================================================
+
+Integer LOOKBACK_DIAS_REPORTES = 60;
+DateTime cutoffReportes = DateTime.now().addDays(-LOOKBACK_DIAS_REPORTES);
+
+Set<String> yaReportados = new Set<String>();
+for (ContentVersion cvPrevio : [
+    SELECT Title, VersionData
+    FROM ContentVersion
+    WHERE Title LIKE 'ACH%.csv'
+    AND CreatedDate >= :cutoffReportes
+]) {
+    String texto = cvPrevio.VersionData != null ? cvPrevio.VersionData.toString() : '';
+    for (String linea : texto.split('\n')) {
+        linea = linea.trim();
+        if (String.isBlank(linea)) { continue; }
+        Integer comaIdx = linea.indexOf(',');
+        String nombrePago = (comaIdx > 0 ? linea.substring(0, comaIdx) : linea).trim();
+        if (String.isNotBlank(nombrePago)) {
+            yaReportados.add(nombrePago);
+        }
+    }
+}
+System.debug(' → Payments distintos en reportes de los últimos ' + LOOKBACK_DIAS_REPORTES + ' días: ' + yaReportados.size());
+
+List<SM_Payment__c> pagos = new List<SM_Payment__c>();
+List<SM_Payment__c> excluidosPorReporteAnterior = new List<SM_Payment__c>();
+for (SM_Payment__c p : pagosTodos) {
+    if (yaReportados.contains(p.Name)) {
+        excluidosPorReporteAnterior.add(p);
+    } else {
+        pagos.add(p);
+    }
+}
+
+if (!excluidosPorReporteAnterior.isEmpty()) {
+    System.debug(' → ⚠ ' + excluidosPorReporteAnterior.size() +
+        ' payment(s) EXCLUIDOS del archivo de hoy -- ya salieron en un reporte anterior y siguen ACH PENDING ' +
+        '(revisar por qué "-B.ConfirmarCargueACH" no los confirmó, antes de decidir si se re-incluyen a mano):');
+    for (SM_Payment__c p : excluidosPorReporteAnterior) {
+        System.debug('   ' + p.Name + ' (Contrato ' + p.SM_Contract__r.ContractNumber + ')');
+    }
+}
+
+system.debug(' → Payments a procesar hoy (después de excluir ya reportados): ' + pagos.size());
 
 if (pagos.isEmpty()) {
-    System.debug(' →  No hay pagos ACH PENDING para procesar. Script finalizado.');
+    System.debug(' →  No hay pagos nuevos para procesar hoy (todos ya reportados antes, o no había ninguno). Script finalizado.');
     return;
 }
 

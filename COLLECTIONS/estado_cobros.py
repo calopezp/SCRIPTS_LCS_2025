@@ -157,6 +157,68 @@ def contratos_para_cancelar() -> set:
         return {row[0].strip() for row in csv.reader(f) if row and row[0].strip()}
 
 
+def reportar_ach(c: dict, monthly_offer, meses_sin_cobrar, pendientes_links) -> None:
+    """Seccion de estado para un contrato ACH puro (sin CB_Subscription__c) --
+    agregado 2026-10-04, pedido explicito del usuario tras ver que estos
+    contratos solo mostraban "no es Chargebee, revisar a mano" aunque hubiera
+    informacion util. Caso real que lo motivo: contrato 00316426, 5+ meses sin
+    cobrar un Fee + cuenta bancaria cerrada (R02) + orden Subscription activa
+    que iba a seguir intentando cobrar con la misma cuenta cerrada, y 5 ordenes
+    "Late payment fee" nunca activadas (Stopped) -- nada de esto se veia antes
+    de este cambio.
+    """
+    ultimo_fee = sf_query(
+        "SELECT Name, Payment_Status__c, SM_Check_Collection_Status__c, SM_Return_code__c, "
+        "SM_Payment_Date__c FROM SM_Payment__c "
+        f"WHERE SM_Contract__c = '{c['Id']}' AND SM_Type__c = 'Fee' "
+        "ORDER BY SM_Payment_Date__c DESC LIMIT 1"
+    )
+    if ultimo_fee:
+        f = ultimo_fee[0]
+        estado = f"{f['Payment_Status__c']}/{f.get('SM_Check_Collection_Status__c')}"
+        if f["Payment_Status__c"] == "REJECTED":
+            codigo = f.get("SM_Return_code__c")
+            sufijo_codigo = f" ({codigo})" if codigo else ""
+            print(f"  [ALERTA] Ultimo Fee {f['Name']} ({f['SM_Payment_Date__c']}) -- {estado}{sufijo_codigo}")
+        elif f["Payment_Status__c"] != "ACCEPTED":
+            # "ACH TRANSMITTED" (u otro estado transitorio) -- todavia sin
+            # confirmar, no se puede llamar "al dia" como si ya se hubiera
+            # cobrado de verdad.
+            print(f"  Ultimo Fee {f['Name']} ({f['SM_Payment_Date__c']}) -- {estado} (en transito, sin confirmar aun)")
+        else:
+            print(f"  Ultimo Fee {f['Name']} ({f['SM_Payment_Date__c']}) -- {estado}")
+
+    if meses_sin_cobrar:
+        debe, tiene_activa = meses_sin_cobrar
+        sufijo = "" if tiene_activa else " -- SIN orden activa cobrandolo"
+        print(f"  [ALERTA] NO al dia -- debe {debe} mes(es) (${debe * monthly_offer:.0f}){sufijo}")
+        for nombre_pago, fecha_pago, _link in pendientes_links:
+            print(f"      {nombre_pago} ({fecha_pago}) -- sin recobrar")
+    elif ultimo_fee and ultimo_fee[0]["Payment_Status__c"] == "ACCEPTED":
+        print("  Al dia -- ultimo Fee mensual cobrado.")
+
+    ach_orders = sf_query(
+        "SELECT Name, SM_Payment_Status__c, SM_Payment_Type__c, SM_Total__c, "
+        "SM_Next_Transaction_Date__c FROM SM_ACH_Order__c "
+        f"WHERE SM_Contract__c = '{c['Id']}' "
+        "AND SM_Payment_Status__c IN ('Pending', 'Initiated', 'Recurring', 'Stopped') "
+        "ORDER BY CreatedDate DESC"
+    )
+    hoy = date.today().isoformat()
+    for o in ach_orders:
+        status = o["SM_Payment_Status__c"]
+        tipo = o.get("SM_Payment_Type__c")
+        proxima = o.get("SM_Next_Transaction_Date__c")
+        monto = o.get("SM_Total__c")
+        if tipo == "Late payment fee" and status == "Stopped":
+            print(f"  [ALERTA] ACH {o['Name']} (Late payment fee, ${monto}) Stopped -- nunca se activo para cobrar")
+        elif status in ("Pending", "Initiated", "Recurring") and proxima and proxima < hoy:
+            print(f"  [ALERTA] ACH {o['Name']} ({tipo}, ${monto}) {status} -- proxima transaccion {proxima} ya paso")
+        else:
+            extra = f" -- proxima {proxima}" if proxima else ""
+            print(f"  ACH {o['Name']} ({tipo}, ${monto}) {status}{extra}")
+
+
 def reporte_contrato(contract_number: str, en_lista_cancelar: set) -> None:
     print(f"\n=== Contrato {contract_number} ===")
 
@@ -243,7 +305,9 @@ def reporte_contrato(contract_number: str, en_lista_cancelar: set) -> None:
         print("  [ALERTA] Este contrato SI esta en Contratos_para_Cancelar_LOG.csv -- validar con ese flujo antes de tocar cobros.")
 
     if not c.get("CB_Subscription__c"):
-        if meses_sin_cobrar:
+        if c.get("SM_Payment_methods__c") == "ACH":
+            reportar_ach(c, monthly_offer, meses_sin_cobrar, pendientes_links)
+        elif meses_sin_cobrar:
             debe, tiene_activa = meses_sin_cobrar
             sufijo = "" if tiene_activa else " -- SIN orden activa cobrandolo"
             print(f"  [ALERTA] NO al dia -- debe {debe} mes(es) (${debe * monthly_offer:.0f}){sufijo}")

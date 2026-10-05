@@ -1,7 +1,7 @@
 /*
 ******************************************************************************************
 *  PARTE 2 — CONFIRMACIÓN DEL CARGUE ACH Y MARCACIÓN DE PAYMENTS
-*  Creado 2026-10-02 (contraparte de "-A.ReporteACHFile V3 Jul 2026.apex", que SOLO genera
+*  Creado 2026-10-02 (contraparte de "-A.ReporteACHFile.apex", que SOLO genera
 *  el/los CSV y ya no toca Payment/Nacha/Log).
 *
 *  Cuándo corre: cuando llega la confirmación del banco (normalmente por correo, "ok" del
@@ -33,7 +33,19 @@ Id ownerId         = '0051U000001MRFeQAO';
 Id logRecordTypeId = '0121U000000KY48QAG';
 String nombreNacha = 'Cargue Manual scr';
 
-Date dateValue = System.today().addDays(-1); // Date.valueOf('2026-10-01'); // para forzar una fecha puntual
+// "Ayer" naive (hoy-1) rompe los lunes: el proceso completo (-A y -B) no
+// corre ni sabado ni domingo, asi que un lunes "ayer" cae en domingo (sin
+// archivo, nunca confirma el viernes) -- hallazgo del usuario 2026-10-03.
+// Se calcula el ULTIMO DIA HABIL anterior a hoy en su lugar: lunes -> viernes
+// (retrocede 3), cualquier otro dia -> ayer normal (retrocede 1). No hace
+// falta cubrir "hoy es sabado/domingo" porque el pipeline no se invoca esos
+// dias. DateTime.newInstanceGMT (no newInstance) para el nombre del dia,
+// mismo motivo que fechaTransmision abajo -- independiente del timezone del
+// usuario que corre el script.
+Date hoy = System.today();
+String nombreDiaHoy = DateTime.newInstanceGMT(hoy, Time.newInstance(12, 0, 0, 0)).format('EEEE');
+Integer diasAtras = (nombreDiaHoy == 'Monday') ? 3 : 1;
+Date dateValue = hoy.addDays(-diasAtras); // Date.valueOf('2026-10-01'); // para forzar una fecha puntual
 String dateStr = dateValue.format();
 // DateTime.newInstance(Date,Time) usa el timezone del USUARIO que corre el script -- encontrado
 // 2026-10-02 corriendo esto como clopez (sesión en Europe/Madrid, GMT+2): "15:00" se guardó como

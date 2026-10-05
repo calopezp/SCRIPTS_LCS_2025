@@ -16,14 +16,26 @@ set -e
 #      Returns/Collection -- corre a proposito DESPUES de los pasos 1-3 de
 #      arriba, para que un reporte real que si llego hoy tenga prioridad.
 #      Respeta el modo DRY RUN/apply igual que el resto del script.
-#   5. En modo apply, manda 6 correos (notify_r02.apex, notify_r10.apex,
+#   5. Corre scripts/apex/ACH_TRANSMISION/-B.ConfirmarCargueACH.apex
+#      (automatizado aqui 2026-10-03, respaldo del paso manual "al dia
+#      siguiente" del proceso de transmision ACH en 4 pasos): confirma el
+#      cargue ACH de AYER (dateValue = hoy-1, el propio script lo calcula)
+#      si -A.ReporteACHFile ya genero el archivo y nadie corrio -B a mano
+#      todavia. Idempotente y no-op seguro si no hay archivo para esa
+#      fecha, o si los payments ya no estan en ACH PENDING/REFUND (ya
+#      confirmados a mano antes) -- nunca re-aplica ni pisa nada.
+#   6. En modo apply, manda 8 correos (notify_r02.apex, notify_r10.apex,
 #      notify_invalid_account.apex, notify_r07.apex, notify_r16.apex,
-#      notify_timeout_reversal.apex -- todos via SM_ReturnCodeNotifier.cls) con la
-#      lista actual de contratos con un ACH Return R02 (cuenta cerrada), R10 (cliente
-#      no autoriza), R04/R13 (cuenta/routing invalido), R07 (autorizacion revocada),
-#      R16 (cuenta congelada) sin resolver, o un pago aceptado por timeout que un
-#      reporte real luego contradijo -- ninguno se arregla reintentando el mismo
-#      metodo de pago.
+#      notify_timeout_reversal.apex -- todos via SM_ReturnCodeNotifier.cls,
+#      mas notify_duplicate_real_charge.apex y notify_ach_chronic_unpaid.apex,
+#      ambos agregados 2026-10-04) con la lista actual de contratos con un ACH
+#      Return R02 (cuenta cerrada), R10 (cliente no autoriza), R04/R13
+#      (cuenta/routing invalido), R07 (autorizacion revocada), R16 (cuenta
+#      congelada) sin resolver, un pago aceptado por timeout que un reporte
+#      real luego contradijo, un payment con 2+ trace/check numbers reales
+#      distintos (evidencia de cobro duplicado real, no solo sospecha), o un
+#      contrato ACH con 3+ meses de Fee mensual rechazado y nunca recobrado --
+#      ninguno se arregla reintentando el mismo metodo de pago.
 #
 # Corte de 1 semana por archivo (no por fecha interna de la fila): un
 # archivo NUNCA antes visto pero con mas de 7 dias de antiguedad en disco
@@ -67,7 +79,7 @@ RETURNS_CSV_OUT="$SCRIPT_DIR/RETURNS/ACHReturnsImport.csv"
 COLLECTIONS_CSV_OUT="$SCRIPT_DIR/COLLECTIONS/CheckCollectionImport.csv"
 
 echo "############################################################"
-echo "# 1/4 Escaneando Returns + Check Collection por archivos NUEVOS"
+echo "# 1/6 Escaneando Returns + Check Collection por archivos NUEVOS"
 echo "############################################################"
 python3 "$SCRIPT_DIR/build_index.py"
 
@@ -82,7 +94,7 @@ if [ "$RETURNS_PENDING" = "0" ] && [ "$COLLECTIONS_PENDING" = "0" ]; then
 else
     echo ""
     echo "############################################################"
-    echo "# 2/4 Aplicando SOLO los archivos nuevos (modo: $MODE)"
+    echo "# 2/6 Aplicando SOLO los archivos nuevos (modo: $MODE)"
     echo "############################################################"
 
     if [ "$RETURNS_PENDING" = "1" ]; then
@@ -114,7 +126,7 @@ fi
 
 echo ""
 echo "############################################################"
-echo "# 3/4 ACH Reportados (transmission)"
+echo "# 3/6 ACH Reportados (transmission)"
 echo "############################################################"
 set +e
 bash "$SCRIPT_DIR/ACH_REPORTADOS/run_transmission_import.sh" $APPLY_ARG 2>&1 | tee "$SUMMARY_DIR/transmission.log"
@@ -124,7 +136,7 @@ set -e
 
 echo ""
 echo "############################################################"
-echo "# 4/4 Marcar ACCEPTED por timeout (sin reporte tras N dias)"
+echo "# 4/6 Marcar ACCEPTED por timeout (sin reporte tras N dias)"
 echo "############################################################"
 # Corre DESPUES de los 3 pipelines de arriba a proposito -- asi cualquier
 # reporte real que SI llego hoy ya quedo aplicado antes de asumir "sin
@@ -149,6 +161,39 @@ TIMEOUT_EXIT=${PIPESTATUS[0]}
 set -e
 rm -f "$TMP_TIMEOUT_APEX"
 [ $TIMEOUT_EXIT -ne 0 ] && echo "AVISO: mark_transmitted_accepted.apex termino con codigo $TIMEOUT_EXIT (revisar arriba)."
+
+echo ""
+echo "############################################################"
+echo "# 5/6 Confirmar cargue ACH de ayer (respaldo de -B.ConfirmarCargueACH.apex)"
+echo "############################################################"
+# Respaldo del paso manual "al dia siguiente" del proceso de transmision ACH
+# en 4 pasos (scripts/apex/ACH_TRANSMISION/). El propio script calcula
+# dateValue = hoy-1 y confirma lo que -A.ReporteACHFile genero ayer -- si
+# ya se corrio a mano, este paso es no-op seguro (los payments ya no estan
+# en ACH PENDING/REFUND, se reportan como "novedad" y se saltan, nunca se
+# re-aplican). Mismo patron de temporal que el paso 4/6: el .apex del repo
+# SIEMPRE queda en DRY_RUN=true, solo el temporal cambia a false en modo
+# apply.
+CONFIRM_APEX_TEMPLATE="$SCRIPT_DIR/../scripts/apex/ACH_TRANSMISION/-B.ConfirmarCargueACH.apex"
+if [ -f "$CONFIRM_APEX_TEMPLATE" ]; then
+    TMP_CONFIRM_APEX="$(mktemp -u /tmp/confirmar_cargue_ach_XXXXXX.apex)"
+    cp "$CONFIRM_APEX_TEMPLATE" "$TMP_CONFIRM_APEX"
+    if [ "$MODE" = "apply" ]; then
+        if sed --version >/dev/null 2>&1; then
+            sed -i 's/Boolean DRY_RUN = true;/Boolean DRY_RUN = false;/' "$TMP_CONFIRM_APEX"
+        else
+            sed -i '' 's/Boolean DRY_RUN = true;/Boolean DRY_RUN = false;/' "$TMP_CONFIRM_APEX"
+        fi
+    fi
+    set +e
+    sf apex run -o MONEE -f "$TMP_CONFIRM_APEX" 2>&1 | tee "$SUMMARY_DIR/confirmar_cargue.log"
+    CONFIRM_EXIT=${PIPESTATUS[0]}
+    set -e
+    rm -f "$TMP_CONFIRM_APEX"
+    [ $CONFIRM_EXIT -ne 0 ] && echo "AVISO: -B.ConfirmarCargueACH.apex termino con codigo $CONFIRM_EXIT (revisar arriba)."
+else
+    echo "AVISO: no se encontro $CONFIRM_APEX_TEMPLATE -- paso saltado."
+fi
 
 if [ "$MODE" = "apply" ]; then
     echo ""
@@ -210,6 +255,54 @@ if [ "$MODE" = "apply" ]; then
     TIMEOUT_REVERSAL_EXIT=${PIPESTATUS[0]}
     set -e
     [ $TIMEOUT_REVERSAL_EXIT -ne 0 ] && echo "AVISO: notify_timeout_reversal.apex termino con codigo $TIMEOUT_REVERSAL_EXIT (revisar arriba)."
+
+    echo ""
+    echo "############################################################"
+    echo "# Notificacion: payments con evidencia real de cobro duplicado (2+ trace numbers)"
+    echo "############################################################"
+    # Agregado 2026-10-04 (lote PY-01907641-645, ver CLAUDE.md 2.2). Mismo
+    # patron de temporal que los pasos 4/6 y 5/6: el .apex del repo SIEMPRE
+    # queda en DRY_RUN=true, solo el temporal cambia a false en modo apply.
+    DUP_CHARGE_APEX_TEMPLATE="$SCRIPT_DIR/notify_duplicate_real_charge.apex"
+    TMP_DUP_CHARGE_APEX="$(mktemp -u /tmp/notify_dup_charge_XXXXXX.apex)"
+    cp "$DUP_CHARGE_APEX_TEMPLATE" "$TMP_DUP_CHARGE_APEX"
+    if sed --version >/dev/null 2>&1; then
+        sed -i 's/Boolean DRY_RUN = true;/Boolean DRY_RUN = false;/' "$TMP_DUP_CHARGE_APEX"
+    else
+        sed -i '' 's/Boolean DRY_RUN = true;/Boolean DRY_RUN = false;/' "$TMP_DUP_CHARGE_APEX"
+    fi
+    set +e
+    sf apex run -o MONEE -f "$TMP_DUP_CHARGE_APEX" 2>&1 | tee "$SUMMARY_DIR/dup_charge.log"
+    DUP_CHARGE_EXIT=${PIPESTATUS[0]}
+    set -e
+    rm -f "$TMP_DUP_CHARGE_APEX"
+    [ $DUP_CHARGE_EXIT -ne 0 ] && echo "AVISO: notify_duplicate_real_charge.apex termino con codigo $DUP_CHARGE_EXIT (revisar arriba)."
+
+    echo ""
+    echo "############################################################"
+    echo "# Validar y activar: contratos ACH con 3+ meses sin cobrar"
+    echo "############################################################"
+    # Agregado 2026-10-04 (caso real 00316426, 5 meses sin cobrar sin que
+    # nadie lo notara). Reemplaza a notify_ach_chronic_unpaid.apex (que solo
+    # reportaba) -- este tambien valida por conteo de meses, excluye
+    # Customer Cancellation, y ACTIVA (Stopped->Pending, proximo dia habil)
+    # las ordenes Late payment fee que cuadren exactamente, pedido explicito
+    # del usuario el mismo dia. Mismo patron de temporal que los pasos
+    # anteriores.
+    CHRONIC_APEX_TEMPLATE="$SCRIPT_DIR/activar_ach_chronic_unpaid.apex"
+    TMP_CHRONIC_APEX="$(mktemp -u /tmp/activar_ach_chronic_XXXXXX.apex)"
+    cp "$CHRONIC_APEX_TEMPLATE" "$TMP_CHRONIC_APEX"
+    if sed --version >/dev/null 2>&1; then
+        sed -i 's/Boolean DRY_RUN = true;/Boolean DRY_RUN = false;/' "$TMP_CHRONIC_APEX"
+    else
+        sed -i '' 's/Boolean DRY_RUN = true;/Boolean DRY_RUN = false;/' "$TMP_CHRONIC_APEX"
+    fi
+    set +e
+    sf apex run -o MONEE -f "$TMP_CHRONIC_APEX" 2>&1 | tee "$SUMMARY_DIR/ach_chronic.log"
+    CHRONIC_EXIT=${PIPESTATUS[0]}
+    set -e
+    rm -f "$TMP_CHRONIC_APEX"
+    [ $CHRONIC_EXIT -ne 0 ] && echo "AVISO: activar_ach_chronic_unpaid.apex termino con codigo $CHRONIC_EXIT (revisar arriba)."
 fi
 
 if [ -s "$ARCHIVOS_VIEJOS_CSV" ]; then
