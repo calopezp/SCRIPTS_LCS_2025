@@ -16,11 +16,11 @@ set -e
 #      Returns/Collection -- corre a proposito DESPUES de los pasos 1-3 de
 #      arriba, para que un reporte real que si llego hoy tenga prioridad.
 #      Respeta el modo DRY RUN/apply igual que el resto del script.
-#   5. Corre scripts/apex/ACH_TRANSMISION/-B.ConfirmarCargueACH.apex
+#   5. Corre scripts/apex/ACH_TRANSMISION/C. Confirmar Cargue Reporte ACH.apex
 #      (automatizado aqui 2026-10-03, respaldo del paso manual "al dia
 #      siguiente" del proceso de transmision ACH en 4 pasos): confirma el
 #      cargue ACH de AYER (dateValue = hoy-1, el propio script lo calcula)
-#      si -A.ReporteACHFile ya genero el archivo y nadie corrio -B a mano
+#      si A. Generar File Reporte ACH.apex ya genero el archivo y nadie corrio C a mano
 #      todavia. Idempotente y no-op seguro si no hay archivo para esa
 #      fecha, o si los payments ya no estan en ACH PENDING/REFUND (ya
 #      confirmados a mano antes) -- nunca re-aplica ni pisa nada.
@@ -164,17 +164,17 @@ rm -f "$TMP_TIMEOUT_APEX"
 
 echo ""
 echo "############################################################"
-echo "# 5/6 Confirmar cargue ACH de ayer (respaldo de -B.ConfirmarCargueACH.apex)"
+echo "# 5/6 Confirmar cargue ACH de ayer (respaldo de C. Confirmar Cargue Reporte ACH.apex)"
 echo "############################################################"
 # Respaldo del paso manual "al dia siguiente" del proceso de transmision ACH
 # en 4 pasos (scripts/apex/ACH_TRANSMISION/). El propio script calcula
-# dateValue = hoy-1 y confirma lo que -A.ReporteACHFile genero ayer -- si
+# dateValue = hoy-1 y confirma lo que A. Generar File Reporte ACH.apex genero ayer -- si
 # ya se corrio a mano, este paso es no-op seguro (los payments ya no estan
 # en ACH PENDING/REFUND, se reportan como "novedad" y se saltan, nunca se
 # re-aplican). Mismo patron de temporal que el paso 4/6: el .apex del repo
 # SIEMPRE queda en DRY_RUN=true, solo el temporal cambia a false en modo
 # apply.
-CONFIRM_APEX_TEMPLATE="$SCRIPT_DIR/../scripts/apex/ACH_TRANSMISION/-B.ConfirmarCargueACH.apex"
+CONFIRM_APEX_TEMPLATE="$SCRIPT_DIR/../scripts/apex/ACH_TRANSMISION/C. Confirmar Cargue Reporte ACH.apex"
 if [ -f "$CONFIRM_APEX_TEMPLATE" ]; then
     TMP_CONFIRM_APEX="$(mktemp -u /tmp/confirmar_cargue_ach_XXXXXX.apex)"
     cp "$CONFIRM_APEX_TEMPLATE" "$TMP_CONFIRM_APEX"
@@ -190,7 +190,7 @@ if [ -f "$CONFIRM_APEX_TEMPLATE" ]; then
     CONFIRM_EXIT=${PIPESTATUS[0]}
     set -e
     rm -f "$TMP_CONFIRM_APEX"
-    [ $CONFIRM_EXIT -ne 0 ] && echo "AVISO: -B.ConfirmarCargueACH.apex termino con codigo $CONFIRM_EXIT (revisar arriba)."
+    [ $CONFIRM_EXIT -ne 0 ] && echo "AVISO: C. Confirmar Cargue Reporte ACH.apex termino con codigo $CONFIRM_EXIT (revisar arriba)."
 else
     echo "AVISO: no se encontro $CONFIRM_APEX_TEMPLATE -- paso saltado."
 fi

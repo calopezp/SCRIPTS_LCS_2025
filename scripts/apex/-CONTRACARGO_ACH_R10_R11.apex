@@ -30,7 +30,7 @@
  *     -CONTRACARGO_CHARGEBEE.apex si ejecuta siempre, aqui es OPCIONAL
  *     (ver CREAR_RECOBRO mas abajo) -- debe evaluarse caso por caso. Ejemplo
  *     real donde NO aplica: PY-01907642/00318146, parte de un lote de 5
- *     payments transmitidos 2 veces por un bug real de -A.ReporteACHFile (no
+ *     payments transmitidos 2 veces por un bug real de A. Generar File Reporte ACH.apex (no
  *     excluye payments aun ACH PENDING de la siguiente corrida) -- el R10 ahi
  *     es casi seguro el cliente disputando el COBRO DUPLICADO (error de LCS),
  *     y volver a cobrarle con un Late Payment Fee seria cobrarle de nuevo por

@@ -2,7 +2,7 @@
  * -CrearPaymentDuplicado_PY01907644_y_Activar00318577.apex
  * -----------------------------------------------------------
  * Contrato 00318577 / PY-01907644 -- mismo lote de doble transmision
- * 22/23-sep (bug real de -A.ReporteACHFile, ver CLAUDE.md 2.2) que ya
+ * 22/23-sep (bug real de A. Generar File Reporte ACH.apex, ver CLAUDE.md 2.2) que ya
  * resolvimos para PY-01907641/00318012. A diferencia de ese caso, aqui
  * nunca llego NINGUN reporte de Returns/Collection (12 dias de silencio
  * total al momento de este script, por debajo del umbral estandar de 15

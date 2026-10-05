@@ -1,9 +1,9 @@
 /*
 ******************************************************************************************
-*  PARTE 3 (EXCEPCIÓN MUY ESPECIAL) — REVERTIR UN CARGUE ACH YA CONFIRMADO
+*  PASO D (EXCEPCIÓN MUY ESPECIAL) — REVERTIR UN CARGUE ACH YA CONFIRMADO
 *  Creado 2026-10-02.
 *
-*  Cuándo usarlo: solo cuando "-B.ConfirmarCargueACH.apex" ya marcó un lote como
+*  Cuándo usarlo: solo cuando "C. Confirmar Cargue Reporte ACH.apex" ya marcó un lote como
 *  ACH TRANSMITTED (creó su SM_Nacha_File__c + SM_TransactionLog__c) pero después se descubre
 *  que el archivo en realidad NUNCA llegó al banco (error humano -- se olvidó enviar -- o
 *  técnico). Esto NO es parte del flujo normal, es la excepción que revierte un "se asumió
@@ -12,13 +12,13 @@
 *  Qué hace, para TODOS los Payments ligados a un SM_Nacha_File__c dado:
 *    1. Revierte Payment_Status__c a ACH PENDING / ACH PENDING REFUND (según corresponda).
 *    2. Limpia SM_Nacha_File__c, SM_Date_ACH_Transmitted__c, SM_Transmission_Date_ACH_File__c
-*       y SM_Payment_Date__c (los mismos campos que "-B" puso).
+*       y SM_Payment_Date__c (los mismos campos que "C" puso).
 *    3. Anota en SM_Id_Salesforce_LCS__c vía SM_AutomationLogHelper.appendNote() -- mismo
 *       patrón que ya usa el resto del proyecto (CLAUDE.md sección 1), nunca pisa el valor
 *       anterior.
 *    4. Crea un SM_TransactionLog__c NUEVO por payment (SM_Response__c empieza con
 *       "REVERTIDO -- ", SM_StatusCode__c=0, Error_Log__c=<causa>) -- el TransactionLog
-*       original que creó "-B" NO se borra, queda como rastro de que sí se intentó confirmar.
+*       original que creó "C" NO se borra, queda como rastro de que sí se intentó confirmar.
 *       (Status__c y SM_Success__c son campos fórmula, no escribibles -- probablemente
 *       derivados de SM_StatusCode__c=200, por eso se usa SM_Response__c como marcador legible.)
 *    5. El SM_Nacha_File__c NO se toca -- decisión explícita del usuario 2026-10-02: ese objeto

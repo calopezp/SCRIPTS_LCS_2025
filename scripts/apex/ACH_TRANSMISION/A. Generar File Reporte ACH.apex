@@ -1,6 +1,6 @@
 /*
 ******************************************************************************************
-*  PARTE 1 — GENERACIÓN DEL ARCHIVO ACH (para envío al banco)
+*  PASO A — GENERACIÓN DEL ARCHIVO ACH (para envío al banco)
 *  Autor: Carlos (versión optimizada)
 *  Fecha: Mayo 2026
 *  Actualizado 2026-10-02 (parte 1): query y generación de CSV alineadas al Power Query de
@@ -19,12 +19,12 @@
 *  Actualizado 2026-10-02 (parte 3, decisión explícita del usuario): ESTE SCRIPT YA NO TOCA
 *  Payment_Status__c, NO crea SM_Nacha_File__c, NI SM_TransactionLog__c -- solo genera el/los
 *  CSV y los sube como ContentVersion. El payment se queda en 'ACH PENDING' hasta que se
-*  confirme el cargue (ver Parte 2: "-B.ConfirmarCargueACH.apex"), que corre al día siguiente
+*  confirme el cargue (ver paso "C. Confirmar Cargue Reporte ACH.apex"), que corre al día siguiente
 *  cuando llega la confirmación del banco por correo y es quien hace esos 3 cambios.
 *
 *  Corregido 2026-10-04 (bug real confirmado -- ver CLAUDE.md sección 2.2): como este script
-*  nunca cambia Payment_Status__c, si "-B" no alcanza a confirmar el cargue de un día antes de
-*  que "-A" corra de nuevo, el mismo payment seguía 'ACH PENDING' y volvía a salir en el
+*  nunca cambia Payment_Status__c, si "C" no alcanza a confirmar el cargue de un día antes de
+*  que "A" corra de nuevo, el mismo payment seguía 'ACH PENDING' y volvía a salir en el
 *  archivo del día siguiente -- el banco trata cada aparición en un archivo como una
 *  transmisión real e independiente, así que esto causó un cobro duplicado real
 *  (PY-01907641/00318012, cobrado 2 veces; PY-01907642/00318146, disputado por el cliente vía
@@ -38,9 +38,9 @@
 // 1️⃣ DATOS FIJOS
 // =========================================================================================
 
-// Fecha del archivo = HOY, no ayer -- "-A" genera el archivo que se envía el MISMO día
-// (~2:50pm PR). El "ayer" quedó en "-B" (que confirma al día siguiente el envío de ayer);
-// aquí causaba un bug real: nombraba el archivo de hoy con la fecha de ayer, y "-B" de mañana
+// Fecha del archivo = HOY, no ayer -- "A" genera el archivo que se envía el MISMO día
+// (~2:50pm PR). El "ayer" quedó en "C" (que confirma al día siguiente el envío de ayer);
+// aquí causaba un bug real: nombraba el archivo de hoy con la fecha de ayer, y "C" de mañana
 // no lo habría encontrado al buscar por la fecha de hoy. Corregido 2026-10-02.
 Date dateValue = System.today(); // Date.valueOf('2026-10-02'); // para forzar una fecha puntual
 String dateStr = dateValue.format();
@@ -91,7 +91,7 @@ if (pagosTodos.isEmpty()) {
 // =========================================================================================
 // 1.5️⃣ EXCLUIR PAYMENTS QUE YA SALIERON EN UN REPORTE ANTERIOR SIN CONFIRMAR
 // Ver nota de "Corregido 2026-10-04" en el encabezado -- esto es lo que evita que un payment
-// se transmita 2 veces de verdad cuando "-B" se atrasa un día. Se leen los reportes ACH_*.csv
+// se transmita 2 veces de verdad cuando "C" se atrasa un día. Se leen los reportes ACH_*.csv
 // ya subidos (ContentVersion, últimos LOOKBACK_DIAS_REPORTES días) y se arma el set de
 // payments ya reportados; cualquiera que siga ACH PENDING y ya este en ese set se EXCLUYE del
 // archivo de hoy (no se transmite de nuevo) y se reporta aparte para revisión manual -- no se
@@ -134,7 +134,7 @@ for (SM_Payment__c p : pagosTodos) {
 if (!excluidosPorReporteAnterior.isEmpty()) {
     System.debug(' → ⚠ ' + excluidosPorReporteAnterior.size() +
         ' payment(s) EXCLUIDOS del archivo de hoy -- ya salieron en un reporte anterior y siguen ACH PENDING ' +
-        '(revisar por qué "-B.ConfirmarCargueACH" no los confirmó, antes de decidir si se re-incluyen a mano):');
+        '(revisar por qué "C. Confirmar Cargue Reporte ACH.apex" no los confirmó, antes de decidir si se re-incluyen a mano):');
     for (SM_Payment__c p : excluidosPorReporteAnterior) {
         System.debug('   ' + p.Name + ' (Contrato ' + p.SM_Contract__r.ContractNumber + ')');
     }
@@ -197,7 +197,7 @@ String tipoLetra(SM_Payment__c p){
 
 // Genera el CSV de un grupo (un RecordType, o el grupo de refunds) y lo sube como
 // ContentVersion. NO toca Payment_Status__c, NO crea Nacha, NO crea TransactionLog -- eso es
-// responsabilidad de la Parte 2 (confirmación del cargue, al día siguiente). Las filas
+// responsabilidad del paso C (confirmación del cargue, al día siguiente). Las filas
 // no-refund llevan un 8vo campo (RecordTypeId del Contract); las de refund se quedan en 7
 // campos, igual que los archivos reales "_REFUNDED" en OneDrive.
 void generarArchivoGrupo(List<SM_Payment__c> grupoPagos, String sufijoArchivo, Boolean esRefund, String dateStrP){
@@ -255,4 +255,4 @@ if (!refundPagos.isEmpty()) {
     generarArchivoGrupo(refundPagos, 'REFUNDED', true, dateStr);
 }
 
-System.debug('→  Script finalizado correctamente -- archivo(s) generado(s), payments siguen en ACH PENDING hasta la confirmación (Parte 2).');
+System.debug('→  Script finalizado correctamente -- archivo(s) generado(s), payments siguen en ACH PENDING hasta la confirmación (paso C).');

@@ -1,11 +1,11 @@
 /*
 ******************************************************************************************
-*  PARTE 1B — CORREO DE ENVÍO ACH (con los archivos adjuntos)
+*  PASO B — CORREO DE ENVÍO ACH (con los archivos adjuntos)
 *  Creado 2026-10-02. Pensado para el handoff: automatiza el correo a Yahaire/Elba/Juan que
 *  hoy se manda a mano, para que la persona nueva en el puesto no tenga que armarlo ni saber
-*  el formato -- solo correr este script después de "-A.ReporteACHFile...apex".
+*  el formato -- solo correr este script después de "A. Generar File Reporte ACH.apex".
 *
-*  Busca los ContentVersion "ACH_<fecha de hoy>_*" que generó "-A", calcula registros/monto
+*  Busca los ContentVersion "ACH_<fecha de hoy>_*" que generó "A", calcula registros/monto
 *  por archivo (parseando el propio CSV, columna Amount), y manda UN correo con todos los
 *  archivos adjuntos. Formato de asunto/cuerpo tomado del ejemplo real del usuario
 *  (2026-10-02): "Envío ACH <YYYYMMDD>" + líneas "Registros <Tipo> / Total Amount".
@@ -36,12 +36,12 @@ Map<String,String> NOMBRE_POR_SUFIJO = new Map<String,String>{
     'REFUNDED' => 'Refund'
 };
 
-Date dateValue = System.today(); // mismo día que "-A" -- el correo es del archivo que se genera y envía hoy
+Date dateValue = System.today(); // mismo día que "A" -- el correo es del archivo que se genera y envía hoy
 String dateStr = dateValue.format();
 
 
 // =========================================================================================
-// 1️⃣ BUSCAR LOS ARCHIVOS DE HOY (mismo criterio que "-A" usa para nombrarlos)
+// 1️⃣ BUSCAR LOS ARCHIVOS DE HOY (mismo criterio que "A" usa para nombrarlos)
 // =========================================================================================
 
 String patronTitulo = 'ACH_' + dateStr + '%';
@@ -53,7 +53,7 @@ List<ContentVersion> archivos = [
 ];
 
 if (archivos.isEmpty()) {
-    System.debug('→ No se encontraron archivos ACH_' + dateStr + '* para hoy. Corre "-A" primero.');
+    System.debug('→ No se encontraron archivos ACH_' + dateStr + '* para hoy. Corre "A" primero.');
     return;
 }
 

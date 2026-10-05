@@ -1,7 +1,7 @@
 /*
 ******************************************************************************************
-*  PARTE 2 — CONFIRMACIÓN DEL CARGUE ACH Y MARCACIÓN DE PAYMENTS
-*  Creado 2026-10-02 (contraparte de "-A.ReporteACHFile.apex", que SOLO genera
+*  PASO C — CONFIRMACIÓN DEL CARGUE ACH Y MARCACIÓN DE PAYMENTS
+*  Creado 2026-10-02 (contraparte de "A. Generar File Reporte ACH.apex", que SOLO genera
 *  el/los CSV y ya no toca Payment/Nacha/Log).
 *
 *  Cuándo corre: cuando llega la confirmación del banco (normalmente por correo, "ok" del
@@ -33,7 +33,7 @@ Id ownerId         = '0051U000001MRFeQAO';
 Id logRecordTypeId = '0121U000000KY48QAG';
 String nombreNacha = 'Cargue Manual scr';
 
-// "Ayer" naive (hoy-1) rompe los lunes: el proceso completo (-A y -B) no
+// "Ayer" naive (hoy-1) rompe los lunes: el proceso completo (A y C) no
 // corre ni sabado ni domingo, asi que un lunes "ayer" cae en domingo (sin
 // archivo, nunca confirma el viernes) -- hallazgo del usuario 2026-10-03.
 // Se calcula el ULTIMO DIA HABIL anterior a hoy en su lugar: lunes -> viernes

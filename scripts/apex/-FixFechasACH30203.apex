@@ -24,7 +24,7 @@
  * limpia en noviembre dado el forzado de dia) -- SM_Payment_Start_Date__c
  * se restaura a 2026-10-01 (el valor original, como se pidio en la primera
  * version de este fix). El domingo/martes no afecta la transmision real
- * (-A.ReporteACHFile filtra por Payment_Status__c, no por esta fecha).
+ * (A. Generar File Reporte ACH.apex filtra por Payment_Status__c, no por esta fecha).
  *
  * MODO DE USO: correr primero con DRY_RUN=true.
  */

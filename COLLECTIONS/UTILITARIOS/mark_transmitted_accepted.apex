@@ -28,7 +28,7 @@
  * Salesforce, no escanea PDFs.
  *
  * EXCLUSION_NAMES (2026-10-04): un payment transmitido 2+ veces por el bug
- * real de -A.ReporteACHFile (no excluye payments aun ACH PENDING de la
+ * real de A. Generar File Reporte ACH.apex (no excluye payments aun ACH PENDING de la
  * siguiente corrida -- ver CLAUDE.md seccion 2.2) NO se puede auto-aceptar
  * como cobrado una sola vez despues de N dias de silencio -- si de verdad
  * nunca aparece en ningun reporte, significa que AMBAS transmisiones se
