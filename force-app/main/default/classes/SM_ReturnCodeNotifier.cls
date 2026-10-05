@@ -48,8 +48,14 @@ public without sharing class SM_ReturnCodeNotifier {
     // cargo por parte del cliente, solo que el banco lo codifica distinto. Comparte tambien la regla
     // de "siempre gana sin importar el estado anterior" (ver CLAUDE.md 2.2) -- especifica de
     // R10/R11, no generaliza a los otros codigos definitivos (R02/R04/R07/R13/R16).
+    // calp 2026-10-05 :: highlightPaymentProcessAC=true -- un contrato en 'Payment Process' SOLO
+    // tiene el AC (primer cobro, el que activa el servicio) todavia pendiente de resolverse. Si
+    // ESE pago es el que trae el R10/R11, el cliente esta disputando el primer cobro -- no vale
+    // la pena seguir el proceso de activacion sin que un agente hable con el cliente primero
+    // (instruccion explicita del usuario). Ningun otro codigo (R02/R04/R07/R13/R16) activa esta
+    // seccion -- es especifica de R10/R11.
     public static void sendR10Report() {
-        sendReport(new Set<String>{ 'R10', 'R11' }, 'R10/R11 (CUSTOMER ADVISES NOT AUTHORIZED / ENTRY NOT PER AUTHORIZATION TERMS)', 'el cliente le informo al banco directamente que no autoriza el cobro o que no cumple los terminos autorizados (disputa/desconoce el cargo) - reintentar sin hablar primero con el cliente puede generar otra disputa.');
+        sendReport(new Set<String>{ 'R10', 'R11' }, 'R10/R11 (CUSTOMER ADVISES NOT AUTHORIZED / ENTRY NOT PER AUTHORIZATION TERMS)', 'el cliente le informo al banco directamente que no autoriza el cobro o que no cumple los terminos autorizados (disputa/desconoce el cargo) - reintentar sin hablar primero con el cliente puede generar otra disputa.', true);
     }
 
     public static void sendInvalidAccountReport() {
@@ -226,6 +232,10 @@ public without sharing class SM_ReturnCodeNotifier {
     }
 
     private static void sendReport(Set<String> returnCodes, String codeLabel, String explanation) {
+        sendReport(returnCodes, codeLabel, explanation, false);
+    }
+
+    private static void sendReport(Set<String> returnCodes, String codeLabel, String explanation, Boolean highlightPaymentProcessAC) {
         List<SM_Payment__c> codePayments = [
             SELECT Id, Name, SM_Amount__c, CreatedDate,
                    SM_Contract__c, SM_Contract__r.ContractNumber, SM_Contract__r.Status,
@@ -250,7 +260,7 @@ public without sharing class SM_ReturnCodeNotifier {
             AND Payment_Status__c = 'ACCEPTED'
         ];
 
-        String body = buildReport(codePayments, acceptedSince, codeLabel, explanation);
+        String body = buildReport(codePayments, acceptedSince, codeLabel, explanation, highlightPaymentProcessAC);
 
         Messaging.SingleEmailMessage mail = new Messaging.SingleEmailMessage();
         mail.setToAddresses(new String[]{ NOTIFY_EMAIL });
@@ -261,12 +271,24 @@ public without sharing class SM_ReturnCodeNotifier {
         }
     }
 
+    public static String buildReport(List<SM_Payment__c> codePayments, List<SM_Payment__c> acceptedPayments, String codeLabel, String explanation) {
+        return buildReport(codePayments, acceptedPayments, codeLabel, explanation, false);
+    }
+
     /**
      * @description Separated from sendReport() so the report text can be built/tested with
      * in-memory data, same pattern as SM_ACH_Flow_Monitor.buildActivatedContractsSection().
      * acceptedPayments only needs SM_Contract__c and CreatedDate populated.
+     *
+     * highlightPaymentProcessAC (calp 2026-10-05, solo usado por sendR10Report()): un contrato
+     * 'Payment Process' todavia no completo su AC (primer cobro) -- si el pago con el return code
+     * de este reporte es precisamente ese AC, el cliente esta disputando el PRIMER cobro del
+     * contrato, no uno recurrente. Se antepone una seccion "IMPORTANTE" antes del listado normal
+     * para que Comercial la vea de entrada, sin tener que leer todo el reporte para notar el caso
+     * mas urgente -- instruccion explicita del usuario: no vale la pena seguir el proceso de
+     * activacion sin que un agente hable primero con el cliente.
      */
-    public static String buildReport(List<SM_Payment__c> codePayments, List<SM_Payment__c> acceptedPayments, String codeLabel, String explanation) {
+    public static String buildReport(List<SM_Payment__c> codePayments, List<SM_Payment__c> acceptedPayments, String codeLabel, String explanation, Boolean highlightPaymentProcessAC) {
         Map<Id, List<Date>> acceptedDatesByContract = new Map<Id, List<Date>>();
         for (SM_Payment__c p : acceptedPayments) {
             if (!acceptedDatesByContract.containsKey(p.SM_Contract__c)) {
@@ -300,7 +322,33 @@ public without sharing class SM_ReturnCodeNotifier {
         List<Id> contractIds = new List<Id>(paymentsByContract.keySet());
         contractIds.sort();
 
-        String body = 'Contratos con al menos un ACH Return ' + codeLabel + ' en un Payment - ' + explanation + '\n\n';
+        String body = '';
+
+        if (highlightPaymentProcessAC) {
+            List<Id> paymentProcessIds = new List<Id>();
+            for (Id contractId : contractIds) {
+                if (contractsById.get(contractId).Status == 'Payment Process') {
+                    paymentProcessIds.add(contractId);
+                }
+            }
+            if (!paymentProcessIds.isEmpty()) {
+                body += '*** IMPORTANTE -- PRIMER COBRO (AC) DISPUTADO, PRIORIDAD PARA COMERCIAL ***\n'
+                    + 'Estos ' + paymentProcessIds.size() + ' contrato(s) estan en \'Payment Process\' -- el unico cobro que '
+                    + 'tienen hasta ahora es el AC (el primer pago, el que activa el servicio). Si el cliente disputo ese '
+                    + 'primer cobro, no vale la pena seguir el proceso de activacion sin que un agente hable con el cliente '
+                    + 'primero.\n\n';
+                for (Id contractId : paymentProcessIds) {
+                    Contract c = contractsById.get(contractId);
+                    body += '- Contrato ' + c.ContractNumber + '\n';
+                    for (SM_Payment__c p : paymentsByContract.get(contractId)) {
+                        body += '    ' + p.Name + ' - $' + (p.SM_Amount__c != null ? p.SM_Amount__c.format() : '?') + ' - ' + p.CreatedDate.date().format() + '\n';
+                    }
+                }
+                body += '\n========================================================================\n\n';
+            }
+        }
+
+        body += 'Contratos con al menos un ACH Return ' + codeLabel + ' en un Payment - ' + explanation + '\n\n';
 
         for (Id contractId : contractIds) {
             Contract c = contractsById.get(contractId);

@@ -209,3 +209,31 @@ tocar algo, ve a esa fuente.**
 
 Todos mandan hoy solo a `clopez@legal-credit.com` (`NOTIFY_EMAIL`) — pendiente que se defina la
 lista real de destinatarios de Comercial (ver `TAREAS_PENDIENTES.md`).
+
+---
+
+## 9. Tareas externas — no se ejecutan desde este repo, pero hay que saber que existen
+
+Procesos manuales que Carlos hace **fuera de Salesforce y fuera de cualquier script de este
+repo** (en el portal de un procesador de pagos, por ejemplo), pero que alimentan datos que sí usan
+los scripts/reglas de negocio documentadas arriba. No hay nada que instalar ni ejecutar aquí — es
+puro conocimiento operativo que, si no se documenta, se pierde con el traspaso.
+
+### 9.1 Registro del Authorization Code (tarjeta de crédito)
+
+**Qué es:** descargar manualmente un reporte de pagos aceptados desde **Cybersource** y desde
+**Authorize.net** (los 2 procesadores de tarjeta de crédito usados), y llenar a mano el campo
+`SM_Authorization_Code__c` en los `SM_Payment__c` de tarjeta de crédito (Chargebee/TC) que ya
+están aceptados.
+
+**Por qué importa (conexión con el resto de la documentación):** este campo es justo el que usa
+`-CONTRACARGO_CHARGEBEE.apex` (punto 3, Contracargo) para identificar qué `SM_Payment__c`
+corresponde a un contracargo reportado — sin este campo poblado, ese script no tiene forma de
+encontrar el payment correcto para el contracargo de TC.
+
+**Pendiente de documentar en detalle (no se tiene todavía, preguntar a Carlos antes de que Juan lo
+necesite en real):** con qué frecuencia se baja el reporte, cuál es el criterio exacto para
+emparejar una fila del reporte de Cybersource/Authorize.net con un `SM_Payment__c` en Salesforce
+(¿monto + fecha? ¿algún otro identificador del lado del procesador?), y si existe algún reporte o
+validación que detecte payments aceptados sin `SM_Authorization_Code__c` (huérfanos de este
+proceso) — hoy no hay ninguno.

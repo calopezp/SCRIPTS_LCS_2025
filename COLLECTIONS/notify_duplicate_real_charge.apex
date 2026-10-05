@@ -2,11 +2,21 @@
  * notify_duplicate_real_charge.apex
  * -----------------------------------
  * Alerta diaria: un SM_Payment__c con 2+ tags en SM_Bank_Reference_Number__c
- * (ej. "RTN:xxx | RTN:yyy") es la PRUEBA directa de que el banco proceso 2
- * transacciones reales distintas para el mismo payment -- a diferencia del
- * archivo de salida de -A.ReporteACHFile (que solo es sospecha de posible
- * doble transmision, ver posibles_duplicados_transmision.csv), esto es un
- * hecho confirmado por reportes reales de Returns/Collection.
+ * (ej. "RTN:xxx | RTN:yyy") es INDICIO de que el banco proceso 2
+ * transacciones reales distintas para el mismo payment -- pero OJO, NO es
+ * por si sola confirmacion suficiente (corregido 2026-10-05, ver caso
+ * PY-01902590 en TAREAS_PENDIENTES.md/Cerrado recientemente): el extractor
+ * de PDF (extract_check_collection.py) documenta que cuando el campo DRAWEE
+ * NAME de una fila ya viene como "PY-xxxxx" en vez de un nombre real de
+ * cliente, el CHECK NUMBER de esa fila NO es confiable -- puede generar 2+
+ * tags distintos en SM_Bank_Reference_Number__c sin que haya 2 transacciones
+ * reales. La UNICA confirmacion suficiente para tratar un caso como cobro
+ * duplicado real (y crear un 2do payment) es que el mismo payment aparezca
+ * en 2 archivos ACH_<fecha>.csv DISTINTOS en
+ * ACH_REPORTADOS/index/transmission_index.csv -- igual que se confirmo para
+ * PY-01907641/PY-01907642 (ver abajo). Sin esa confirmacion de transmision,
+ * un caso marcado por este script queda solo como candidato a revisar, no
+ * como duplicado confirmado.
  *
  * Nace del caso real 2026-10-04: PY-01907641/00318012 y PY-01907642/00318146
  * (lote transmitido 2 veces por el bug de -A, ver CLAUDE.md seccion 2.2) se
@@ -14,10 +24,11 @@
  * script cierra ese hueco para cualquier caso futuro, no solo ese lote.
  *
  * NO corrige nada solo -- cada caso necesita criterio (crear un 2do payment
- * si ambas transacciones se cobraron, o un contracargo si una es un
- * R10/R11, u otra cosa). Solo reporta. Idempotente: excluye payments que ya
- * tienen la nota "MANUAL: Backfill cobro ACH duplicado" o "MANUAL:
- * Contracargo" en SM_Id_Salesforce_LCS__c (ya se resolvieron, ver
+ * SOLO si ademas hay confirmacion en transmission_index.csv de que se
+ * transmitio 2 veces, o un contracargo si una es un R10/R11, u otra cosa).
+ * Solo reporta. Idempotente: excluye payments que ya tienen la nota "MANUAL:
+ * Backfill cobro ACH duplicado" o "MANUAL: Contracargo" en
+ * SM_Id_Salesforce_LCS__c (ya se resolvieron, ver
  * -ApplyBankReferenceBackfill.apex / scripts/apex/-CrearPaymentDuplicado_*.apex
  * / scripts/apex/-CONTRACARGO_ACH_R10_R11.apex), o que ya tienen un
  * SM_Payment__c REFUNDED apuntandoles via SM_Payments_refunded__c.

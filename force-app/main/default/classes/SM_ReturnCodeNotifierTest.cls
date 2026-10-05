@@ -88,6 +88,44 @@ public without sharing class SM_ReturnCodeNotifierTest {
         System.assert(report.contains('Sin contratos'), 'Test and VIP contracts should never appear in the report.');
     }
 
+    // calp 2026-10-05 :: un contrato 'Payment Process' solo tiene el AC (primer cobro) pendiente --
+    // si ESE pago trae el R10/R11, el cliente disputo el primer cobro, prioridad para Comercial.
+    @IsTest
+    static void highlightsPaymentProcessContractAsFirstPaymentDispute() {
+        Contract ct = [SELECT Id, ContractNumber, Status, SM_Customer_Cancellation__c, Is_Test_Contract__c, Is_VIP_Contract__c FROM Contract LIMIT 1];
+        ct.Status = 'Payment Process';
+        SM_Payment__c acPayment = new SM_Payment__c(
+            SM_Contract__c = ct.Id, SM_Amount__c = 99, Payment_Status__c = 'REJECTED', CreatedDate = DateTime.now()
+        );
+        acPayment.SM_Contract__r = ct;
+
+        Test.startTest();
+            String report = SM_ReturnCodeNotifier.buildReport(new List<SM_Payment__c>{ acPayment }, new List<SM_Payment__c>(), 'R10/R11', 'disputa', true);
+        Test.stopTest();
+
+        System.assert(report.contains('IMPORTANTE'), 'highlightPaymentProcessAC=true should add the priority callout for a Payment Process contract.');
+        Integer highlightIdx = report.indexOf('IMPORTANTE');
+        Integer normalListIdx = report.indexOf('Contratos con al menos un ACH Return');
+        System.assert(highlightIdx < normalListIdx, 'The priority callout should appear BEFORE the normal per-contract list.');
+        System.assert(report.substring(highlightIdx, normalListIdx).contains(ct.ContractNumber), 'The disputed Payment Process contract should be named inside the callout section.');
+    }
+
+    @IsTest
+    static void doesNotHighlightPaymentProcessWhenFlagIsOff() {
+        Contract ct = [SELECT Id, ContractNumber, Status, SM_Customer_Cancellation__c, Is_Test_Contract__c, Is_VIP_Contract__c FROM Contract LIMIT 1];
+        ct.Status = 'Payment Process';
+        SM_Payment__c acPayment = new SM_Payment__c(
+            SM_Contract__c = ct.Id, SM_Amount__c = 99, Payment_Status__c = 'REJECTED', CreatedDate = DateTime.now()
+        );
+        acPayment.SM_Contract__r = ct;
+
+        Test.startTest();
+            String report = SM_ReturnCodeNotifier.buildReport(new List<SM_Payment__c>{ acPayment }, new List<SM_Payment__c>(), LABEL, EXPLANATION);
+        Test.stopTest();
+
+        System.assert(!report.contains('IMPORTANTE'), 'Other return codes (e.g. R02) should never show the R10/R11-specific priority callout.');
+    }
+
     @IsTest
     static void sendsR02ReportWithoutError() {
         Test.startTest();
