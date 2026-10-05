@@ -177,6 +177,18 @@ Setup (Flow Builder) para ver el diagrama. Los que sí importan para este puesto
 - **`CONTRACT_05_Before_Save_Orchestrator`** / **`CONTRACT_10_After_Save_Orchestrator`** —
   orquestadores principales del ciclo de vida de `Contract` (llaman a varios de los flows de
   arriba y a `SM_ContractHandler` — ver sección 7 para la parte rota/en migración).
+- **`ACH_ORDER_Subscription_Stopped_Monitoring`** (desplegado y activado 2026-10-05) — cuando
+  **cualquier usuario** pasa una `SM_ACH_Order__c` tipo `Subscription` a `Stopped` (solo en el
+  *cambio* a ese estado): (1) si el contrato no está en monitoreo (casilla apagada o sin
+  responsable), marca `SM_ContractMonitoring__c = true`, asigna `Contract_Monitoring_By__c` = el
+  usuario que detuvo la orden y deja la marca `AUTO: ...` en `SM_Id_Salesforce_LCS__c`; si ya tenía
+  monitoreo con responsable, **lo respeta**; (2) **siempre** crea una Task `Open` sobre el contrato
+  (Subject `Collections-Subscription Stopped`, a nombre del usuario, como nota histórica — hoy no se
+  gestionan los estados de las Tasks). Si la actualización del contrato falla (validation rule
+  sobre datos viejos), no bloquea el Stopped del agente: la Task se crea igual con el texto
+  `ERROR: no se pudo activar Contract Monitoring...` para revisarlo a mano. **Desmarcar el
+  monitoreo es manual** (lo hace el agente). Ojo: corre también cuando tú/tus scripts por `sf` CLI
+  detienen Subscriptions (por trazabilidad, a propósito — decisión del usuario).
 - **`COLLECTIONS_*`** (4 flows) — sincronizan `SM_Payment__c`/Bills con el estado de cobranza.
 - **`ChargentOrderPB`** / lo relacionado a Chargent dentro de `ContractPaymentActions` — **en
   pausa por la migración, no tocar** (sección 7).

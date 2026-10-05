@@ -201,6 +201,22 @@ cancelarse. Implementado en `COLLECTIONS/CANCELACIONES/validate_pending_payments
 `/cancelar-contratos` §4.1) — mismo alcance/gate que la Rule 3 (dry-run por default, nunca
 automático fuera de ese script).
 
+**Subscription `Stopped` → Contract Monitoring automático (Flow `ACH_ORDER_Subscription_Stopped_Monitoring`,
+desplegado y activado 2026-10-05, pedido de Carlos).** Al *cambiar* una `SM_ACH_Order__c` tipo
+`Subscription` a `Stopped`, **cualquier usuario** (incluido `clopez` y los scripts por `sf` CLI —
+decisión explícita: trazabilidad para todos), el Flow: marca `SM_ContractMonitoring__c=true` +
+`Contract_Monitoring_By__c=$User` + marca `AUTO:` en `SM_Id_Salesforce_LCS__c` **solo si el contrato
+no tenía ya monitoreo con responsable** (si lo tenía, se respeta); y **siempre** crea una Task `Open`
+(`Collections-Subscription Stopped`, owner = quien detuvo; las Tasks se usan como histórico de notas,
+no se gestionan sus estados). Sin campo de motivo (decisión del usuario). Fault path: si el update del
+Contract falla, la Task se crea igual con el error, para no bloquear el Stopped. Desmarcar el
+monitoreo es manual (agente). **Implicación para scripts:** cualquier script que detenga Subscriptions en
+lote (p.ej. `validate_pending_payments.py` antes de cancelar) va a generar una Task por contrato y
+asignar a Carlos donde no haya responsable — es esperado. Caso que lo originó: contrato `00317167`
+(Subscription detenida por Raiza 2026-08-20 por posible cancelación, sin que el contrato quedara en
+monitoreo; el 2026-10-05 se reactivaron sus LPF y hubo que detenerlas a mano). Validado en vivo con prueba de rollback (ambos caminos OK).
+Producción despliega Flows como `Draft` — tras cada deploy de una versión nueva hay que activarla.
+
 **Fuente de verdad para el ESTADO CORRECTO de un payment: SIEMPRE los archivos de RETURN/COLLECTIONS (el índice local o los PDFs), NUNCA `SM_Payment__History` — confirmado dos veces por el usuario (2026-09-22 y reforzado 2026-09-30).** `SM_Payment__History` sirve únicamente para diagnosticar **qué hizo Salesforce/la automatización** con un registro (ej. explicar por qué un campo cambió en una fecha específica, detectar una reversión, reconstruir la secuencia de eventos técnicos — como se hizo el 2026-09-30 para explicar por qué `PY-01895410` volvió a `RETURN` el 24-sep y a `PENDING` el 28-sep). **No sirve para decidir cuál es el estado correcto de un payment según el banco** — un valor en el historial (incluso un `ACCEPTED` genuino) puede venir de un bug de reprocesamiento, un fix ad-hoc, o una automatización que luego se demostró incorrecta; el índice de reportes reales (`collections_index.csv`/`returns_index.csv`, o el PDF original) es la única fuente confiable de qué determinó realmente el banco. Antes de concluir "este estado ya es correcto" o "hay que revertir esto", cruzar contra el reporte real — no contra lo que el historial de Salesforce dice que pasó.
 
 ### 2.3 Asunto de migración conocido — no investigar salvo que se pida
