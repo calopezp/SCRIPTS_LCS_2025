@@ -56,8 +56,9 @@ Integer DAYS_SINCE_TRANSMITTED = 15; // Confirmado por Carlos 2026-09-21 -- valo
 // Payments transmitidos 2+ veces (lote 22/23-sep, ver CLAUDE.md 2.2) -- NUNCA
 // auto-aceptar, se excluyen de este script y se reportan aparte para
 // revision manual (confirmar si corresponde crear un 2do SM_Payment__c).
+// PY-01907641/642/644 ya resueltos manualmente, quitados de la lista.
 Set<String> EXCLUSION_NAMES = new Set<String>{
-    'PY-01907643', 'PY-01907644', 'PY-01907645'
+    'PY-01907643', 'PY-01907645'
 };
 // ========================================
 

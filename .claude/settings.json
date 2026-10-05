@@ -69,7 +69,8 @@
   "autoMode": {
     "allow": [
       "$defaults",
-      "Bash(git push SCRIPTS_LCS_2025 main)"
+      "Bash(git push SCRIPTS_LCS_2025 main)",
+      "Bash(git push origin main)"
     ]
   }
 }
