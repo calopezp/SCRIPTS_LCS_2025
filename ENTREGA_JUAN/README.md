@@ -89,6 +89,31 @@ lo que vas a ver en los registros:
 
 ---
 
+## 2.5 Jobs programados que hoy corren a nombre de Carlos
+
+Varios jobs de Salesforce y Tasks fijas siguen a nombre de la cuenta de Carlos. Antes de la
+entrega final hay que reprogramarlos con tu usuario (o con el que asigne la empresa). El
+detalle completo, con los comandos Apex exactos, está en **`TRASPASO_JOBS_CARLOS.txt`** (raíz
+del repo). Lo que tenés que tener presente:
+
+- **Horario de referencia: 7:00 am hora de Puerto Rico**, todos los jobs. Tu usuario tiene que
+  tener la zona horaria `America/Puerto_Rico` antes de programar (hoy está en New York). Puerto
+  Rico no tiene horario de verano, así que 7:00 PR es 11:00 UTC todo el año.
+- **Un job corre con el usuario que lo programó.** No se cambia el dueño de un job existente:
+  se programa de nuevo con tu sesión y se elimina el viejo.
+- **Jobs a reprogramar** (6): `SM Contracts Activated Monitor - Daily` (prioritario, es el que
+  corre mañana), `SM_AgreementSignedDateMonitor_Daily`, `SM_TriggerPanelMonitor_Daily`,
+  `SM_WeeklyComercialDigest_Monday` (lunes), más dos que hay que identificar en Setup (un job
+  sin nombre legible y `DataExport`, que solo se recrea desde Setup).
+- **Tasks fijas a Carlos:** 8 scripts en `scripts/apex/` y `TEMP/` tienen su Id como dueño de las
+  Tasks que crean. Cambiá el Id por el tuyo antes de volver a correrlos (lista en el documento).
+- **Correo fijo a Carlos:** `NOTIFY_EMAIL` en `SM_ReturnCodeNotifier.cls` hace que todos los
+  reportes lleguen solo a `clopez@legal-credit.com`. Cambiarlo requiere un deploy.
+- **`scripts/apex/Schedule_ACH_Monitor.apex` no sirve tal cual:** usa otro nombre y otra hora
+  que el job real. Usá el comando del documento.
+
+---
+
 ## 3. Cómo se mantiene al día
 
 Esta carpeta es una **copia física**, no un symlink ni un submódulo — se decidió así a propósito
