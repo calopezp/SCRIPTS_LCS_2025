@@ -35,7 +35,7 @@ reconfirmarse o meter ruido en ese control.
 - [x] Indexador ACH con Salesforce Files como fuente primaria (commit `9049583`).
 - [x] Ruta de OneDrive autodetectada (`%OneDriveCommercial%`) en vez de `C:\OneDrive - LCS` fijo
       (`COLLECTIONS/lcs_paths.py`, commit `1a6a0df`) — de paso, las carpetas anuales de Returns /
-      Check Collection ya no están fijas en `6` (se habrían dejado de leer en enero 2027).
+      Check Collection ya no están fijas en `\2026` (se habrían dejado de leer en enero 2027).
 - [x] La corrida diaria copia los CSV nuevos de Salesforce a
       `ACH Reportados\Desde Salesforce\` (para quien revise OneDrive a mano) — commit `1a6a0df`.
 - [ ] Destinatario de correos centralizado en un solo lugar (Custom Label), para que el día de la
