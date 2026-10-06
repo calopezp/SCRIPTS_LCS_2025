@@ -152,7 +152,8 @@ de asumir que un trigger apagado es un bug.
 | `SM Contracts Activated Monitor - Daily` | 2:00 PM org (hora que cae a 8:00 AM Puerto Rico en horario de verano España — ver `TAREAS_PENDIENTES.md`, hay que reprogramar quando termine el DST) | `SM_ACH_Flow_Monitor.cls` | Valida que los contratos activados en las últimas 24h tengan su orden AC/Subscription creada correctamente — detecta huecos de automatización nuevos (no los 84 legacy, sección 7) | **WAITING** (activo) |
 | `SM_WeeklyComercialDigest_Monday` | Lunes 8:00 AM | `SM_WeeklyComercialDigestScheduler.cls` → `SM_ReturnCodeNotifier.sendWeeklyComercialDigest(false)` | Compilado semanal de los 5 return codes (R02/R04+R13/R07/R10+R11/R16) para Comercial, formato reducido | **WAITING** (activo) |
 | `Chargent Recurring Batch` (+ 2 variantes `x`/`_(1)`) | — | paquete Chargent | Jobs del paquete gestionado Chargent | **PAUSED** — migración en curso, sección 7, no reactivar |
-| `RPT chargent TC`, `RPT- ACH Payment`, `ACH Payment 14:50 PR.` | — | — | Jobs legacy relacionados a Chargent/reportes viejos | **PAUSED** — no reactivar sin confirmar |
+| `RPT chargent TC`, `RPT- ACH Payment` | — | — | Jobs legacy de Chargent/reportes viejos | **PAUSED** — no reactivar sin confirmar |
+| `ACH Payment 14:50 PR.` | — | — | **ACTIVO** (L-V 14:50 PR), dueño usuario Legal Credit Solutions, ejecuta `PS_ScheduledDispatcher` del paquete `rh2` (código no visible desde el repo). **Propósito pendiente de confirmar antes de la entrega** — ver `TRASPASO_JOBS_CARLOS.txt` 1.9 | **ACTIVO** — no pausar ni eliminar hasta identificarlo |
 
 El resto de `CronTrigger` en la org (`Rollup Helper *`, `CommSitemapJob-*`, `Metalytics Data
 Loader`, `SRT Semantic Graph`, `DataExport`, `GHL Sync`, `Chargebee_4_4_*`/`Chargebee_8_1_*`,

@@ -64,6 +64,8 @@ reconfirmarse o meter ruido en ese control.
       `SM_TriggerPanelMonitor_Daily` (`scripts/apex/Schedule_Trigger_Panel_Monitor.apex`),
       `SM_WeeklyComercialDigest_Monday`, `DataExport` (Setup → Data Export).
       En pausa (Chargent, no reactivar): `RPT chargent TC`, `RPT- ACH Payment`.
+      **ACTIVO, propósito pendiente de confirmar antes de la entrega:** `ACH Payment 14:50 PR.`
+      (L-V 14:50 PR, dueño usuario Legal Credit Solutions, clase del paquete `rh2`). Ver `TRASPASO_JOBS_CARLOS.txt` 1.9.
 - [ ] **Correo `clopez@legal-credit.com` fijo** en:
   - Apex desplegado: `SM_ACH_Flow_Monitor`, `SM_AgreementSignedDateMonitor`,
     `SM_ReturnCodeNotifier`, `SM_TriggerPanelMonitor` (requiere deploy con `RunSpecifiedTests`).
