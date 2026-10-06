@@ -296,8 +296,8 @@ dupliques de memoria:
   COLLECTED + Payment REFUNDED + flag `Historical_Claim_On_Record__c`/`Has_Refund_History__c` +
   Task `'TIADM - REFUND CONTRA CARGO (R10/R11)'`, ver `scripts/apex/-CONTRACARGO_ACH_R10_R11*.apex`).
   **El resto del backlog histórico (pagos de antes de enero 2026, ~300 payments) queda
-  deliberadamente sin tocar — decisión explícita de Carlos: solo documentarlo en
-  `TAREAS_PENDIENTES.md`, no trabajarlo todavía.** Razón: esos payments se procesaron antes de que
+  deliberadamente sin tocar y FUERA de este traspaso — decisión explícita de Carlos (2026-10-06):
+  no se entrega a Juan; queda retenido por Carlos hasta evaluarlo con Comercial.** Razón: esos payments se procesaron antes de que
   existiera la regla de contracargo, con la lógica vieja (`NOT_COLLECTED`); aplicarles la regla
   nueva ahora los pasaría a `ACCEPTED`/`COLLECTED`, lo que haría que esos contratos **pasen a deber
   las cuotas siguientes** — un impacto financiero real sobre contratos ya resueltos de otra forma.
