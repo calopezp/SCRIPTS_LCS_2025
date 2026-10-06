@@ -77,14 +77,10 @@ C:\OneDrive - LCS\COMPILADO COLLECTIONS\ACH Reportados
 
 ## 4. Correos de notificación — a dónde llegan hoy
 
-Varios scripts mandan correo automático y **hoy todos llegan solo a `clopez@legal-credit.com`**
-(hardcodeado, nunca se definió una lista de Comercial separada — ver `TAREAS_PENDIENTES.md`):
-
-- Los 8 correos de alerta de `run_daily_new_files.sh` (return codes R02/R10/R04-R13/R07/R16,
-  duplicados, reversión de timeout) → vía `SM_ReturnCodeNotifier.NOTIFY_EMAIL` (clase Apex, en
-  `force-app/main/default/classes/`, no en esta carpeta de entrega).
-- `scripts/apex/ACH_TRANSMISION/-D.EnviarCorreoACH.apex` → lista hardcodeada
-  (`jduarte@legal-credit.com`, `clopez@legal-credit.com`).
+Los 8 correos de alerta de `run_daily_new_files.sh` (return codes R02/R10/R04-R13/R07/R16,
+duplicados, reversión de timeout) **hoy llegan solo a `clopez@legal-credit.com`** (hardcodeado en
+`SM_ReturnCodeNotifier.NOTIFY_EMAIL`, clase Apex en `force-app/main/default/classes/`, no en esta
+carpeta de entrega — nunca se definió una lista de Comercial separada, ver `TAREAS_PENDIENTES.md`).
 
 **No cambies esto por tu cuenta** — es una decisión de a quién debe llegarle cada alerta
 (Comercial, tú, ambos). Si quieres empezar a recibirlos, decide con el equipo la lista final y
@@ -110,5 +106,4 @@ Si esto corre sin errores de import de Python ni de conexión a `sf`, y te muest
 | Qué | Por qué no está en el código | A quién pedírselo |
 |---|---|---|
 | Acceso a la carpeta de OneDrive de los reportes del banco (si todavía no la tienes) | Es una carpeta compartida de Microsoft 365, no algo que viaje con el repo | Administrador de Microsoft 365 / Carlos |
-| Named Credentials de Chargebee (`Chargebee API`, `harmoneyllc`) | Ya están configuradas dentro de Setup de MONEE (no son metadata de archivo, son configuración de la org) — como ya tienes acceso admin a MONEE, en principio ya las tienes disponibles, solo confírmalo en Setup → Named Credentials | No debería hacer falta pedir nada; si no las ves, Carlos |
 | Alta en el correo `clopez@legal-credit.com` o definir uno nuevo para notificaciones | Ver sección 4 — es una decisión de negocio, no un tema de instalación | Comercial / Carlos |

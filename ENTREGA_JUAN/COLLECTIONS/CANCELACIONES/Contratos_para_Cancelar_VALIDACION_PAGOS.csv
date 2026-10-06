@@ -1,2 +1,0 @@
-ContractNumber,Tipo,Registro,RecordId,EstadoSF,CodigoRetorno,DiasTransmitido,UltimoReporteCOLLECTIONS,AccionRecomendada,Razon
-00317915,PAGO,PY-01902704,a24UU000005PG8sYAG,PENDING,R01,9,2026-09-16 | CheckCollectionDailyReport_09172026.pdf,EN_ESPERA,"9 dias transmitido (<= 26), codigo R01 no es definitivo -- sigue esperando."
