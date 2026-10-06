@@ -1,0 +1,37 @@
+Payment,Codigo,Fecha_Reporte_R10R11,Archivo_R10R11,Fecha_Reporte_Posterior,Tipo_Posterior,Estado_Posterior,Codigo_Posterior,Archivo_Posterior
+PY-01802627,R11,2026-04-16,ACH Returns April 16 2026.pdf,2026-04-17,COL,PENDING,,Check Collections April 17 2026.pdf
+PY-01804502,R10,2026-04-21,ACH Returns April 21 2026.pdf,2026-04-22,COL,PENDING,,Check Collections April 22 2026.pdf
+PY-01810295,R11,2026-04-08,ACH Returns April 8 2026.pdf,2026-04-09,COL,PENDING,,Check Collections April 9 2026.pdf
+PY-01817964,R10,2026-04-21,ACH Returns April 21 2026.pdf,2026-04-22,COL,PENDING,,Check Collections April 22 2026.pdf
+PY-01819316,R11,2026-04-28,ACH Returns April 28 2026.pdf,2026-04-29,COL,PENDING,,Check Collections April 29 2026.pdf
+PY-01824479,R10,2026-05-08,ACH Returns May 8 2026.pdf,2026-05-11,COL,PENDING,,Check Collections May 11.pdf
+PY-01824581,R10,2026-05-08,ACH Returns May 8 2026.pdf,2026-05-11,COL,PENDING,,Check Collections May 11.pdf
+PY-01824989,R10,2026-05-08,ACH Returns May 8 2026.pdf,2026-05-11,COL,PENDING,,Check Collections May 11.pdf
+PY-01828898,R10,2026-05-07,ACH Returns May 7 2026.pdf,2026-05-08,COL,PENDING,,Check Collections May 8.pdf
+PY-01828949,R11,2026-05-11,ACH Returns May 11 2026.pdf,2026-05-12,COL,PENDING,,Check Collections May 12.pdf
+PY-01838226,R11,2026-06-02,ACH Returns June 1-2 2026.pdf,2026-06-03,COL,PENDING,,Check Collections Jun 3.pdf
+PY-01849219,R10,2026-06-30,ACH Returns June 30 2026.pdf,2026-07-01,COL,PENDING,,Check Collections July 1 2026.pdf
+PY-01849469,R10,2026-07-23,ACHReturnsReport_07232026.pdf,2026-07-24,COL,PENDING,,CheckCollectionDailyReport_07242026.pdf
+PY-01857160,R11,2026-07-07,ACH Returns July 7 2026.pdf,2026-07-08,COL,PENDING,,Check Collections July 8 2026.pdf
+PY-01859726,R10,2026-08-11,ACHReturnsReport_08112026.pdf,2026-08-12,COL,PENDING,,CheckCollectionDailyReport_08122026.pdf
+PY-01861633,R11,2026-07-17,ACHReturnsReport_07172026.pdf,2026-07-20,COL,PENDING,,CheckCollectionDailyReport_07202026.pdf
+PY-01865165,R10,2026-07-23,ACHReturnsReport_07232026.pdf,2026-07-24,COL,PENDING,,CheckCollectionDailyReport_07242026.pdf
+PY-01868816,R10,2026-09-04,ACH Returns Report_09_04_2026.pdf,2026-09-08,COL,PENDING,,CheckCollectionDailyReport_09082026.pdf
+PY-01872289,R10,2026-08-19,ACHReturnsReport_08192026.pdf,2026-08-20,COL,PENDING,,CheckCollectionDailyReport_08202026.pdf
+PY-01888808,R11,2026-09-15,ACH Returns Report_09_15_2026.pdf,2026-09-16,COL,PENDING,,CheckCollectionDailyReport_09162026.pdf
+PY-01888816,R11,2026-09-15,ACH Returns Report_09_15_2026.pdf,2026-09-16,COL,PENDING,,CheckCollectionDailyReport_09162026.pdf
+PY-01888831,R11,2026-09-15,ACH Returns Report_09_15_2026.pdf,2026-09-16,COL,PENDING,,CheckCollectionDailyReport_09162026.pdf
+PY-01888987,R11,2026-09-14,ACH Returns Report_09_14_2026.pdf,2026-09-15,COL,PENDING,,CheckCollectionDailyReport_09152026.pdf
+PY-01889059,R10,2026-08-31,ACHReturnsReport_08312026.pdf,2026-09-01,COL,PENDING,,Check Collection Daily Report_09_01_2026.pdf
+PY-01889111,R10,2026-08-31,ACHReturnsReport_08312026.pdf,2026-09-01,COL,PENDING,,Check Collection Daily Report_09_01_2026.pdf
+PY-01894616,R10,2026-09-04,ACH Returns Report_09_04_2026.pdf,2026-09-08,COL,PENDING,,CheckCollectionDailyReport_09082026.pdf
+PY-01894631,R10,2026-09-17,ACH Returns Report_09_17_2026.pdf,2026-09-18,COL,PENDING,,CheckCollectionDailyReport_09182026.pdf
+PY-01894651,R10,2026-09-24,ACHReturnsReport_09242026.pdf,2026-09-25,COL,PENDING,,CheckCollectionDailyReport_09252026.pdf
+PY-01895410,R10,2026-09-21,ACHReturnsReport_09212026.pdf,2026-09-22,COL,PENDING,,CheckCollectionDailyReport_09222026.pdf
+PY-01895438,R11,2026-09-21,ACHReturnsReport_09212026.pdf,2026-09-22,COL,PENDING,,CheckCollectionDailyReport_09222026.pdf
+PY-01899131,R10,2026-09-28,ACH Returns Report_09_28_2026.pdf,2026-09-29,COL,PENDING,,CheckCollectionDailyReport_09292026.pdf
+PY-01899225,R10,2026-09-24,ACHReturnsReport_09242026.pdf,2026-09-25,COL,PENDING,,CheckCollectionDailyReport_09252026.pdf
+PY-01900449,R10,2026-09-24,ACHReturnsReport_09242026.pdf,2026-09-25,COL,PENDING,,CheckCollectionDailyReport_09252026.pdf
+PY-01902689,R10,2026-09-28,ACH Returns Report_09_28_2026.pdf,2026-09-29,COL,PENDING,,CheckCollectionDailyReport_09292026.pdf
+PY-01904884,R11,2026-09-21,ACHReturnsReport_09212026.pdf,2026-09-22,COL,PENDING,,CheckCollectionDailyReport_09222026.pdf
+PY-01907147,R10,2026-09-29,ACHReturnsReport_09292026.pdf,2026-09-30,COL,PENDING,,CheckCollectionDailyReport_09302026.pdf
