@@ -42,6 +42,7 @@ Este archivo es la **fuente de verdad compartida entre las dos máquinas** del u
    correos y OwnerId fijos). **Regla del destinatario:** si el día de la entrega no queda documentado
    otro, todo lo registrado con el correo/usuario de Carlos pasa a `jduarte@legal-credit.com`
    (Juan Duarte, usuario Salesforce `0058W00000CNeHuQAL`).
+   Guía de instalación y rutina diaria para quien recibe el proceso: **[GUIA_INICIO.md](GUIA_INICIO.md)**.
 
 ---
 

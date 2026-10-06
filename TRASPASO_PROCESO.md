@@ -33,13 +33,14 @@ reconfirmarse o meter ruido en ese control.
 
 ### Antes de la entrega — sin depender del destinatario
 - [x] Indexador ACH con Salesforce Files como fuente primaria (commit `9049583`).
-- [ ] Ruta de OneDrive autodetectada (`%OneDriveCommercial%`) en vez de `C:\OneDrive - LCS` fijo
-      (19 scripts bajo `COLLECTIONS/`).
-- [ ] La corrida diaria copia los CSV nuevos de Salesforce a
-      `ACH Reportados\Desde Salesforce\` (para quien revise OneDrive a mano).
+- [x] Ruta de OneDrive autodetectada (`%OneDriveCommercial%`) en vez de `C:\OneDrive - LCS` fijo
+      (`COLLECTIONS/lcs_paths.py`, commit `1a6a0df`) — de paso, las carpetas anuales de Returns /
+      Check Collection ya no están fijas en `6` (se habrían dejado de leer en enero 2027).
+- [x] La corrida diaria copia los CSV nuevos de Salesforce a
+      `ACH Reportados\Desde Salesforce\` (para quien revise OneDrive a mano) — commit `1a6a0df`.
 - [ ] Destinatario de correos centralizado en un solo lugar (Custom Label), para que el día de la
       entrega sea un solo cambio en Setup en vez de editar archivo por archivo.
-- [ ] Guía "día 1" para la persona nueva: instalar Git, Git Bash, Python 3, Salesforce CLI, VS Code
+- [x] Guía "día 1" → [`GUIA_INICIO.md`](GUIA_INICIO.md) para la persona nueva: instalar Git, Git Bash, Python 3, Salesforce CLI, VS Code
       (+ Claude Code); `git clone`; `sf org login web -a MONEE`; orden del proceso diario.
 
 ### Lo tiene que hacer Carlos / TI (desde sus cuentas)
@@ -65,6 +66,9 @@ reconfirmarse o meter ruido en ese control.
     de reports/dashboards (compartidas con Carlos).
   - Scripts del pipeline diario: `COLLECTIONS/notify_*.apex` (7), `activar_ach_chronic_unpaid.apex`,
     `ACH_TRANSMISION/B. Enviar Correo Reporte ACH.apex`.
+  - **Ojo:** `B. Enviar Correo Reporte ACH.apex` sigue en `ES_PRUEBA = true` con
+    `EMAIL_PRUEBA = clopez@legal-credit.com` — hoy solo le llega a Carlos. Pasar a `false`
+    (destinatarios reales ya cargados) y quitar a Carlos del CC.
 - [ ] **OwnerId de Carlos fijo (`0051U000007bbx5QAA`)** — no se pueden asignar Tasks a un usuario
       inactivo, el insert fallaría: `CancelarContratosRunner.cls`, `CrearTASK.apex`,
       `-CrearNotasMasivas.apex`, `-CONTRACARGO_ACH_R10_R11_*`, `-CrearTasks_*`, `AgreementMaintenance.apex`
