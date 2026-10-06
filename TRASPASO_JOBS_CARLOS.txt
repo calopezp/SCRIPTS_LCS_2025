@@ -139,9 +139,10 @@ confirmar que el nuevo aparece en Setup > Tareas programadas con el dueno correc
     Paquete:          Rollup Helper (namespace rh2, v22.7, de terceros). El job ejecuta la clase
                       PS_ScheduledDispatcher de ese paquete. La clase NO es codigo de este repo y
                       NO se modifica.
-    Accion:           Tratar solo el job: reprogramarlo a 7:00 PR con el usuario nuevo, como el
-                      resto. No pausar ni eliminar sin confirmar primero.
-    Pendiente:        confirmar con Carlos si se mantiene el job y la frecuencia.
+    Accion:           NO TOCAR por ahora. Sigue activo. Dueno verificado: Legal Credit Solutions
+                      (0051U000001MRFeQAO), no Carlos. No pausar, eliminar ni reprogramar sin decision
+                      expresa de Carlos.
+    Pendiente:        decidir despues de la entrega si se reprograma a 07:00 PR (ver paso 0).
 
 --- 1.10 Jobs que ya son de Juan (0058W00000CNeHuQAL) - informativo
     - Chargebee_8_1_schedule_Set_Invoice_to_Payments-1   (cron 0 30 20 * * ?, activo)
