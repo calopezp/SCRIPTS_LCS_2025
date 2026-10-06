@@ -171,6 +171,7 @@ public class SM_ACH_Flow_Monitor implements Schedulable {
 
         Messaging.SingleEmailMessage mail = new Messaging.SingleEmailMessage();
         mail.setToAddresses(new String[]{ NOTIFY_EMAIL });
+        SM_ReturnCodeNotifier.usarRemitenteOrganizacion(mail);
         mail.setSubject((anomalies.isEmpty() ? '[OK] ' : '[REVISAR] ') + 'Monitoreo Contratos Activados - ' + Date.today().format());
         mail.setPlainTextBody(body);
         if (!Test.isRunningTest()) {

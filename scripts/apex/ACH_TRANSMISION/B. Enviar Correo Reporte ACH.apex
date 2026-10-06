@@ -130,21 +130,13 @@ if (destinatarios.isEmpty()) {
     return;
 }
 
-// Remitente: Org-Wide Email Address "noreply@legal-credit.com" -- TODAVÍA NO VERIFICADA
-// (UNVERIFIED_SENDER_ADDRESS, confirmado 2026-10-02) -- Salesforce exige que alguien con
-// acceso a ese buzón confirme el link de verificación (Setup > Organization-Wide Email
-// Addresses, botón "Verify") antes de poder usarla. Mientras tanto, DESACTIVADO a propósito
-// (decisión del usuario, 2026-10-02) para seguir probando el resto del correo con el
-// remitente default de Salesforce. Descomentar las 2 líneas de abajo en cuanto se verifique.
-// Id orgWideId = [SELECT Id FROM OrgWideEmailAddress WHERE Address = 'noreply@legal-credit.com' LIMIT 1].Id;
-
 Messaging.SingleEmailMessage mail = new Messaging.SingleEmailMessage();
 mail.setToAddresses(destinatarios);
 if (!copiaA.isEmpty()) mail.setCcAddresses(copiaA);
 mail.setSubject((ES_PRUEBA ? '[PRUEBA] ' : '') + asunto);
 mail.setPlainTextBody(cuerpo);
 mail.setFileAttachments(adjuntos);
-// mail.setOrgWideEmailAddressId(orgWideId); -- ver nota arriba, pendiente de verificación
+SM_ReturnCodeNotifier.usarRemitenteOrganizacion(mail);
 
 Messaging.SendEmailResult[] resultados = Messaging.sendEmail(new List<Messaging.SingleEmailMessage>{ mail });
 

@@ -47,6 +47,7 @@ public class SM_AgreementSignedDateMonitor implements Schedulable {
     private static void sendEmail(List<echosign_dev1__SIGN_Agreement__c> orphans) {
         Messaging.SingleEmailMessage mail = new Messaging.SingleEmailMessage();
         mail.setToAddresses(new String[]{ NOTIFY_EMAIL });
+        SM_ReturnCodeNotifier.usarRemitenteOrganizacion(mail);
         mail.setSubject((orphans.isEmpty() ? '[OK] ' : '[REVISAR] ') + 'Monitoreo Agreements Signed sin fecha - ' + Date.today().format());
         mail.setPlainTextBody(buildBody(orphans));
         if (!Test.isRunningTest()) {

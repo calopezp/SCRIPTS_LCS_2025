@@ -395,6 +395,7 @@ if (!DRY_RUN) {
 
         Messaging.SingleEmailMessage mail = new Messaging.SingleEmailMessage();
         mail.setToAddresses(new String[]{ NOTIFY_EMAIL });
+        SM_ReturnCodeNotifier.usarRemitenteOrganizacion(mail);
         mail.setSubject('[ACH] Contratos cronicos sin cobrar - ' + aActivar.size() + ' activados, ' +
             (revisarManualConteo.size() + revisarManualOrdenes.size() + excluidosLpfTransito.size()) +
             ' para revisar - ' + Date.today().format());
