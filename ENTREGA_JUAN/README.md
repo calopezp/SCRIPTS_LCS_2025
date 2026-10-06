@@ -96,9 +96,10 @@ entrega final hay que reprogramarlos con tu usuario (o con el que asigne la empr
 detalle completo, con los comandos Apex exactos, está en **`TRASPASO_JOBS_CARLOS.txt`** (esta
 misma carpeta, `ENTREGA_JUAN/`). Lo que tenés que tener presente:
 
-- **Horario de referencia: 7:00 am hora de Puerto Rico**, todos los jobs. Tu usuario tiene que
-  tener la zona horaria `America/Puerto_Rico` antes de programar (hoy está en New York). Puerto
-  Rico no tiene horario de verano, así que 7:00 PR es 11:00 UTC todo el año.
+- **Horario de referencia: 7:00 am hora de Puerto Rico**, para todos los jobs, siempre. Antes de
+  programar, verificá la zona horaria del usuario que programa y usá la hora local que
+  corresponda a 7:00 PR (ver paso 0 en `TRASPASO_JOBS_CARLOS.txt`). Puerto Rico no tiene horario
+  de verano: 7:00 PR es 11:00 UTC todo el año.
 - **Un job corre con el usuario que lo programó.** No se cambia el dueño de un job existente:
   se programa de nuevo con tu sesión y se elimina el viejo.
 - **Jobs a reprogramar** (6): `SM Contracts Activated Monitor - Daily` (prioritario, es el que
