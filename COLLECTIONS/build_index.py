@@ -191,9 +191,44 @@ def _find_pdfs(source_dir: Path):
     return sorted(source_dir.rglob("*.pdf"))
 
 
+def _migrate_header(index_csv: Path, full_fieldnames):
+    """Si el extractor sumo columnas nuevas, reescribe el indice con el
+    encabezado nuevo (las filas viejas quedan con esas columnas vacias).
+
+    Bug real 2026-10-06: extract_ach_returns.py sumo Orig_Trace/Retn_Trace
+    (2026-10-03) y el indice conservo el encabezado viejo de 13 columnas --
+    las filas nuevas (15 valores) se leian corridas, Source_File tomaba un
+    numero de traza y el PDF nunca quedaba "visto": se re-agregaba completo
+    en cada escaneo (ACH Returns Report_10_05_2026.pdf, 9 veces). Cada fila
+    se interpreta por su cantidad de valores (encabezado viejo o nuevo)."""
+    if not index_csv.exists() or index_csv.stat().st_size == 0:
+        return
+    with index_csv.open(newline="", encoding="utf-8") as f:
+        reader = csv.reader(f)
+        old_header = next(reader, [])
+        if old_header == full_fieldnames:
+            return
+        data = list(reader)
+    rows = []
+    for values in data:
+        if len(values) == len(full_fieldnames):
+            rows.append(dict(zip(full_fieldnames, values)))
+        elif len(values) == len(old_header):
+            rows.append(dict(zip(old_header, values)))
+        else:
+            raise SystemExit(f"ERROR: {index_csv.name} tiene una fila de {len(values)} columnas "
+                             f"(encabezado viejo {len(old_header)}, nuevo {len(full_fieldnames)}) -- revisar a mano.")
+    with index_csv.open("w", newline="", encoding="utf-8") as f:
+        writer = csv.DictWriter(f, fieldnames=full_fieldnames, extrasaction="ignore")
+        writer.writeheader()
+        writer.writerows(rows)
+    print(f"  [{index_csv.name}] encabezado actualizado a {len(full_fieldnames)} columnas ({len(rows)} filas).")
+
+
 def _append_records(index_csv: Path, fieldnames, rows, quiet):
     if not rows:
         return
+    _migrate_header(index_csv, fieldnames + ["Source_File"])
     write_header = not index_csv.exists() or index_csv.stat().st_size == 0
     with index_csv.open("a", newline="", encoding="utf-8") as f:
         writer = csv.DictWriter(f, fieldnames=fieldnames + ["Source_File"])
@@ -213,6 +248,11 @@ def update_indexes(rebuild=False, quiet=False):
         for csv_path in (RETURNS_INDEX_CSV, COLLECTIONS_INDEX_CSV, RETURNS_DELTA_CSV, COLLECTIONS_DELTA_CSV):
             if csv_path.exists():
                 csv_path.unlink()
+
+    # Antes de leer los "ya vistos": con un encabezado desactualizado,
+    # Source_File se lee corrido y el PDF se re-agrega (ver _migrate_header).
+    _migrate_header(RETURNS_INDEX_CSV, returns_extractor.FIELDNAMES + ["Source_File"])
+    _migrate_header(COLLECTIONS_INDEX_CSV, collections_extractor.FIELDNAMES + ["Source_File"])
 
     returns_seen = _already_indexed(RETURNS_INDEX_CSV)
     collections_seen = _already_indexed(COLLECTIONS_INDEX_CSV)
