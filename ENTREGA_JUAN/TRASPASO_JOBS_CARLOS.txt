@@ -130,21 +130,18 @@ confirmar que el nuevo aparece en Setup > Tareas programadas con el dueno correc
     Cron:             0 50 15 * * ?   (diario 15:50 Madrid)
     Accion:           NO reprogramar. Parte de la migracion de Chargent (ver CLAUDE.md seccion 3).
 
---- 1.9 ACH Payment 14:50 PR.  (ACTIVO - PROPOSITO NO CONFIRMADO - PRIORITARIO PARA CONFIRMAR)
+--- 1.9 ACH Payment 14:50 PR.  (JOB ACTIVO - tratar solo como JOB, la clase no se toca)
     Dueno:            Legal Credit Solutions (0051U000001MRFeQAO) - NO es de Carlos
     Id job:           08eUU00000ZA2ilYAD
-    Estado:           WAITING (activo). Ultima ejecucion 2026-10-05 14:50 PR. Proxima 2026-10-06 14:50 PR.
-    Cron:             00 50 14 ? * MON-FRI   (14:50 PR, lunes a viernes; PR no tiene horario de verano)
-    Clase:            PS_ScheduledDispatcher, del paquete administrado "rh2" (instalado, no es
-                      codigo de este repo; el cuerpo no es visible desde la org).
-    Riesgo:           Los docs de traspaso dicen que esta PAUSADO. NO es cierto: esta activo y
-                      corre cada dia habil. Hasta saber que hace no se debe pausar ni eliminar.
-    Accion:           1) Identificar que hace el paquete rh2 y quien lo instalo (Setup > Paquetes
-                         instalados, y con el proveedor).
-                      2) Decidir si el job sigue o se detiene, antes de la entrega.
-                      3) Si sigue, quien lo maneja despues de la entrega (no hay dueno de Carlos
-                         que reprogramar: el dueno ya es el usuario Legal Credit Solutions).
-                      Clase tambien ejecutada por PS_System_Maint (rh2), otro job del mismo paquete.
+    Estado:           WAITING (activo). Ultima ejecucion 2026-10-05 14:50 PR.
+    Cron actual:      00 50 14 ? * MON-FRI   (14:50 PR, lunes a viernes; PR no tiene horario de verano)
+    Cron propuesto:   00 0 7 ? * MON-FRI     (07:00 PR, lunes a viernes, con TZ del usuario en PR)
+    Paquete:          Rollup Helper (namespace rh2, v22.7, de terceros). El job ejecuta la clase
+                      PS_ScheduledDispatcher de ese paquete. La clase NO es codigo de este repo y
+                      NO se modifica.
+    Accion:           Tratar solo el job: reprogramarlo a 7:00 PR con el usuario nuevo, como el
+                      resto. No pausar ni eliminar sin confirmar primero.
+    Pendiente:        confirmar con Carlos si se mantiene el job y la frecuencia.
 
 --- 1.10 Jobs que ya son de Juan (0058W00000CNeHuQAL) - informativo
     - Chargebee_8_1_schedule_Set_Invoice_to_Payments-1   (cron 0 30 20 * * ?, activo)
