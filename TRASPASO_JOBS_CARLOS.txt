@@ -122,14 +122,15 @@ confirmar que el nuevo aparece en Setup > Tareas programadas con el dueno correc
     exportacion, con el usuario nuevo logueado. Hora a registrar: 07:00 PR (el dia
     de la semana se mantiene jueves). Eliminar la vieja desde la misma pantalla.
 
---- 1.7 RPT- ACH Payment  (PAUSADO - no reactivar sin confirmar)
-    Dueno:            Carlos (0051U000007bbx5QAA)
+--- 1.7 RPT- ACH Payment  (PAUSADO - se reprograma DESPUES de que corra ACH Payment 14:50 PR.)
+    Dueno actual:     Carlos (0051U000007bbx5QAA)
     Id job:           08eUU00000hsWjoYAE
     Estado:           PAUSED (ultima ejecucion 2026-08-27 21:38 UTC)
-    Cron:             0 38 23 * * ?   (diario 23:38 Madrid)
-    Accion:           NO reprogramar. Confirmar con Carlos si se elimina. Para eliminar:
-                      System.abortJob('08eUU00000hsWjoYAE');
-                      (Los docs de traspaso lo marcan como legacy de Chargent: confirmar.)
+    Clase:            SM_PaymentSchedule (ejecuta SM_PaymentBatch). NO se modifica la clase.
+    Decision (2026-10-06): reprogramar a nombre de Legal Credit Solutions con cron 0 0 7 * * ?
+                      (07:00 PR), DESPUES de que corra ACH Payment 14:50 PR. Sin reprogramar antes.
+                      Al reprogramarlo queda ACTIVO: confirmar antes de hacerlo.
+                      Luego dar de baja el viejo: System.abortJob('08eUU00000hsWjoYAE');
 
 --- 1.8 RPT chargent TC  (PAUSADO - Chargent, no reactivar)
     Dueno:            Carlos (0051U000007bbx5QAA)
