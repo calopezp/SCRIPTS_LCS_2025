@@ -258,7 +258,13 @@ for (RowData r : rows) {
         match.SM_Check_Collection__c == r.coll &&
         match.SM_Check_Collection_Status__c == r.collStatus &&
         match.SM_Check_Collection_Return_Reason__c == r.reasonShort &&
-        match.SM_Return_code__c == r.returnCode;
+        // Sin codigo NACHA en la fila (lo normal en Check Collection) no se compara:
+        // el UPDATE de abajo tampoco toca SM_Return_code__c en ese caso, asi que un
+        // R01 puesto antes por Returns no es una diferencia real. Sin esto, reprocesar
+        // un reporte ya aplicado (catch-up, archivo re-detectado) contaba esas filas
+        // como pendientes y el apply les volvia a anteponer el mismo tag en
+        // SM_Historical_Collection_Status__c (encontrado 2026-10-06: 102 de 158).
+        (r.returnCode == null || match.SM_Return_code__c == r.returnCode);
 
     if (alreadyApplied) {
         alreadyAppliedRows.add(r);
