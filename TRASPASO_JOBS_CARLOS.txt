@@ -6,6 +6,9 @@ Para: Juan Duarte (o quien asigne la empresa)
 Este documento lista todo lo que hoy corre a nombre de la cuenta clopez@legal-credit.com
 (usuario Salesforce 0051U000007bbx5QAA) y los comandos para reprogramarlo con otro usuario.
 
+Horario de referencia para TODOS los jobs: 07:00 am hora de Puerto Rico (AST, UTC-4, sin horario
+de verano). Con la zona del usuario en America/Puerto_Rico, el cron es el mismo todo el anio.
+
 Regla general: en Salesforce, un job programado corre con el usuario que lo programó, y la hora
 se interpreta en la zona horaria de ESE usuario. Por eso, para que un job corra a una hora fija
 de Puerto Rico todo el año, el usuario que lo programa tiene que tener TimeZoneSidKey =
@@ -53,11 +56,11 @@ confirmar que el nuevo aparece en Setup > Tareas programadas con el dueno correc
     Clase:            SM_ACH_Flow_Monitor
     Id job actual:    08eUU00000iXt6YYAS
     Cron actual:      0 0 14 * * ?    (14:00 Madrid = 08:00 Puerto Rico en verano)
-    Cron propuesto:   0 0 8 * * ?     (08:00 Puerto Rico todo el anio, con TZ del usuario en PR)
+    Cron propuesto:   0 0 7 * * ?     (07:00 Puerto Rico todo el anio, con TZ del usuario en PR)
     Que hace:         valida contratos activados en las ultimas 24h sin su orden AC/Subscription.
                       Solo reporta por correo, no corrige nada.
     Programar:
-        String jobId = System.schedule('SM Contracts Activated Monitor - Daily', '0 0 8 * * ?', new SM_ACH_Flow_Monitor());
+        String jobId = System.schedule('SM Contracts Activated Monitor - Daily', '0 0 7 * * ?', new SM_ACH_Flow_Monitor());
         System.debug('Job: ' + jobId);
     Eliminar el viejo (despues de confirmar el nuevo):
         System.abortJob('08eUU00000iXt6YYAS');
@@ -68,11 +71,9 @@ confirmar que el nuevo aparece en Setup > Tareas programadas con el dueno correc
     Clase:            SM_AgreementSignedDateMonitor
     Id job actual:    08eUU00000iaKS1YAM
     Cron actual:      0 15 8 * * ?    (08:15 Madrid = 02:15 Puerto Rico)
-    Cron propuesto:   0 15 8 * * ?    <- MISMO TEXTO, pero en zona PR corre a las 08:15 PR.
-                      DECISION PENDIENTE: confirmar si la hora de corrida se mantiene en la
-                      madrugada (cron 0 15 2 * * ?) o pasa a la manana (0 15 8 * * ?).
+    Cron propuesto:   0 15 7 * * ?    (07:15 Puerto Rico; se mantiene el desfase de 15 min respecto a 1.1)
     Programar:
-        String jobId = System.schedule('SM_AgreementSignedDateMonitor_Daily', '0 15 8 * * ?', new SM_AgreementSignedDateMonitor());
+        String jobId = System.schedule('SM_AgreementSignedDateMonitor_Daily', '0 15 7 * * ?', new SM_AgreementSignedDateMonitor());
     Eliminar el viejo:
         System.abortJob('08eUU00000iaKS1YAM');
 
@@ -80,9 +81,9 @@ confirmar que el nuevo aparece en Setup > Tareas programadas con el dueno correc
     Clase:            SM_TriggerPanelMonitor
     Id job actual:    08eUU00000imCX8YAM
     Cron actual:      0 20 8 * * ?    (08:20 Madrid = 02:20 Puerto Rico)
-    Cron propuesto:   igual que 1.2 - DECISION PENDIENTE (madrugada 0 20 2 * * ? o manana 0 20 8 * * ?)
+    Cron propuesto:   0 20 7 * * ?    (07:20 Puerto Rico)
     Programar:
-        String jobId = System.schedule('SM_TriggerPanelMonitor_Daily', '0 20 8 * * ?', new SM_TriggerPanelMonitor());
+        String jobId = System.schedule('SM_TriggerPanelMonitor_Daily', '0 20 7 * * ?', new SM_TriggerPanelMonitor());
     Eliminar el viejo:
         System.abortJob('08eUU00000imCX8YAM');
 
@@ -90,9 +91,9 @@ confirmar que el nuevo aparece en Setup > Tareas programadas con el dueno correc
     Clase:            SM_WeeklyComercialDigestScheduler
     Id job actual:    08eUU00000j0GHOYA2
     Cron actual:      0 0 8 ? * MON   (lunes 08:00 Madrid = lunes 02:00 Puerto Rico)
-    Cron propuesto:   0 0 8 ? * MON (manana PR) o 0 0 2 ? * MON (madrugada) - DECISION PENDIENTE
+    Cron propuesto:   0 0 7 ? * MON   (lunes 07:00 Puerto Rico)
     Programar:
-        String jobId = System.schedule('SM_WeeklyComercialDigest_Monday', '0 0 8 ? * MON', new SM_WeeklyComercialDigestScheduler());
+        String jobId = System.schedule('SM_WeeklyComercialDigest_Monday', '0 0 7 ? * MON', new SM_WeeklyComercialDigestScheduler());
     Eliminar el viejo:
         System.abortJob('08eUU00000j0GHOYA2');
     Nota: el correo sigue saliendo a clopez@legal-credit.com hasta que se cambie NOTIFY_EMAIL
@@ -103,13 +104,15 @@ confirmar que el nuevo aparece en Setup > Tareas programadas con el dueno correc
     Tipo (JobType):   A  (no es Apex estandar; identificar en Setup > Tareas programadas)
     Cron actual:      0 0 12 ? * 1-7   (todos los dias 12:00 en la zona de su dueno)
     ACCION: identificar que es antes de tocarlo (Setup > Tareas programadas, buscar el GUID).
-            No se reprograma a ciegas.
+            No se reprograma a ciegas. Si se reprograma, la hora registrada es 07:00 Puerto Rico
+            (cron propuesto 0 0 7 * * ? con TZ del usuario en PR).
 
 --- 1.6 DataExport (exportacion de datos programada)
     Id job actual:    08eUU00000feONaYAM   (JobType 1)
     Cron actual:      0 23 4 ? * 5     (jueves 04:23 Madrid; el cron usa 1=domingo, 5=jueves)
     Nota: NO se puede programar por Apex. Se recrea en Setup > Exportar datos > Programar
-    exportacion, con el usuario nuevo logueado. Eliminar la vieja desde la misma pantalla.
+    exportacion, con el usuario nuevo logueado. Hora a registrar: 07:00 Puerto Rico (el dia
+    de la semana se mantiene jueves). Eliminar la vieja desde la misma pantalla.
 
 
 ------------------------------------------------------------
@@ -162,8 +165,7 @@ Consulta (con el usuario nuevo, o con admin):
 
 Criterio:
     - OwnerId = Id del nuevo usuario
-    - NextFireTime = la hora de Puerto Rico esperada, convertida a UTC
-      (08:00 PR = 12:00 UTC todo el anio)
+    - NextFireTime = 07:00 Puerto Rico = 11:00 UTC, todo el anio (Puerto Rico no tiene horario de verano)
     - State = WAITING
 
 
