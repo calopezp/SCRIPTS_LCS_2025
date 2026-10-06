@@ -4,7 +4,11 @@ combinando DOS fuentes, con un registro por Payment_Name -> fecha de
 transmisión (SM_Transmission_Date_ACH_File__c) + monto:
 
   1) La carpeta "ACH Reportados" en OneDrive:
-     C:\\OneDrive - LCS\\COMPILADO COLLECTIONS\\ACH Reportados
+     <OneDrive>\\COMPILADO COLLECTIONS\\ACH Reportados (ruta resuelta en
+     ../lcs_paths.py, sin ruta fija de ninguna maquina). Solo el primer
+     nivel -- la subcarpeta "Desde Salesforce" (copia de los Files de
+     Salesforce para consulta manual) NO se indexa, ya entra por la fuente 2.
+     Ultimo archivo dejado ahi por el proceso viejo: 2026-10-01.
   2) Archivos "ACH_*.csv" subidos directamente como Files en Salesforce
      (ContentVersion) -- un repositorio paralelo descubierto porque 184
      payments del reporte "Transmission Date ACH" no aparecian en ningun
@@ -67,7 +71,6 @@ POSIBLES_DUPLICADOS_CSV = INDEX_DIR / "posibles_duplicados_transmision.csv"
 DUPLICADOS_MAX_AGE_DAYS = 183
 NEW_FILE_MAX_AGE_DAYS = 120  # ~4 meses
 
-SOURCE_DIR = Path(r"C:\OneDrive - LCS\COMPILADO COLLECTIONS\ACH Reportados")
 SF_FILES_DIR = SCRIPT_DIR / "sf_files"
 EXCLUDE_NAME_CONTAINS = ("REFUND",)
 # Desde esta fecha (inclusive) los Files de Salesforce ("_sf_") son la fuente
@@ -78,7 +81,7 @@ EXCLUDE_NAME_CONTAINS = ("REFUND",)
 # de respaldo de OneDrive, a menudo con la fecha del titulo corrida +1 dia
 # (1,689 payments en los ultimos 6 meses) -- por eso NO cuentan para detectar
 # duplicados antes del corte (darian ~230 falsos positivos), y SI despues.
-SF_PRIMARY_FROM = "2026-10-01"
+SF_PRIMARY_FROM = "2026-10-01"  # mismo valor que fetch_salesforce_files.SF_PRIMARY_FROM
 
 FIELDNAMES = ["Payment_Name", "SM_Transmission_Date_ACH_File__c", "Amount"]
 RAW_FIELDNAMES = FIELDNAMES + ["Source_File"]
@@ -93,6 +96,9 @@ def _load_module(name: str, path: Path):
 
 extractor = _load_module("extract_ach_transmission", SCRIPT_DIR / "extract_ach_transmission.py")
 sf_fetcher = _load_module("fetch_salesforce_files", SCRIPT_DIR / "fetch_salesforce_files.py")
+lcs_paths = _load_module("lcs_paths", SCRIPT_DIR.parent / "lcs_paths.py")
+
+SOURCE_DIR = lcs_paths.collections_root() / "ACH Reportados"
 
 
 def _already_indexed() -> set:

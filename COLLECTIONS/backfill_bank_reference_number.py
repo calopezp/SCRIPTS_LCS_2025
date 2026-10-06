@@ -68,9 +68,9 @@ def main():
     print(f"Ventana: desde {cutoff.isoformat()} (ultimos {args.months} meses) -- PDFs sin fecha reconocible se excluyen")
 
     candidate_pdfs = []
-    for source_dir in (build_index.RETURNS_SOURCE_DIR, build_index.COLLECTIONS_SOURCE_DIR):
+    for source_dir in build_index.SOURCE_DIRS:
         for pdf_path in build_index._find_pdfs(source_dir):
-            file_date = build_index.parse_date_from_filename(pdf_path.name)
+            file_date = build_index.parse_date_from_filename(pdf_path.name, build_index._anio_de_carpeta(pdf_path))
             if file_date and file_date >= cutoff:
                 candidate_pdfs.append((file_date, pdf_path))
 
