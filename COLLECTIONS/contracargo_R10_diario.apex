@@ -17,6 +17,7 @@
  *   - Payment REFUNDED en negativo, SM_Payments_refunded__c, motivo CONTRA CARGO (R10/R11).
  *
  * Sin triggers (SM_TriggerHandler.avoidAllHandlerExcecution), como el script manual.
+ * Un Task por contrato tratado, con el dueno por defecto de quien corre el script (no fijo).
  * NO se aplica si el payment aparece en dos transmisiones ACH: esa verificacion es
  * manual (ver TAREAS_PENDIENTES.md). El .apex del repo queda en DRY_RUN=true; el
  * script de la corrida diaria copia a un temporal y lo pone en false solo en modo apply.
@@ -128,7 +129,22 @@ if (!DRY_RUN && !originalesAUpdate.isEmpty()) {
     try {
         update originalesAUpdate;
         insert refundsAInsertar;
-        System.debug('CONTRACARGO_R10_DIARIO -> APLICADO: ' + originalesAUpdate.size() + ' originales, ' + refundsAInsertar.size() + ' REFUND');
+
+        List<Task> tareas = new List<Task>();
+        for (SM_Payment__c o : originalesAUpdate) {
+            tareas.add(new Task(
+                WhatId = o.SM_Contract__c,
+                RecordTypeId = '0121U00000085XiQAI',
+                Subject = 'TIADM - REFUND CONTRA CARGO (R10/R11)',
+                Description = 'Contracargo R10/R11 aplicado automaticamente en la corrida del ' + Date.today().format() +
+                    ' (' + o.Name + '): original ACCEPTED/COLLECTED + Payment REFUNDED. Sin recobro.',
+                Status = 'Completed',
+                ActivityDate = Date.today()
+            ));
+        }
+        insert tareas;
+
+        System.debug('CONTRACARGO_R10_DIARIO -> APLICADO: ' + originalesAUpdate.size() + ' originales, ' + refundsAInsertar.size() + ' REFUND, ' + tareas.size() + ' Tasks');
     } finally {
         SM_TriggerHandler.avoidAllHandlerExcecution = false;
     }
