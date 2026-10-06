@@ -1,0 +1,181 @@
+TRASPASO DE JOBS Y PROCESOS A NOMBRE DE CARLOS LOPEZ
+=====================================================
+Fecha de corte: 2026-10-06
+Para: Juan Duarte (o quien asigne la empresa)
+
+Este documento lista todo lo que hoy corre a nombre de la cuenta clopez@legal-credit.com
+(usuario Salesforce 0051U000007bbx5QAA) y los comandos para reprogramarlo con otro usuario.
+
+Horario de referencia para TODOS los jobs: 07:00 am hora de Puerto Rico (AST, UTC-4, sin horario
+de verano). Con la zona del usuario en America/Puerto_Rico, el cron es el mismo todo el anio.
+
+Regla general: en Salesforce, un job programado corre con el usuario que lo programó, y la hora
+se interpreta en la zona horaria de ESE usuario. Por eso, para que un job corra a una hora fija
+de Puerto Rico todo el año, el usuario que lo programa tiene que tener TimeZoneSidKey =
+America/Puerto_Rico. No se puede cambiar el dueño de un job existente: hay que programarlo de nuevo
+con la sesion del nuevo usuario y eliminar el viejo.
+
+
+------------------------------------------------------------
+PASO 0 - PREPARAR EL USUARIO QUE VA A PROGRAMAR
+------------------------------------------------------------
+
+0.1 Zona horaria del usuario (Setup > Usuarios > Usuarios > [usuario] > Editar):
+    Zona horaria = (GMT-04:00) Atlantic Standard Time (America/Puerto_Rico)
+    Hoy el usuario de Juan (0058W00000CNeHuQAL, juanduarte@legal-credit.com) esta en
+    America/New_York. Si no se cambia, el cron de abajo corre 1 hora antes en Puerto Rico.
+
+0.2 Verificar la zona desde la consulta:
+    SELECT Username, TimeZoneSidKey FROM User WHERE Id = '<Id del usuario>'
+    Resultado esperado: TimeZoneSidKey = America/Puerto_Rico
+
+0.3 Sesion del usuario que programa: el Apex de abajo se ejecuta en Developer Console
+    (Debug > Open Execute Anonymous Window) o con
+        sf apex run -o <alias_del_nuevo_usuario> -f <archivo.apex>
+    Hay que correrlo logueado con el usuario nuevo (o con login-as de un admin).
+    NO sirve correrlo con la sesion de Carlos: el job quedaria a su nombre.
+
+0.4 Acceso a los scripts del repo: los scripts de COLLECTIONS/ usan el alias de sf CLI "MONEE"
+    (ver CLAUDE.md seccion 2.1). El nuevo usuario debe autenticarse con su propio alias:
+        sf org login web --alias MONEE --instance-url https://monee.my.salesforce.com
+    y verificar con:  sf org list
+
+
+------------------------------------------------------------
+PASO 1 - JOBS PROGRAMADOS ACTIVOS A NOMBRE DE CARLOS
+------------------------------------------------------------
+
+Estado al 2026-10-06 (consulta CronTrigger, OwnerId 0051U000007bbx5QAA, State WAITING).
+Horas en Puerto Rico con la zona actual de Madrid (CEST, verano). En invierno, Madrid pasa a
+CET y estas horas se corren 1 hora mas tarde en Puerto Rico.
+
+Para cada job: el Apex de "Programar" se ejecuta con el usuario NUEVO. Antes de borrar el viejo,
+confirmar que el nuevo aparece en Setup > Tareas programadas con el dueno correcto.
+
+--- 1.1 SM Contracts Activated Monitor - Daily  (PRIORITARIO)
+    Clase:            SM_ACH_Flow_Monitor
+    Id job actual:    08eUU00000iXt6YYAS
+    Cron actual:      0 0 14 * * ?    (14:00 Madrid = 08:00 Puerto Rico en verano)
+    Cron propuesto:   0 0 7 * * ?     (07:00 Puerto Rico todo el anio, con TZ del usuario en PR)
+    Que hace:         valida contratos activados en las ultimas 24h sin su orden AC/Subscription.
+                      Solo reporta por correo, no corrige nada.
+    Programar:
+        String jobId = System.schedule('SM Contracts Activated Monitor - Daily', '0 0 7 * * ?', new SM_ACH_Flow_Monitor());
+        System.debug('Job: ' + jobId);
+    Eliminar el viejo (despues de confirmar el nuevo):
+        System.abortJob('08eUU00000iXt6YYAS');
+    Nota: el script del repo scripts/apex/Schedule_ACH_Monitor.apex NO sirve tal cual: usa otro
+    nombre ('SM_ACH_Flow_Monitor_Daily') y otra hora (08:00 Madrid). Usar el comando de arriba.
+
+--- 1.2 SM_AgreementSignedDateMonitor_Daily
+    Clase:            SM_AgreementSignedDateMonitor
+    Id job actual:    08eUU00000iaKS1YAM
+    Cron actual:      0 15 8 * * ?    (08:15 Madrid = 02:15 Puerto Rico)
+    Cron propuesto:   0 15 7 * * ?    (07:15 Puerto Rico; se mantiene el desfase de 15 min respecto a 1.1)
+    Programar:
+        String jobId = System.schedule('SM_AgreementSignedDateMonitor_Daily', '0 15 7 * * ?', new SM_AgreementSignedDateMonitor());
+    Eliminar el viejo:
+        System.abortJob('08eUU00000iaKS1YAM');
+
+--- 1.3 SM_TriggerPanelMonitor_Daily
+    Clase:            SM_TriggerPanelMonitor
+    Id job actual:    08eUU00000imCX8YAM
+    Cron actual:      0 20 8 * * ?    (08:20 Madrid = 02:20 Puerto Rico)
+    Cron propuesto:   0 20 7 * * ?    (07:20 Puerto Rico)
+    Programar:
+        String jobId = System.schedule('SM_TriggerPanelMonitor_Daily', '0 20 7 * * ?', new SM_TriggerPanelMonitor());
+    Eliminar el viejo:
+        System.abortJob('08eUU00000imCX8YAM');
+
+--- 1.4 SM_WeeklyComercialDigest_Monday  (correo semanal a Comercial, lunes)
+    Clase:            SM_WeeklyComercialDigestScheduler
+    Id job actual:    08eUU00000j0GHOYA2
+    Cron actual:      0 0 8 ? * MON   (lunes 08:00 Madrid = lunes 02:00 Puerto Rico)
+    Cron propuesto:   0 0 7 ? * MON   (lunes 07:00 Puerto Rico)
+    Programar:
+        String jobId = System.schedule('SM_WeeklyComercialDigest_Monday', '0 0 7 ? * MON', new SM_WeeklyComercialDigestScheduler());
+    Eliminar el viejo:
+        System.abortJob('08eUU00000j0GHOYA2');
+    Nota: el correo sigue saliendo a clopez@legal-credit.com hasta que se cambie NOTIFY_EMAIL
+    (ver seccion 3).
+
+--- 1.5 Job sin nombre legible (GUID e2cb73ab-a3eb-0ba3-0621-76eaabaa1167)
+    Id job actual:    08e8W00005g5FzCQAU
+    Tipo (JobType):   A  (no es Apex estandar; identificar en Setup > Tareas programadas)
+    Cron actual:      0 0 12 ? * 1-7   (todos los dias 12:00 en la zona de su dueno)
+    ACCION: identificar que es antes de tocarlo (Setup > Tareas programadas, buscar el GUID).
+            No se reprograma a ciegas. Si se reprograma, la hora registrada es 07:00 Puerto Rico
+            (cron propuesto 0 0 7 * * ? con TZ del usuario en PR).
+
+--- 1.6 DataExport (exportacion de datos programada)
+    Id job actual:    08eUU00000feONaYAM   (JobType 1)
+    Cron actual:      0 23 4 ? * 5     (jueves 04:23 Madrid; el cron usa 1=domingo, 5=jueves)
+    Nota: NO se puede programar por Apex. Se recrea en Setup > Exportar datos > Programar
+    exportacion, con el usuario nuevo logueado. Hora a registrar: 07:00 Puerto Rico (el dia
+    de la semana se mantiene jueves). Eliminar la vieja desde la misma pantalla.
+
+
+------------------------------------------------------------
+PASO 2 - LO QUE CORRE A NOMBRE DE CARLOS SIN SER UN JOB
+------------------------------------------------------------
+
+2.1 OwnerId fijo de Carlos en Tasks creadas por scripts (0051U000007bbx5QAA).
+    Estos scripts crean Tasks con OwnerId fijo. Hay que cambiarlo al Id del nuevo usuario
+    ANTES de volver a correrlos:
+        scripts/apex/-AplicarRule3_LPF_26dias_2026-10-06.apex
+        scripts/apex/-CONTRACARGO_ACH_R10_R11_BATCH_ACTIVATED_2026.apex
+        scripts/apex/-CONTRACARGO_ACH_R10_R11_BATCH_CANCELLED_2026_TASKS.apex
+        scripts/apex/-CONTRACARGO_ACH_R10_R11_BATCH_PAYMENTPROCESS_2026.apex
+        scripts/apex/-CrearTask_Reclasificacion_00318577.apex
+        scripts/apex/-CrearTasks_CobroDuplicadoConfirmado_2026.apex
+        scripts/apex/AgreementMaintenance.apex
+        TEMP/fix_tier2_revert_cancelled_2025.apex
+    Buscar y reemplazar en cada archivo:  0051U000007bbx5QAA  ->  <Id nuevo>
+    Tambien el RecordTypeId de Task '0121U00000085XiQAI' es de Salesforce (no de Carlos), no cambia.
+
+2.2 Correo de destino fijo en el codigo: clopez@legal-credit.com
+    Constante NOTIFY_EMAIL en force-app/main/default/classes/SM_ReturnCodeNotifier.cls (linea 39),
+    usada por todos los reportes de Comercial y de monitoreo. Tambien aparece en:
+        force-app/main/default/classes/SM_ACH_Flow_Monitor.cls
+        force-app/main/default/classes/SM_AgreementSignedDateMonitor.cls
+        force-app/main/default/classes/SM_TriggerPanelMonitor.cls
+    Cambiar a jduarte@legal-credit.com (o al correo que asigne la empresa) requiere deploy de
+    esas clases (RunSpecifiedTests, ver CLAUDE.md seccion 1). Mientras tanto los correos seguiran
+    llegando a Carlos.
+
+2.3 Acceso de sf CLI a MONEE: los scripts de COLLECTIONS/ (run_daily_new_files.sh, etc.) corren
+    con sf CLI. Quien los corra necesita su propio alias autenticado (ver paso 0.4).
+
+2.4 Flow ACH_ORDER_Subscription_Stopped_Monitoring: no tiene dueno fijo. Crea la Task con el
+    usuario que detuvo la Subscription, y marca Contract_Monitoring_By__c con ese usuario. Sin
+    accion, pero el usuario nuevo tiene que tener permiso de editar Contract y crear Task.
+
+2.5 Reportes y dashboards propios de Carlos: NO revisados en este documento. Revisar en
+    Reports > Reportes creados por (Carlos) antes de la entrega.
+
+
+------------------------------------------------------------
+PASO 3 - VERIFICACION FINAL (por cada job nuevo)
+------------------------------------------------------------
+
+Consulta (con el usuario nuevo, o con admin):
+    SELECT CronJobDetail.Name, CronExpression, State, OwnerId, NextFireTime
+    FROM CronTrigger
+    WHERE CronJobDetail.Name LIKE '%Monitor%' OR CronJobDetail.Name LIKE '%Digest%'
+
+Criterio:
+    - OwnerId = Id del nuevo usuario
+    - NextFireTime = 07:00 Puerto Rico = 11:00 UTC, todo el anio (Puerto Rico no tiene horario de verano)
+    - State = WAITING
+
+
+------------------------------------------------------------
+ORDEN SUGERIDO DE EJECUCION
+------------------------------------------------------------
+1. Paso 0 (zona horaria del usuario nuevo, sesion del usuario nuevo).
+2. 1.1 SM Contracts Activated Monitor (el que va a correr manana mismo).
+3. Confirmar que el nuevo aparece; despues abortar el viejo.
+4. 1.2, 1.3, 1.4: programar y abortar el viejo, job por job.
+5. 2.1: cambiar OwnerId en scripts antes de la siguiente corrida manual.
+6. 1.5 y 1.6: identificar y recrear desde Setup.
+7. 2.2: deploy del cambio de correo, cuando la empresa confirme el destinatario.

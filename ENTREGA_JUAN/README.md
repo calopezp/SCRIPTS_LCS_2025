@@ -93,8 +93,8 @@ lo que vas a ver en los registros:
 
 Varios jobs de Salesforce y Tasks fijas siguen a nombre de la cuenta de Carlos. Antes de la
 entrega final hay que reprogramarlos con tu usuario (o con el que asigne la empresa). El
-detalle completo, con los comandos Apex exactos, está en **`TRASPASO_JOBS_CARLOS.txt`** (raíz
-del repo). Lo que tenés que tener presente:
+detalle completo, con los comandos Apex exactos, está en **`TRASPASO_JOBS_CARLOS.txt`** (esta
+misma carpeta, `ENTREGA_JUAN/`). Lo que tenés que tener presente:
 
 - **Horario de referencia: 7:00 am hora de Puerto Rico**, todos los jobs. Tu usuario tiene que
   tener la zona horaria `America/Puerto_Rico` antes de programar (hoy está en New York). Puerto
