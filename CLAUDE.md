@@ -37,6 +37,13 @@ Este archivo es la **fuente de verdad compartida entre las dos máquinas** del u
    (ej. registro manual del Authorization Code desde Cybersource/Authorize.net) pero que alimentan
    datos que sí usan los scripts de arriba — documentarlas igual aunque no haya nada que instalar.
 
+10. **[Traspaso del proceso](TRASPASO_PROCESO.md)** — Carlos deja la empresa: checklist para que
+   nada dependa de su cuenta ni de sus máquinas (repo GitHub, carpeta OneDrive, jobs programados,
+   correos y OwnerId fijos). **Regla del destinatario:** si el día de la entrega no queda documentado
+   otro, todo lo registrado con el correo/usuario de Carlos pasa a `jduarte@legal-credit.com`
+   (Juan Duarte, usuario Salesforce `0058W00000CNeHuQAL`).
+   Guía de instalación y rutina diaria para quien recibe el proceso: **[GUIA_INICIO.md](GUIA_INICIO.md)**.
+
 ---
 
 ## 1. Reglas de trabajo permanentes
