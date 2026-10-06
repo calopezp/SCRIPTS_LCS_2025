@@ -79,6 +79,15 @@ def date_from_title(title: str):
     return None
 
 
+SUFFIX_RE = re.compile(r"ACH_(?:\d{1,2}/\d{1,2}/\d{4}|\d{8})_([A-Za-z0-9]+)\.csv$", re.IGNORECASE)
+
+
+def suffix_from_title(title: str):
+    """'ACH_10/1/2026_LN.csv' -> 'LN'; 'ACH_9/29/2026.csv' -> None."""
+    m = SUFFIX_RE.search(title)
+    return m.group(1).upper() if m else None
+
+
 def sync_files(quiet=False):
     """Descarga los ContentVersion 'ACH%' nuevos que aun no esten localmente
     en sf_files/. Devuelve la lista de rutas (Path) de los archivos
@@ -107,14 +116,21 @@ def sync_files(quiet=False):
             skipped.append((title, cv_id, "no se pudo determinar fecha del titulo"))
             continue
         date_compact = date.replace("-", "")
-        # Nombre local normalizado: ACH_<YYYYMMDD>_sf_<ContentVersionId>.csv
-        # (el sufijo _sf_<id> preserva unicidad -- puede haber varios
-        # archivos para la misma fecha, como vimos con duplicados).
-        local_name = f"ACH_{date_compact}_sf_{cv_id}.csv"
-        dest = DOWNLOAD_DIR / local_name
-        if dest.exists():
-            manifest.append((title, cv_id, date, local_name, "ya descargado"))
+        # Ya descargado antes (con o sin sufijo en el nombre local) -- no
+        # renombrar: build_index.py reconoce lo ya indexado por nombre.
+        existentes = list(DOWNLOAD_DIR.glob(f"ACH_*_sf_{cv_id}.csv"))
+        if existentes:
+            manifest.append((title, cv_id, date, existentes[0].name, "ya descargado"))
             continue
+        # Nombre local normalizado: ACH_<YYYYMMDD>[_<SUFIJO>]_sf_<ContentVersionId>.csv
+        # (el sufijo _sf_<id> preserva unicidad -- puede haber varios
+        # archivos para la misma fecha, como vimos con duplicados). El
+        # <SUFIJO> del titulo (LN/CR/CE/REFUNDED, proceso nuevo desde
+        # 2026-10-01) se conserva para que build_index.py excluya los
+        # archivos de REFUNDED igual que los de OneDrive.
+        sufijo = suffix_from_title(title)
+        local_name = f"ACH_{date_compact}{'_' + sufijo if sufijo else ''}_sf_{cv_id}.csv"
+        dest = DOWNLOAD_DIR / local_name
         try:
             download_version_data(instance_url, token, cv_id, dest)
         except Exception as exc:

@@ -70,6 +70,15 @@ NEW_FILE_MAX_AGE_DAYS = 120  # ~4 meses
 SOURCE_DIR = Path(r"C:\OneDrive - LCS\COMPILADO COLLECTIONS\ACH Reportados")
 SF_FILES_DIR = SCRIPT_DIR / "sf_files"
 EXCLUDE_NAME_CONTAINS = ("REFUND",)
+# Desde esta fecha (inclusive) los Files de Salesforce ("_sf_") son la fuente
+# PRIMARIA de transmision -- el proceso nuevo (scripts/apex/ACH_TRANSMISION/
+# "A. Generar File Reporte ACH.apex", primer archivo ACH_10/1/2026_LN.csv)
+# deja los archivos solo en Salesforce y ya no aparecen en OneDrive (avisado
+# por el usuario 2026-10-06). Antes de esta fecha los "_sf_" eran solo copias
+# de respaldo de OneDrive, a menudo con la fecha del titulo corrida +1 dia
+# (1,689 payments en los ultimos 6 meses) -- por eso NO cuentan para detectar
+# duplicados antes del corte (darian ~230 falsos positivos), y SI despues.
+SF_PRIMARY_FROM = "2026-10-01"
 
 FIELDNAMES = ["Payment_Name", "SM_Transmission_Date_ACH_File__c", "Amount"]
 RAW_FIELDNAMES = FIELDNAMES + ["Source_File"]
@@ -113,6 +122,13 @@ def _mark_scanned(entries, quiet=False):
             writer.writeheader()
         for name, reason in entries:
             writer.writerow({"Source_File": name, "Scanned_Date": date.today().isoformat(), "Reason": reason})
+
+
+def _cuenta_como_transmision_real(source_file, date_str):
+    """True si la fila viene de un archivo que representa un envio real al
+    banco (no una copia de respaldo): cualquier archivo de OneDrive, o un File
+    de Salesforce con fecha >= SF_PRIMARY_FROM."""
+    return "_sf_" not in source_file or date_str >= SF_PRIMARY_FROM
 
 
 def _sync_salesforce_files(quiet=False):
@@ -255,7 +271,7 @@ def _write_delta(delta_rows, quiet=False):
 
     fechas_por_payment = {}
     for row in delta_rows:
-        if "_sf_" not in row["Source_File"]:
+        if _cuenta_como_transmision_real(row["Source_File"], row["SM_Transmission_Date_ACH_File__c"]):
             fechas_por_payment.setdefault(row["Payment_Name"], set()).add(row["SM_Transmission_Date_ACH_File__c"])
     duplicados_hoy = {n: f for n, f in fechas_por_payment.items() if len(f) > 1}
 
@@ -281,7 +297,9 @@ def _rebuild_deduped_index(quiet=False):
     en ACH_20260922.csv Y ACH_20260923.csv, 2 archivos reales distintos).
     Por eso la comparación de fechas solo usa archivos SIN "_sf_" -- las
     copias de Salesforce Files se ignoran para esta comparación (solo son
-    un respaldo del mismo archivo OneDrive, no una transmisión aparte).
+    un respaldo del mismo archivo OneDrive, no una transmisión aparte) --
+    SALVO desde SF_PRIMARY_FROM, cuando los Files de Salesforce pasan a ser la
+    única fuente real (ver _cuenta_como_transmision_real).
     Los casos reales encontrados NO se pierden en el colapso: se escriben
     aparte en POSIBLES_DUPLICADOS_CSV para revisión manual -- nunca se
     decide solo aquí si fue un cobro doble de verdad."""
@@ -299,7 +317,7 @@ def _rebuild_deduped_index(quiet=False):
             current = best.get(name)
             if current is None or date_str > current["SM_Transmission_Date_ACH_File__c"]:
                 best[name] = row
-            if "_sf_" not in row["Source_File"]:
+            if _cuenta_como_transmision_real(row["Source_File"], date_str):
                 try:
                     is_recent = date.fromisoformat(date_str).toordinal() >= cutoff
                 except ValueError:
