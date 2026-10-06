@@ -49,6 +49,11 @@ reconfirmarse o meter ruido en ese control.
 - [ ] **Carpeta OneDrive `COMPILADO COLLECTIONS`** — hoy en el OneDrive de Carlos. Al desactivar su
       cuenta M365 se borra tras la retención. Mover a un SharePoint/Teams de la empresa (o cambiar
       dueño) y que la persona nueva la sincronice con el mismo nombre en la raíz de su OneDrive.
+      **Ubicación original en SharePoint de los reportes del banco (fuente, en el OneDrive de Elba
+      Mantilla — `emantilla@legal-credit.com` — carpeta `Collections Campaign\Reportes de Banca`),
+      por si `COMPILADO COLLECTIONS` no se migra a tiempo y hay que reconstruirla desde la fuente:**
+      - RETURN: https://legalcredit-my.sharepoint.com/personal/emantilla_legal-credit_com/_layouts/15/onedrive.aspx?id=%2Fpersonal%2Femantilla%5Flegal%2Dcredit%5Fcom%2FDocuments%2FDocumentos%2FCollections%20Campaign%2FReportes%20de%20Banca%2FACH%20Returns&ga=1
+      - COLLECTION: https://legalcredit-my.sharepoint.com/personal/emantilla_legal-credit_com/_layouts/15/onedrive.aspx?id=%2Fpersonal%2Femantilla%5Flegal%2Dcredit%5Fcom%2FDocuments%2FDocumentos%2FCollections%20Campaign%2FReportes%20de%20Banca%2FCheck%20Collection&ga=1
 - [ ] **Salesforce CLI** en la máquina nueva autenticado con alias **`MONEE`** (los scripts lo usan
       fijo) y, si aplica, `clopez@legal-credit.com.preprod` → su propio usuario de PREPROD.
 

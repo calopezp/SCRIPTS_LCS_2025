@@ -416,6 +416,19 @@ if (!regressionBlockedRows.isEmpty()) {
     System.debug('\u2192 ' +' -> ***** ALERTA: ' + regressionBlockedRows.size() + ' pago(s) ya COLLECTED/ACCEPTED que este reporte queria pasar a RETURN/NOT COLLECTED -- NO SE APLICARON, ANALIZAR MANUALMENTE *****');
     System.debug('\u2192 ' +' ->   -> Nombres bloqueados por regresion: ' + regressionNames);
     System.debug('\u2192 ' +' ->   -> Contratos a analizar manualmente: ' + String.join(regressionContractsQuoted, ', '));
+    if (!DRY_RUN) {
+        String regressionBody = 'El reporte de Check Collection de hoy intento revertir ' + regressionBlockedRows.size() +
+            ' pago(s) que ya estaban ACCEPTED/COLLECTED de vuelta a RETURN/NOT COLLECTED -- el guard de regresion los bloqueo, NO se aplico nada.\n\n' +
+            'Pagos: ' + String.join(regressionNames, ', ') + '\n' +
+            'Contratos a revisar manualmente: ' + String.join(new List<String>(regressionContracts), ', ') + '\n\n' +
+            'Puede ser el patron "R10/R11 reportado como Pending despues del propio return" (ver CLAUDE.md seccion 2.2 / TAREAS_PENDIENTES.md) -- revisar caso por caso, no se aplica nada automatico.';
+        Messaging.SingleEmailMessage regressionMail = new Messaging.SingleEmailMessage();
+        regressionMail.setToAddresses(new String[]{ SM_ReturnCodeNotifier.NOTIFY_EMAIL });
+        regressionMail.setSubject('[IMPORTANTE] Check Collection intento revertir ' + regressionBlockedRows.size() + ' pago(s) ya cobrado(s)');
+        regressionMail.setPlainTextBody(regressionBody);
+        Messaging.sendEmail(new Messaging.SingleEmailMessage[]{ regressionMail });
+        System.debug('\u2192 ' +' -> Correo [IMPORTANTE] de regresion enviado a ' + SM_ReturnCodeNotifier.NOTIFY_EMAIL);
+    }
 } else {
     System.debug('\u2192 ' +' -> Bloqueados por regresion (COLLECTED/ACCEPTED -> RETURN/NOT COLLECTED, nunca automatico): 0');
 }

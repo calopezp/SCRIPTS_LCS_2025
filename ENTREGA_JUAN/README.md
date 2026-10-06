@@ -1,15 +1,14 @@
-# Entrega — Pipeline de Cobranza / Collections (Legal Credit Solutions / MONEE)
+# Entrega — Pipeline de Cobranza / Collections + ACH Transmisión (Legal Credit Solutions / MONEE)
 
 > **Qué es esta carpeta:** una copia lista para instalar en otra máquina (la tuya, Juan) del
 > código que corre el día a día de cobranza bancaria (Collections: ACH Returns, Check Collection,
-> ACH Reportados/transmisión). **Es una copia, no un enlace al repo original** — si el repo
-> original (`SCRIPTS_LCS_2025`) sigue cambiando, esta carpeta hay que refrescarla a mano de vez en
-> cuando (ver "Cómo se mantiene al día" al final).
+> ACH Reportados/transmisión) y de los 4 pasos manuales de ACH Transmisión. **Es una copia, no un
+> enlace al repo original** — si el repo original (`SCRIPTS_LCS_2025`) sigue cambiando, esta
+> carpeta hay que refrescarla a mano de vez en cuando (ver "Cómo se mantiene al día" al final).
 >
-> **Alcance de esta entrega: solo Collections.** No incluye ACH Transmisión (los 4 pasos
-> manuales `scripts/apex/ACH_TRANSMISION/A-D.apex`) ni Cancelar Contratos
-> (`COLLECTIONS/CANCELACIONES/`) — ambos viven en el repo original y, si hacen falta, se acceden
-> ahí directamente (ver `CLAUDE.md` secciones 2 y 6, y el skill `/cancelar-contratos`).
+> **Alcance de esta entrega: Collections + ACH Transmisión.** No incluye Cancelar Contratos
+> (`COLLECTIONS/CANCELACIONES/`) — vive en el repo original y, si hace falta, se accede
+> ahí directamente (ver `CLAUDE.md` sección 6, y el skill `/cancelar-contratos`).
 
 **Primero lo primero:** si tu objetivo es entender el puesto completo (qué hace cada cosa, qué
 automatizaciones corren solas en Salesforce, qué NO tocar, a quién preguntar), empieza por
@@ -31,13 +30,21 @@ así que si movemos un archivo de carpeta algo se rompe. La tabla de abajo te di
 | Proceso | Qué hace | Dónde vive realmente | Comando para correrlo |
 |---|---|---|---|
 | **Collections** (cobranza bancaria) | Importa los reportes del banco (ACH Returns, Check Collection, ACH Reportados/transmisión), actualiza el estado de cada Payment en Salesforce, aplica timeouts automáticos, manda 8 correos de alerta a Comercial | `COLLECTIONS/` (carpeta completa: subcarpetas `COLLECTIONS/`, `RETURNS/`, `ACH_REPORTADOS/`, `UTILITARIOS/`, `index/`, más los scripts sueltos en la raíz) | `cd COLLECTIONS && ./run_daily_new_files.sh` (preview) → `./run_daily_new_files.sh apply` (aplica) |
+| **ACH Transmisión** (4 pasos manuales, cada día hábil ~antes de las 2:50 pm PR) | Genera el archivo del día para el banco, avisa por correo, confirma el cargue de ayer, revierte si hace falta | `scripts/apex/ACH_TRANSMISION/` (sibling de `COLLECTIONS/`, rutas relativas entre ambos preservadas) | `sf apex run -o MONEE --file "scripts/apex/ACH_TRANSMISION/A. Generar File Reporte ACH.apex"` → luego `"...B. Enviar Correo Reporte ACH.apex"` — el paso **C (confirmar) ya corre solo** dentro de `run_daily_new_files.sh`; **D (revertir)** es solo para la excepción de un cargue confirmado que nunca llegó al banco |
 
-> **Dependencia opcional con ACH Transmisión (fuera de esta entrega):** el paso 5/6 de
-> `run_daily_new_files.sh` intenta confirmar el cargue ACH de ayer llamando a
-> `../scripts/apex/ACH_TRANSMISION/C. Confirmar Cargue Reporte ACH.apex`. Como esa carpeta no está
-> en esta entrega, el script simplemente imprime un aviso ("no se encontro ... -- paso saltado")
-> y sigue — no rompe nada, solo significa que ese respaldo puntual no corre. Si en algún momento
-> manejas también la transmisión ACH, copia esa carpeta desde el repo original.
+> **Orden real de los 4 pasos, confirmado 2026-10-06 (antes documentado con incertidumbre):**
+> **A** genera el archivo → **B** manda el correo de aviso el mismo día → al día siguiente **C**
+> confirma el cargue (ya automatizado como respaldo dentro de `run_daily_new_files.sh`, paso 5/6)
+> → **D** revierte, solo si un cargue confirmado nunca llegó al banco (excepcional, leer su
+> encabezado antes de usarlo). Los nombres de archivo cambiaron recientemente (antes
+> `-A.ReporteACHFile.apex`/`-B.ConfirmarCargueACH.apex`/`-C.RevertirCargueACH.apex`/
+> `-D.EnviarCorreoACH.apex` — la letra B/C/D se reordenó al renombrar, no asumas la letra vieja si
+> encuentras una referencia desactualizada en otro documento).
+>
+> **Ojo con `B. Enviar Correo Reporte ACH.apex`:** hoy sigue con `ES_PRUEBA = true` y
+> `EMAIL_PRUEBA = clopez@legal-credit.com` — el correo real todavía solo le llega a Carlos. Ver
+> `TRASPASO_PROCESO.md` para el cambio pendiente el día de la entrega (pasar a `false` con los
+> destinatarios reales ya cargados).
 
 ### Utilitarios — consultas puntuales, no son parte de ningún proceso programado
 
@@ -66,8 +73,11 @@ lo que vas a ver en los registros:
 
 ## 2. Por dónde empezar
 
-1. Lee `INSTALACION.md` en esta misma carpeta — instala lo que falte (Salesforce CLI, Python,
-   la dependencia `pdfplumber`) y confirma accesos (org MONEE, carpeta de OneDrive del banco).
+1. **`GUIA_INICIO.md` (raíz del repo) es la guía de instalación más actualizada** — instalación,
+   conexión (incluye la detección automática de OneDrive vía `lcs_paths.py`, ya no rutas fijas) y
+   rutina diaria. `INSTALACION.md` (esta carpeta) es una versión anterior — **todavía referencia
+   la ruta de OneDrive fija a la antigua (`C:\OneDrive - LCS\...`), que ya no aplica** — pendiente
+   de refrescar, usa `GUIA_INICIO.md` mientras tanto.
 2. Para el detalle técnico línea-por-línea del pipeline (estructura de archivos, reglas de
    negocio, qué significa cada código de retorno bancario, gotchas conocidos), usa el Skill de
    Claude Code ya incluido en el repo: `.claude/skills/collections/SKILL.md` — o ábrelo como
@@ -90,11 +100,11 @@ cualquier otro commit.
 
 **Decisión confirmada (2026-10-05): la entrega oficial a Juan es acceso al repo completo vía
 Git** (no un ZIP aislado de esta carpeta). Con esto, Juan recibe automáticamente todo lo que esta
-carpeta NO duplica a propósito: `MANUAL_TRASPASO.md`, `CLAUDE.md`, `BITACORA_HALLAZGOS_TECNICOS.md`,
-`TAREAS_PENDIENTES.md`, `TAREAS_OCASIONALES.md`, los Skills (`.claude/skills/`), el metadata de
-Salesforce (`force-app/`), ACH Transmisión y Cancelar Contratos (ver nota de alcance arriba) —
-`ENTREGA_JUAN/` sigue siendo útil como capa organizada de inicio rápido para el día a día de
-Collections, no como el único contenedor del handoff.
+carpeta NO duplica a propósito: `MANUAL_TRASPASO.md`, `TRASPASO_PROCESO.md`, `GUIA_INICIO.md`,
+`CLAUDE.md`, `BITACORA_HALLAZGOS_TECNICOS.md`, `TAREAS_PENDIENTES.md`, `TAREAS_OCASIONALES.md`,
+los Skills (`.claude/skills/`), el metadata de Salesforce (`force-app/`), y Cancelar Contratos
+(ver nota de alcance arriba) — `ENTREGA_JUAN/` sigue siendo útil como capa organizada de inicio
+rápido para el día a día de Collections + ACH Transmisión, no como el único contenedor del handoff.
 
 **Esta carpeta solo incluye lo que el pipeline diario de Collections realmente lee o escribe**
 (código + índices persistidos en `index/` + la copia local de Files de Salesforce en

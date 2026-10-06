@@ -3,9 +3,10 @@ Construye/actualiza un indice historico de todos los PDFs de ACH Returns
 y Check Collection archivados en OneDrive, para que buscar_payment.py
 pueda encontrar un payment sin importar el mes en que fue reportado.
 
-Carpetas fuente (ajustar aqui si cambia la ruta de OneDrive):
-    ACH Returns:      C:\\OneDrive - LCS\\COMPILADO COLLECTIONS\\ACH Returns\\2026
-    Check Collection: C:\\OneDrive - LCS\\COMPILADO COLLECTIONS\\Check Collection\\2026
+Carpetas fuente (resueltas en lcs_paths.py, sin ruta fija de ninguna maquina):
+    ACH Returns:      <OneDrive>\\COMPILADO COLLECTIONS\\ACH Returns\\<año>
+    Check Collection: <OneDrive>\\COMPILADO COLLECTIONS\\Check Collection\\<año>
+    (una carpeta por año, desde lcs_paths.PRIMER_ANIO_INDEXADO hasta el actual)
 
 El tipo de reporte de cada PDF se detecta por su CONTENIDO (no por la
 carpeta en la que esta guardado): se encontraron PDFs archivados en la
@@ -54,8 +55,12 @@ import pdfplumber
 SCRIPT_DIR = Path(__file__).resolve().parent
 INDEX_DIR = SCRIPT_DIR / "index"
 
-RETURNS_SOURCE_DIR = Path(r"C:\OneDrive - LCS\COMPILADO COLLECTIONS\ACH Returns\2026")
-COLLECTIONS_SOURCE_DIR = Path(r"C:\OneDrive - LCS\COMPILADO COLLECTIONS\Check Collection\2026")
+_spec = importlib.util.spec_from_file_location("lcs_paths", SCRIPT_DIR / "lcs_paths.py")
+lcs_paths = importlib.util.module_from_spec(_spec)
+_spec.loader.exec_module(lcs_paths)
+
+# Todas las carpetas anuales de ambos reportes (ver lcs_paths.carpetas_anuales).
+SOURCE_DIRS = lcs_paths.carpetas_anuales("ACH Returns") + lcs_paths.carpetas_anuales("Check Collection")
 
 RETURNS_INDEX_CSV = INDEX_DIR / "returns_index.csv"
 COLLECTIONS_INDEX_CSV = INDEX_DIR / "collections_index.csv"
@@ -65,9 +70,8 @@ ARCHIVOS_VIEJOS_CSV = INDEX_DIR / "archivos_viejos_pendientes_confirmacion.csv"
 NEW_FILE_MAX_AGE_DAYS = 7
 
 # Año por defecto cuando el nombre trae mes+dia pero no año (la mayoria de
-# los archivos viejos) -- coincide con las carpetas fuente ("...\2026"),
-# ajustar aqui junto con RETURNS_SOURCE_DIR/COLLECTIONS_SOURCE_DIR cuando
-# cambie el año.
+# los archivos viejos) -- se usa el año de la carpeta anual donde esta el PDF
+# (ver _anio_de_carpeta); esta constante es solo el ultimo recurso.
 DEFAULT_FILENAME_YEAR = 2026
 
 MONTH_NAMES = {
@@ -100,7 +104,16 @@ _RE_MONTH_DAY_YEAR = re.compile(
 )
 
 
-def parse_date_from_filename(name: str):
+def _anio_de_carpeta(path: Path):
+    """Año de la carpeta anual que contiene el PDF (".../ACH Returns/2027/Jan/x.pdf"
+    -> 2027), o None si no esta dentro de una."""
+    for part in reversed(Path(path).parts[:-1]):
+        if re.fullmatch(r"(19|20)\d{2}", part):
+            return int(part)
+    return None
+
+
+def parse_date_from_filename(name: str, default_year: int = None):
     """Extrae la fecha del reporte a partir del NOMBRE del archivo (no de su
     contenido ni de su fecha de modificacion en disco). Devuelve un date o
     None si el nombre no trae ninguna fecha reconocible."""
@@ -124,7 +137,7 @@ def parse_date_from_filename(name: str):
     if m:
         month_name, day, year = m.groups()
         month = MONTH_NAMES[month_name.lower()]
-        year = int(year) if year else DEFAULT_FILENAME_YEAR
+        year = int(year) if year else (default_year or DEFAULT_FILENAME_YEAR)
         try:
             return date(year, month, int(day))
         except ValueError:
@@ -207,7 +220,7 @@ def update_indexes(rebuild=False, quiet=False):
     # Union de ambas carpetas: un PDF puede estar guardado en la carpeta
     # equivocada, asi que no asumimos su tipo por donde vive.
     all_pdfs = {}
-    for p in _find_pdfs(RETURNS_SOURCE_DIR) + _find_pdfs(COLLECTIONS_SOURCE_DIR):
+    for p in [pdf for d in SOURCE_DIRS for pdf in _find_pdfs(d)]:
         all_pdfs[p.name] = p
 
     # Cada PDF solo puede pertenecer a UNO de los dos indices (segun su
@@ -239,7 +252,7 @@ def update_indexes(rebuild=False, quiet=False):
 
     for pdf_path in sorted(pending, key=lambda p: p.name):
         report_type = detect_report_type(pdf_path)
-        filename_date = parse_date_from_filename(pdf_path.name)
+        filename_date = parse_date_from_filename(pdf_path.name, _anio_de_carpeta(pdf_path))
         # Sin fecha reconocible en el nombre: se trata como VIEJO por
         # seguridad (age_days=None) -- no se puede confirmar que sea
         # reciente, asi que no entra al delta de hoy.
