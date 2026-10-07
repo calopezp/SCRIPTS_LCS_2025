@@ -37,7 +37,13 @@
 public without sharing class SM_ReturnCodeNotifier {
 
     public static final String NOTIFY_EMAIL = 'clopez@legal-credit.com';
+    public static final String SENDER_ADDRESS = 'noreply@legal-credit.com';
     private static final Set<String> CLOSED_CONTRACT_STATUSES = new Set<String>{ 'Cancelled', 'Canceled', 'Finalized' };
+
+    public static void usarRemitenteOrganizacion(Messaging.SingleEmailMessage mail) {
+        List<OrgWideEmailAddress> remitentes = [SELECT Id FROM OrgWideEmailAddress WHERE Address = :SENDER_ADDRESS AND IsVerified = true LIMIT 1];
+        if (!remitentes.isEmpty()) mail.setOrgWideEmailAddressId(remitentes[0].Id);
+    }
 
     public static void sendR02Report() {
         sendReport(new Set<String>{ 'R02' }, 'R02 (ACCOUNT CLOSED)', 'la cuenta bancaria del metodo de pago ya no existe, reintentar no va a funcionar, hace falta que el cliente actualice su metodo de pago.');
@@ -121,6 +127,7 @@ public without sharing class SM_ReturnCodeNotifier {
 
         Messaging.SingleEmailMessage mail = new Messaging.SingleEmailMessage();
         mail.setToAddresses(new String[]{ NOTIFY_EMAIL });
+        usarRemitenteOrganizacion(mail);
         mail.setSubject('[ALERTA] Pagos aceptados por timeout y luego revertidos por reporte real - ' + Date.today().format());
         mail.setPlainTextBody(body);
         if (!Test.isRunningTest()) {
@@ -264,6 +271,7 @@ public without sharing class SM_ReturnCodeNotifier {
 
         Messaging.SingleEmailMessage mail = new Messaging.SingleEmailMessage();
         mail.setToAddresses(new String[]{ NOTIFY_EMAIL });
+        usarRemitenteOrganizacion(mail);
         mail.setSubject('Contratos con ACH Return ' + codeLabel + ' - ' + Date.today().format());
         mail.setPlainTextBody(body);
         if (!Test.isRunningTest()) {
@@ -477,6 +485,7 @@ public without sharing class SM_ReturnCodeNotifier {
 
         Messaging.SingleEmailMessage mail = new Messaging.SingleEmailMessage();
         mail.setToAddresses(new String[]{ NOTIFY_EMAIL });
+        usarRemitenteOrganizacion(mail);
         mail.setSubject('[Comercial] Novedades ACH - Semana del ' + Date.today().addDays(-7).format() + ' - ' + Date.today().format());
         mail.setPlainTextBody(body);
         if (!Test.isRunningTest()) {

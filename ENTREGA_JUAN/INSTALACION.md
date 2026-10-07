@@ -1,4 +1,4 @@
-# Instalación — máquina nueva (Juan)
+# Instalación — máquina nueva (Juan) — Collections + ACH Transmisión
 
 Pasos para dejar esta carpeta funcionando en tu equipo. Como ya eres usuario administrador de
 MONEE con los mismos accesos que se usaban antes, **no hace falta pedir ninguna credencial nueva**
@@ -54,42 +54,57 @@ python COLLECTIONS/buscar_payment.py --help
 
 ## 3. Acceso a OneDrive (los PDFs/CSV que sube el banco)
 
-Los scripts que arman el índice (`COLLECTIONS/build_index.py`,
-`COLLECTIONS/ACH_REPORTADOS/build_index.py`) leen los reportes del banco directo de una carpeta de
-OneDrive sincronizada en el disco local. **Hoy esa ruta está escrita así, literal, en el código:**
+**Actualizado 2026-10-06 — ya no hay rutas fijas de ninguna máquina.** Los scripts que arman el
+índice (`COLLECTIONS/build_index.py`, `COLLECTIONS/ACH_REPORTADOS/build_index.py`) resuelven la
+carpeta vía `COLLECTIONS/lcs_paths.py`, en este orden:
 
-```
-C:\OneDrive - LCS\COMPILADO COLLECTIONS\ACH Returns\2026
-C:\OneDrive - LCS\COMPILADO COLLECTIONS\Check Collection\2026
-C:\OneDrive - LCS\COMPILADO COLLECTIONS\ACH Reportados
+1. Variable de entorno `LCS_COLLECTIONS_DIR` (ruta completa), si quieres forzar otra ubicación.
+2. `%OneDriveCommercial%\COMPILADO COLLECTIONS` — Windows define `OneDriveCommercial`
+   automáticamente en cualquier equipo con el OneDrive de la empresa sincronizado (sea
+   `C:\OneDrive - LCS` o `C:\Users\<tu usuario>\OneDrive - LCS`, no importa cuál).
+3. `C:\OneDrive - LCS\COMPILADO COLLECTIONS` (ubicación histórica, último recurso).
+
+**Lo único que tienes que hacer:** sincronizar (o agregar como acceso directo desde
+SharePoint/OneDrive compartido) la carpeta **`COMPILADO COLLECTIONS`**, con ese nombre exacto, en
+la **raíz** de tu OneDrive de empresa — no hace falta tocar ningún archivo de código.
+
+Comprobar que la encuentra (desde la raíz del repo, en Git Bash):
+
+```bash
+python3 -c "import sys; sys.path.insert(0,'COLLECTIONS'); import lcs_paths; r=lcs_paths.collections_root(); print(r, r.exists())"
 ```
 
-**Antes de correr nada en modo `apply`:**
-1. Confirma que tienes acceso a esa librería de OneDrive compartida (pídela si no la ves).
-2. Verifica en qué ruta exacta queda montada en TU máquina — el cliente de OneDrive a veces la
-   sincroniza bajo `C:\Users\<tu usuario>\OneDrive - LCS\...` en vez de `C:\OneDrive - LCS\...`.
-   Si es distinto, hay que actualizar la constante (`SOURCE_DIR` / `RETURNS_SOURCE_DIR` /
-   `COLLECTIONS_SOURCE_DIR`) en esos dos archivos para que apunte a tu ruta real.
-3. Corre primero en modo preview/dry-run (sin `apply`) y confirma que el script SÍ encuentra
-   archivos antes de aplicar nada.
+Debe imprimir la ruta a `COMPILADO COLLECTIONS` y `True`.
+
+**Si no tienes acceso a `COMPILADO COLLECTIONS` todavía** (hoy vive en el OneDrive de Carlos, ver
+`TRASPASO_PROCESO.md`), la fuente original de los reportes del banco está en el OneDrive de Elba
+Mantilla (`emantilla@legal-credit.com`), carpeta `Collections Campaign\Reportes de Banca`:
+- RETURN: https://legalcredit-my.sharepoint.com/personal/emantilla_legal-credit_com/_layouts/15/onedrive.aspx?id=%2Fpersonal%2Femantilla%5Flegal%2Dcredit%5Fcom%2FDocuments%2FDocumentos%2FCollections%20Campaign%2FReportes%20de%20Banca%2FACH%20Returns&ga=1
+- COLLECTION: https://legalcredit-my.sharepoint.com/personal/emantilla_legal-credit_com/_layouts/15/onedrive.aspx?id=%2Fpersonal%2Femantilla%5Flegal%2Dcredit%5Fcom%2FDocuments%2FDocumentos%2FCollections%20Campaign%2FReportes%20de%20Banca%2FCheck%20Collection&ga=1
+
+(Sin confirmar todavía si estas son exactamente el mismo contenido que `COMPILADO COLLECTIONS` o
+la fuente a partir de la cual Carlos la arma — revisar con él antes de asumir que sincronizar
+estas dos alcanza para reemplazarla.)
 
 ---
 
 ## 4. Correos de notificación — a dónde llegan hoy
 
-Varios scripts mandan correo automático y **hoy todos llegan solo a `clopez@legal-credit.com`**
-(hardcodeado, nunca se definió una lista de Comercial separada — ver `TAREAS_PENDIENTES.md`):
+Los 8 correos de alerta de `run_daily_new_files.sh` (return codes R02/R10/R04-R13/R07/R16,
+duplicados, reversión de timeout) **hoy llegan solo a `clopez@legal-credit.com`** (hardcodeado en
+`SM_ReturnCodeNotifier.NOTIFY_EMAIL`, clase Apex en `force-app/main/default/classes/`, no en esta
+carpeta de entrega — nunca se definió una lista de Comercial separada, ver `TAREAS_PENDIENTES.md`).
 
-- Los 8 correos de alerta de `run_daily_new_files.sh` (return codes R02/R10/R04-R13/R07/R16,
-  duplicados, reversión de timeout) → vía `SM_ReturnCodeNotifier.NOTIFY_EMAIL` (clase Apex, en
-  `force-app/main/default/classes/`, no en esta carpeta de entrega).
-- `scripts/apex/ACH_TRANSMISION/-D.EnviarCorreoACH.apex` → lista hardcodeada
-  (`jduarte@legal-credit.com`, `clopez@legal-credit.com`).
+**`scripts/apex/ACH_TRANSMISION/B. Enviar Correo Reporte ACH.apex` tiene el mismo problema, por
+separado:** sigue con `ES_PRUEBA = true` y `EMAIL_PRUEBA = clopez@legal-credit.com` — el correo
+real del archivo transmitido todavía solo le llega a Carlos, aunque ya tenga cargados los
+destinatarios reales del archivo. Ver `TRASPASO_PROCESO.md` para el cambio pendiente el día de la
+entrega (pasar a `false` y quitar a Carlos del CC).
 
-**No cambies esto por tu cuenta** — es una decisión de a quién debe llegarle cada alerta
-(Comercial, tú, ambos). Si quieres empezar a recibirlos, decide con el equipo la lista final y
-actualiza esas direcciones en el código fuente real (no en esta copia) para que el cambio quede
-para todos.
+**No cambies ninguno de los dos por tu cuenta** — es una decisión de a quién debe llegarle cada
+alerta (Comercial, tú, ambos). Si quieres empezar a recibirlos, decide con el equipo la lista
+final y actualiza esas direcciones en el código fuente real (no en esta copia) para que el cambio
+quede para todos.
 
 ---
 
@@ -101,7 +116,17 @@ cd COLLECTIONS
 ```
 
 Si esto corre sin errores de import de Python ni de conexión a `sf`, y te muestra un preview
-(aunque diga "nada nuevo que aplicar"), la instalación quedó correcta.
+(aunque diga "nada nuevo que aplicar"), la instalación quedó correcta — este mismo comando ya
+incluye el paso C de ACH Transmisión (confirmar el cargue de ayer) como respaldo automático.
+
+Para los pasos A/B de ACH Transmisión (no tienen modo preview, son Execute Anonymous normales):
+
+```bash
+sf apex run -o MONEE --file "scripts/apex/ACH_TRANSMISION/A. Generar File Reporte ACH.apex"
+```
+
+Si corre sin error de conexión/compilación, la instalación de esa parte también quedó correcta
+(no hace falta ejecutarlo de verdad fuera de tu rutina diaria real solo para probar).
 
 ---
 
@@ -110,5 +135,4 @@ Si esto corre sin errores de import de Python ni de conexión a `sf`, y te muest
 | Qué | Por qué no está en el código | A quién pedírselo |
 |---|---|---|
 | Acceso a la carpeta de OneDrive de los reportes del banco (si todavía no la tienes) | Es una carpeta compartida de Microsoft 365, no algo que viaje con el repo | Administrador de Microsoft 365 / Carlos |
-| Named Credentials de Chargebee (`Chargebee API`, `harmoneyllc`) | Ya están configuradas dentro de Setup de MONEE (no son metadata de archivo, son configuración de la org) — como ya tienes acceso admin a MONEE, en principio ya las tienes disponibles, solo confírmalo en Setup → Named Credentials | No debería hacer falta pedir nada; si no las ves, Carlos |
 | Alta en el correo `clopez@legal-credit.com` o definir uno nuevo para notificaciones | Ver sección 4 — es una decisión de negocio, no un tema de instalación | Comercial / Carlos |

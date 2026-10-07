@@ -136,6 +136,7 @@ if (pendientes.isEmpty()) {
     if (!DRY_RUN) {
         Messaging.SingleEmailMessage mail = new Messaging.SingleEmailMessage();
         mail.setToAddresses(new String[]{ NOTIFY_EMAIL });
+        SM_ReturnCodeNotifier.usarRemitenteOrganizacion(mail);
         mail.setSubject('[ALERTA] Payments con cobro real duplicado (2+ trace numbers) - ' + Date.today().format());
         mail.setPlainTextBody(body);
         if (!Test.isRunningTest()) {

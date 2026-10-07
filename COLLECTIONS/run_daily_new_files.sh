@@ -305,6 +305,27 @@ if [ "$MODE" = "apply" ]; then
     [ $CHRONIC_EXIT -ne 0 ] && echo "AVISO: activar_ach_chronic_unpaid.apex termino con codigo $CHRONIC_EXIT (revisar arriba)."
 fi
 
+# Contracargo R10/R11 de los casos NUEVOS de esta corrida (CLAUDE.md 2.2, regla vigente).
+# Va despues de los correos, para que Comercial vea el R10 del dia antes de que se trate.
+# Mismo patron de temporal: el .apex del repo queda en DRY_RUN=true; solo el temporal
+# cambia a false en modo apply.
+CONTRACARGO_APEX_TEMPLATE="$SCRIPT_DIR/contracargo_R10_diario.apex"
+TMP_CONTRACARGO_APEX="$(mktemp -u /tmp/contracargo_r10_XXXXXX.apex)"
+cp "$CONTRACARGO_APEX_TEMPLATE" "$TMP_CONTRACARGO_APEX"
+if [ "$MODE" = "apply" ]; then
+    if sed --version >/dev/null 2>&1; then
+        sed -i 's/Boolean DRY_RUN = true;/Boolean DRY_RUN = false;/' "$TMP_CONTRACARGO_APEX"
+    else
+        sed -i '' 's/Boolean DRY_RUN = true;/Boolean DRY_RUN = false;/' "$TMP_CONTRACARGO_APEX"
+    fi
+fi
+set +e
+sf apex run -o MONEE -f "$TMP_CONTRACARGO_APEX" 2>&1 | tee "$SUMMARY_DIR/contracargo_r10.log"
+CONTRACARGO_EXIT=${PIPESTATUS[0]}
+set -e
+rm -f "$TMP_CONTRACARGO_APEX"
+[ $CONTRACARGO_EXIT -ne 0 ] && echo "AVISO: contracargo_R10_diario.apex termino con codigo $CONTRACARGO_EXIT (revisar arriba)."
+
 if [ -s "$ARCHIVOS_VIEJOS_CSV" ]; then
     echo ""
     echo "!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!"

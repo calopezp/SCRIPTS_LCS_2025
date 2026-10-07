@@ -1,0 +1,75 @@
+diff --git a/COLLECTIONS/COLLECTIONS/update_check_collection.apex b/COLLECTIONS/COLLECTIONS/update_check_collection.apex
+index 19c2a20..901f837 100644
+--- a/COLLECTIONS/COLLECTIONS/update_check_collection.apex
++++ b/COLLECTIONS/COLLECTIONS/update_check_collection.apex
+@@ -424,6 +424,7 @@ if (!regressionBlockedRows.isEmpty()) {
+             'Puede ser el patron "R10/R11 reportado como Pending despues del propio return" (ver CLAUDE.md seccion 2.2 / TAREAS_PENDIENTES.md) -- revisar caso por caso, no se aplica nada automatico.';
+         Messaging.SingleEmailMessage regressionMail = new Messaging.SingleEmailMessage();
+         regressionMail.setToAddresses(new String[]{ SM_ReturnCodeNotifier.NOTIFY_EMAIL });
++        SM_ReturnCodeNotifier.usarRemitenteOrganizacion(regressionMail);
+         regressionMail.setSubject('[IMPORTANTE] Check Collection intento revertir ' + regressionBlockedRows.size() + ' pago(s) ya cobrado(s)');
+         regressionMail.setPlainTextBody(regressionBody);
+         Messaging.sendEmail(new Messaging.SingleEmailMessage[]{ regressionMail });
+diff --git a/COLLECTIONS/RETURNS/update_ach_returns.apex b/COLLECTIONS/RETURNS/update_ach_returns.apex
+index 7814ce9..a2ab7a4 100644
+--- a/COLLECTIONS/RETURNS/update_ach_returns.apex
++++ b/COLLECTIONS/RETURNS/update_ach_returns.apex
+@@ -400,6 +400,7 @@ if (!regressionBlockedRows.isEmpty()) {
+             'Puede ser el patron "R10/R11 reportado como Pending despues del propio return" (ver CLAUDE.md seccion 2.2 / TAREAS_PENDIENTES.md) -- revisar caso por caso, no se aplica nada automatico.';
+         Messaging.SingleEmailMessage regressionMail = new Messaging.SingleEmailMessage();
+         regressionMail.setToAddresses(new String[]{ SM_ReturnCodeNotifier.NOTIFY_EMAIL });
++        SM_ReturnCodeNotifier.usarRemitenteOrganizacion(regressionMail);
+         regressionMail.setSubject('[IMPORTANTE] ACH Returns intento revertir ' + regressionBlockedRows.size() + ' pago(s) ya cobrado(s)');
+         regressionMail.setPlainTextBody(regressionBody);
+         Messaging.sendEmail(new Messaging.SingleEmailMessage[]{ regressionMail });
+diff --git a/COLLECTIONS/activar_ach_chronic_unpaid.apex b/COLLECTIONS/activar_ach_chronic_unpaid.apex
+index f98e165..034c4ad 100644
+--- a/COLLECTIONS/activar_ach_chronic_unpaid.apex
++++ b/COLLECTIONS/activar_ach_chronic_unpaid.apex
+@@ -395,6 +395,7 @@ if (!DRY_RUN) {
+ 
+         Messaging.SingleEmailMessage mail = new Messaging.SingleEmailMessage();
+         mail.setToAddresses(new String[]{ NOTIFY_EMAIL });
++        SM_ReturnCodeNotifier.usarRemitenteOrganizacion(mail);
+         mail.setSubject('[ACH] Contratos cronicos sin cobrar - ' + aActivar.size() + ' activados, ' +
+             (revisarManualConteo.size() + revisarManualOrdenes.size() + excluidosLpfTransito.size()) +
+             ' para revisar - ' + Date.today().format());
+diff --git a/COLLECTIONS/notify_duplicate_real_charge.apex b/COLLECTIONS/notify_duplicate_real_charge.apex
+index 9e36e9f..8e8a300 100644
+--- a/COLLECTIONS/notify_duplicate_real_charge.apex
++++ b/COLLECTIONS/notify_duplicate_real_charge.apex
+@@ -136,6 +136,7 @@ if (pendientes.isEmpty()) {
+     if (!DRY_RUN) {
+         Messaging.SingleEmailMessage mail = new Messaging.SingleEmailMessage();
+         mail.setToAddresses(new String[]{ NOTIFY_EMAIL });
++        SM_ReturnCodeNotifier.usarRemitenteOrganizacion(mail);
+         mail.setSubject('[ALERTA] Payments con cobro real duplicado (2+ trace numbers) - ' + Date.today().format());
+         mail.setPlainTextBody(body);
+         if (!Test.isRunningTest()) {
+diff --git a/scripts/apex/ACH_TRANSMISION/B. Enviar Correo Reporte ACH.apex b/scripts/apex/ACH_TRANSMISION/B. Enviar Correo Reporte ACH.apex
+index f0c2a0c..bbbaf57 100644
+--- a/scripts/apex/ACH_TRANSMISION/B. Enviar Correo Reporte ACH.apex	
++++ b/scripts/apex/ACH_TRANSMISION/B. Enviar Correo Reporte ACH.apex	
+@@ -130,21 +130,13 @@ if (destinatarios.isEmpty()) {
+     return;
+ }
+ 
+-// Remitente: Org-Wide Email Address "noreply@legal-credit.com" -- TODAVÍA NO VERIFICADA
+-// (UNVERIFIED_SENDER_ADDRESS, confirmado 2026-10-02) -- Salesforce exige que alguien con
+-// acceso a ese buzón confirme el link de verificación (Setup > Organization-Wide Email
+-// Addresses, botón "Verify") antes de poder usarla. Mientras tanto, DESACTIVADO a propósito
+-// (decisión del usuario, 2026-10-02) para seguir probando el resto del correo con el
+-// remitente default de Salesforce. Descomentar las 2 líneas de abajo en cuanto se verifique.
+-// Id orgWideId = [SELECT Id FROM OrgWideEmailAddress WHERE Address = 'noreply@legal-credit.com' LIMIT 1].Id;
+-
+ Messaging.SingleEmailMessage mail = new Messaging.SingleEmailMessage();
+ mail.setToAddresses(destinatarios);
+ if (!copiaA.isEmpty()) mail.setCcAddresses(copiaA);
+ mail.setSubject((ES_PRUEBA ? '[PRUEBA] ' : '') + asunto);
+ mail.setPlainTextBody(cuerpo);
+ mail.setFileAttachments(adjuntos);
+-// mail.setOrgWideEmailAddressId(orgWideId); -- ver nota arriba, pendiente de verificación
++SM_ReturnCodeNotifier.usarRemitenteOrganizacion(mail);
+ 
+ Messaging.SendEmailResult[] resultados = Messaging.sendEmail(new List<Messaging.SingleEmailMessage>{ mail });
+ 

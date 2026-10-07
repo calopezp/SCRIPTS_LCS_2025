@@ -156,6 +156,7 @@ public class SM_TriggerPanelMonitor implements Schedulable {
     private static void sendEmail(List<String> anomalies) {
         Messaging.SingleEmailMessage mail = new Messaging.SingleEmailMessage();
         mail.setToAddresses(new String[]{ NOTIFY_EMAIL });
+        SM_ReturnCodeNotifier.usarRemitenteOrganizacion(mail);
         mail.setSubject((anomalies.isEmpty() ? '[OK] ' : '[REVISAR] ') + 'Monitoreo Trigger Panel - ' + Date.today().format());
         mail.setPlainTextBody(buildBody(anomalies));
         if (!Test.isRunningTest()) {

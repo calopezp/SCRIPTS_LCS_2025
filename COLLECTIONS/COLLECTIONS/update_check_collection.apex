@@ -424,6 +424,7 @@ if (!regressionBlockedRows.isEmpty()) {
             'Puede ser el patron "R10/R11 reportado como Pending despues del propio return" (ver CLAUDE.md seccion 2.2 / TAREAS_PENDIENTES.md) -- revisar caso por caso, no se aplica nada automatico.';
         Messaging.SingleEmailMessage regressionMail = new Messaging.SingleEmailMessage();
         regressionMail.setToAddresses(new String[]{ SM_ReturnCodeNotifier.NOTIFY_EMAIL });
+        SM_ReturnCodeNotifier.usarRemitenteOrganizacion(regressionMail);
         regressionMail.setSubject('[IMPORTANTE] Check Collection intento revertir ' + regressionBlockedRows.size() + ' pago(s) ya cobrado(s)');
         regressionMail.setPlainTextBody(regressionBody);
         Messaging.sendEmail(new Messaging.SingleEmailMessage[]{ regressionMail });
