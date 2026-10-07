@@ -13,3 +13,9 @@
 - Caso aparte: `00316168` cobró $74 de menos. Decidir si corresponde cobrarle la diferencia.
 
 **Archivos:** `COLLECTIONS/ACH_REPORTADOS/ADJ_AC_ERR_12AGO_Analisis_Pagos_61.csv`, `ADJ_AC_ERR_12AGO_candidatos_refund.csv`, `ADJ_AC_ERR_12AGO_ultimos2cobros.csv`.
+
+## `00316826` — día de pago por fin de semana sin restaurar
+
+**Estado:** por revisar (anotado 2026-10-07).
+
+El contrato tiene `Reasons_for_change__c = 'Date Restored (Weekend)'` desde hace más de 8 días. El utilitario `UTILITARIOS/-LIMPIA_ChangePaymentDay.apex` (en dry-run) le restauraría el día de pago original (30) y limpiaría la marca. Confirmar y correrlo en real, o dejarlo.
