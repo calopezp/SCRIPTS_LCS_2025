@@ -19,3 +19,9 @@
 **Estado:** por revisar (anotado 2026-10-07).
 
 El contrato tiene `Reasons_for_change__c = 'Date Restored (Weekend)'` desde hace más de 8 días. El utilitario `UTILITARIOS/-LIMPIA_ChangePaymentDay.apex` (en dry-run) le restauraría el día de pago original (30) y limpiaría la marca. Confirmar y correrlo en real, o dejarlo.
+
+## `00317976` — Subscription creada quedó en 14-nov (sábado)
+
+**Estado:** por revisar (anotado 2026-10-07).
+
+El 07-oct se crearon, a pedido de Comercial, las LPF de agosto, septiembre y octubre (ACH-30305, ACH-30306, ACH-30307; $79 sin multa, cobro 07-oct) y la Subscription que faltaba (ACH-30308), con inicio 16-ago y próximo cobro 16-nov. Al insertarla, `SM_ACHOrderHandler` ("suggested business day") recalculó inicio, próximo cobro y fin a **14-nov (sábado)**. Decidir si se corrige a 16-nov a mano. Script: `TEMP/fix_00317976_cuotas_y_subscription_2026-10-07.apex`.
