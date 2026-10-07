@@ -14,15 +14,12 @@
  * depender de que la v4 este activa), triggers normales encendidos (igual que
  * cuando la crea el flow). Revalida en vivo cada contrato antes de crear:
  * ACH, Activated, sin Subscription viva, no cancelado, etc.
- * Deja Task 'TIADM - SUBSCRIPTION PRESTAMO CREADA MANUAL' en cada Contract.
+ * Sin Task en el Contract: el usuario indico no generarlo para este backfill (2026-10-07).
  *
  * MODO DE USO: correr primero con DRY_RUN=true (preview, no escribe nada).
  */
 
-Boolean DRY_RUN = true; // <-- cambiar a false para ejecutar real
-String TASK_SUBJECT = 'TIADM - SUBSCRIPTION PRESTAMO CREADA MANUAL';
-Id TASK_RECORD_TYPE_ID = '0121U00000085XiQAI';
-Id TASK_OWNER_ID = '0051U000007bbx5QAA'; // Carlos Lopez
+Boolean DRY_RUN = false; // <-- cambiar a false para ejecutar real
 String NOTE = 'AUTO: Backfill_Subscription_Prestamos - Subscription Order creada (prestamo sin AC, flow v3 lo excluia) - ' + String.valueOf(Date.today());
 
 Set<String> contractNumbers = new Set<String>{
@@ -108,24 +105,11 @@ if (!DRY_RUN && !ordersToInsert.isEmpty()) {
     Map<Id, SM_ACH_Order__c> byContract = new Map<Id, SM_ACH_Order__c>();
     for (SM_ACH_Order__c o : created.values()) byContract.put(o.SM_Contract__c, o);
 
-    List<Task> tasks = new List<Task>();
     for (Contract c : okContracts) {
         SM_ACH_Order__c o = byContract.get(c.Id);
-        tasks.add(new Task(
-            Subject      = TASK_SUBJECT,
-            WhatId       = c.Id,
-            OwnerId      = TASK_OWNER_ID,
-            RecordTypeId = TASK_RECORD_TYPE_ID,
-            ActivityDate = Date.today(),
-            Description  = 'Subscription ' + o.Name + ' creada manualmente (backfill). Prestamo sin AC: '
-                + 'el flow CONTRACT_Create_ACH_Subscription_Order v3 exigia AC cobrado y lo excluia '
-                + '(corregido en v4). Primer cobro ' + c.SM_Start_date__c + ' por ' + c.SM_Net_Monthly_offer__c + '.'
-        ));
         System.debug(' -> CREADA ' + c.ContractNumber + ' | ' + o.Name + ' | Status=' + o.SM_Payment_Status__c
             + ' | Next=' + o.SM_Next_Transaction_Date__c);
     }
-    insert tasks;
-    System.debug(' -> ' + tasks.size() + ' Task(s) creados');
 } else {
     System.debug(' -> DRY RUN: no se escribio nada.');
 }
