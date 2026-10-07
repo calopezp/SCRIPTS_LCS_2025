@@ -1,0 +1,45 @@
+# ============================================================
+# legal-credit-carlos-tools: datos de clientes NUNCA van a git
+# (cuentas bancarias, rutas, nombres). Solo código y docs.
+# ============================================================
+
+# Archivos de datos (ACH, Returns, Check Collections, índices)
+*.csv
+*.xlsx
+*.xls
+*.pdf
+*.txt
+!requirements.txt
+
+# Carpetas de datos que generan los scripts
+COLLECTIONS/ACH_REPORTADOS/sf_files/
+COLLECTIONS/ACH_REPORTADOS/index/
+COLLECTIONS/index/
+data/
+entrada/
+salida/
+output/
+
+# Credenciales y configuración local
+.env
+.env.*
+!.env.example
+*.key
+*.pem
+*.p12
+*.pfx
+.sfdx/
+.sf/
+
+# Python
+__pycache__/
+*.pyc
+.venv/
+venv/
+
+# Sistema y editor (incluye los temporales de Word/Excel abiertos)
+~$*
+.DS_Store
+Thumbs.db
+.vscode/
+.idea/
