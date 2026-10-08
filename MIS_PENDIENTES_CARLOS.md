@@ -42,7 +42,6 @@ Integraciones con tu usuario (avisar a quien las use):
 
 Registros a nombre de Carlos (no se rompe nada; reasignar solo si alguien los trabaja):
 - 34 Contracts, 25 Accounts, 28 Opportunities, 12 Cases, 14 Agreements, 598 Leads (279 No Contact, 167 New, 124 Not Oriented…).
-- 1,631 Tasks abiertas: casi todas Reminders históricos 2021-2025 (y Tasks TIADM de notas). Sirven como histórico; no hace falta moverlas.
 
 Sin acción:
 - `NOTIFY_EMAIL` en las clases de monitoreo: solo se usa en mensajes de debug, no manda correos.
