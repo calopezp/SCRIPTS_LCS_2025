@@ -1,5 +1,35 @@
 # Mis pendientes — Carlos (no forma parte de la entrega a Juan)
 
+## Checklist para cerrar la entrega a Juan
+
+**Estado:** en curso (anotado 2026-10-08).
+
+**Repositorios y archivos**
+- [ ] Push de ENTREGA_JUAN (desde la sesión de ENTREGA_JUAN): `git push origin main`.
+- [ ] Push de SCRIPTS_LCS_2025: `git push origin main`.
+- [ ] Acceso de escritura para Juan en `LegalCredit/legal-credit-carlos-tools` (GitHub → Settings → Collaborators).
+- [ ] Exportar a PDF desde Word `2026-10-05 Entrega de Puesto Carlos Lopez.docx`, reemplazar el PDF (está desactualizado), commit y push. Si se exporta después del zip, regenerar el zip.
+- [ ] Respaldo `C:\SALESFORCE\LCS\ENTREGA_JUAN_respaldo_2026-10-08.zip` subido a OneDrive: https://legalcredit-my.sharepoint.com/:f:/g/personal/clopez_legal-credit_com/IgBCTioAmX-hQK4nrRjYBu9lAQhTNquAumK8XamRGbpFGZ4?e=TCvexl
+- [ ] **Pasarle a Juan el respaldo** (OneDrive no transfiere propiedad entre personas: Juan hace su copia):
+  1. Restringir el enlace: OneDrive web, sobre la carpeta → **Compartir** → **Configuración de vínculo** → **"Personas específicas"** → `jduarte@legal-credit.com`, **"Puede editar"**. No "Cualquier persona con el vínculo" (el zip trae cuentas bancarias).
+  2. Juan copia: **Mi OneDrive → Compartido** → selecciona la carpeta → **Copiar en** → **Mis archivos**.
+  3. Juan confirma que el zip está en su OneDrive, que abre, y manda su enlace nuevo.
+  4. Opcional, por TI: al desactivar la cuenta, "Conceder a otro usuario acceso a los archivos de OneDrive" → Juan. Red de seguridad, no plan principal.
+- [ ] **`COMPILADO COLLECTIONS`** (también en el OneDrive de Carlos): **Mover a** un SharePoint/Teams de la empresa y que Juan la sincronice con el mismo nombre en la raíz de su OneDrive.
+
+**Salesforce, antes de soltar el usuario (tocan producción)**
+- [ ] Reprogramar con el usuario nuevo los jobs a nombre de Carlos: los de `scripts/apex/Schedule_Jobs_LegalCreditSolutions_PR.apex`, `SM_WeeklyComercialDigest_Monday`, `DataExport` (recrear en Setup → Data Export, 07:00 PR).
+- [ ] Jobs dudosos: confirmar propósito de `ACH Payment 14:50 PR.` (no pausar sin saber), identificar el job GUID (diario 12:00), reprogramar `RPT- ACH Payment` después.
+- [ ] Custom Labels `LCS_Notify_Email_Tecnico` y `LCS_Notify_Email_Comercial`: quitar `clopez@legal-credit.com`.
+- [ ] `B. Enviar Correo Reporte ACH.apex`: quitar a Carlos de `CC_REALES`.
+- [ ] Alerta de email del workflow de `SM_Payment__c` y carpetas `CollectionsFolder` de reportes/dashboards.
+- [ ] OwnerId fijo `0051U000007bbx5QAA` en scripts → usuario nuevo (lista en `TRASPASO_JOBS_CARLOS.txt` 2.1).
+
+**Accesos y acompañamiento**
+- [ ] Usuarios de Cybersource (LCS y HARMONEY) y Authorize.net para Juan.
+- [ ] Corrida acompañada: diaria completa (preview → apply) y envío ACH (A → B → C).
+- [ ] Acordar el día de corte: nunca `apply` desde dos máquinas el mismo día. El archivo ACH del 7-oct todavía no está procesado.
+
 ## Caso 06 — lote ADJ_AC_ERR_12AGO: reembolso de $4,382.47 (60 contratos sobrecobrados)
 
 **Estado:** decisión de mecanismo pendiente. Por ahora no se aplica nada.
