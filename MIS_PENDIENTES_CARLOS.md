@@ -4,6 +4,17 @@
 
 **Estado:** en curso (anotado 2026-10-08).
 
+### ⚠️ PRIORITARIO — Adobe Acrobat Sign conectado con el usuario de Carlos
+
+La conexión activa Adobe Acrobat Sign ↔ Salesforce está autorizada con `clopez@legal-credit.com` (token OAuth desde 2025-10-20, uso diario). Antes estuvo con Legal Credit Solutions (hasta 2025-09-24) y un mes con Juan. Al desactivar el usuario de Carlos, Salesforce revoca el token: Adobe Sign deja de actualizar estado, documento firmado y fecha de firma de los Agreements (los contratos se firman en Adobe pero Salesforce no se entera).
+
+- [ ] 1. Entrar a la administración de Adobe Acrobat Sign (cuenta administradora de Adobe) → conexión con Salesforce → reconectar/reautorizar.
+- [ ] 2. Autorizarla con el usuario **Legal Credit Solutions** (`salesforceadmin-qkv6@force.com`), no con una persona.
+- [ ] 3. Verificar: Setup → Connected Apps OAuth Usage → el token de "Adobe Acrobat Sign" con uso reciente es el de Legal Credit Solutions; y un contrato de prueba firmado pasa a `Signed` en Salesforce con fecha de firma.
+- [ ] 4. Solo entonces revocar el token de Carlos (se revoca solo al desactivar el usuario).
+
+Hacerlo **antes** de desactivar el usuario de Carlos. El token "Adobe Acrobat Sign For Salesforce" (paquete) ya es de Legal Credit Solutions: no depende de Carlos.
+
 **Repositorios y archivos**
 - [x] Push de ENTREGA_JUAN (2026-10-08, último `b52a949`).
 - [x] Push de SCRIPTS_LCS_2025 (2026-10-08).
@@ -21,7 +32,7 @@
 **Salesforce, antes de soltar el usuario (barrido en MONEE 2026-10-08; tocan producción, confirmar cada uno)**
 
 Crítico (deja de funcionar al desactivar el usuario):
-- [ ] **Adobe Acrobat Sign entra a Salesforce con el usuario de Carlos** (143 logins en 60 días, a diario). Reconectar la integración Salesforce ↔ Adobe Sign con otro usuario (desde la administración de Adobe Sign / TI). Sin esto se cae la firma de contratos. Relacionado: los Agreements que quedan a nombre de Carlos los reasigna `UTILITARIOS/AgreementMaintenance.apex` (tarea 2).
+- [ ] **Adobe Acrobat Sign**: ver **PRIORITARIO** al inicio del checklist.
 - [ ] **Custom Label `UPGRADED_CONTRACT_TASK_OWNER_USERNAME` = `clopez@legal-credit.com`**: lo usa `SM_TaskHelper.cls` como dueño de las Tasks de error en contratos upgraded. Con el usuario inactivo el insert falla. Cambiar al username de Juan (Setup → Custom Labels, sin deploy).
 - [ ] **3 jobs a nombre de Carlos** (los demás ya están bajo Legal Credit Solutions o Juan):
   - `DataExport` (jueves 8:03, WAITING): recrear desde Setup → Data Export con el usuario nuevo.
