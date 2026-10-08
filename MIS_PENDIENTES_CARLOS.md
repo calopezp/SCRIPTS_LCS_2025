@@ -5,10 +5,11 @@
 **Estado:** en curso (anotado 2026-10-08).
 
 **Repositorios y archivos**
-- [ ] Push de ENTREGA_JUAN (desde la sesión de ENTREGA_JUAN): `git push origin main`.
-- [ ] Push de SCRIPTS_LCS_2025: `git push origin main`.
+- [x] Push de ENTREGA_JUAN (2026-10-08, último `b52a949`).
+- [x] Push de SCRIPTS_LCS_2025 (2026-10-08).
 - [ ] Acceso de escritura para Juan en `LegalCredit/legal-credit-carlos-tools` (GitHub → Settings → Collaborators).
-- [ ] Exportar a PDF desde Word `2026-10-05 Entrega de Puesto Carlos Lopez.docx`, reemplazar el PDF (está desactualizado), commit y push. Si se exporta después del zip, regenerar el zip.
+- [x] PDF del documento de entrega re-exportado (`b52a949`).
+- [ ] Regenerar el zip de respaldo (se armó antes del PDF nuevo) y volver a subirlo a OneDrive.
 - [ ] Respaldo `C:\SALESFORCE\LCS\ENTREGA_JUAN_respaldo_2026-10-08.zip` subido a OneDrive: https://legalcredit-my.sharepoint.com/:f:/g/personal/clopez_legal-credit_com/IgBCTioAmX-hQK4nrRjYBu9lAQhTNquAumK8XamRGbpFGZ4?e=TCvexl
 - [ ] **Pasarle a Juan el respaldo** (OneDrive no transfiere propiedad entre personas: Juan hace su copia):
   1. Restringir el enlace: OneDrive web, sobre la carpeta → **Compartir** → **Configuración de vínculo** → **"Personas específicas"** → `jduarte@legal-credit.com`, **"Puede editar"**. No "Cualquier persona con el vínculo" (el zip trae cuentas bancarias).
