@@ -26,6 +26,18 @@ El contrato tiene `Reasons_for_change__c = 'Date Restored (Weekend)'` desde hace
 
 El 07-oct se crearon, a pedido de Comercial, las LPF de agosto, septiembre y octubre (ACH-30305, ACH-30306, ACH-30307; $79 sin multa, cobro 07-oct) y la Subscription que faltaba (ACH-30308), con inicio 16-ago y próximo cobro 16-nov. Al insertarla, `SM_ACHOrderHandler` ("suggested business day") recalculó inicio, próximo cobro y fin a **14-nov (sábado)**. Decidir si se corrige a 16-nov a mano. Script: `TEMP/fix_00317976_cuotas_y_subscription_2026-10-07.apex`.
 
+## `00318713` — AC de tarjeta no cobrado y tarjeta que no se ve
+
+**Estado:** por revisar (anotado 2026-10-08).
+
+Pedido de Comercial: "crea facturas de AC / registré TC y no la visualizo 3065 mastercard". El contrato está en `Payment Process` y no tiene pago AC ni ninguna `CB_Transaction__c`: el AC nunca se intentó cobrar. El contrato apunta a `PM-207388`, un Payment Method vacío creado a mano el 25-sep. La tarjeta real es `PM-207529` (Mastercard 3065, sincronizada el 07-oct). La Subscription `AzqQx7VWGU9Sp3wU` (FUTURE, inicio 30-oct) existe y usa la 3065, pero no está enlazada al contrato. Pasos: TAREAS_OCASIONALES 1.1 de ENTREGA_JUAN (enlazar PM y Subscription; confirmar en Chargebee y en el procesador que no hay cargo; Comercial cobra el AC).
+
+## `00318562` — mismo patrón que 00318713
+
+**Estado:** por revisar (anotado 2026-10-08).
+
+Lo encontró la consulta de detección de TAREAS_OCASIONALES 1.1: tarjeta, `Payment Process` desde el 14-sep, sin Subscription enlazada y con el Payment Method `PM-201544` vacío. No revisé el detalle.
+
 ## Entrega final — prompt para el bot de Slack (Claude) que arma Juan
 
 **Estado:** para hacer al final, cuando Carlos indique "entrega final" (anotado 2026-10-07).
