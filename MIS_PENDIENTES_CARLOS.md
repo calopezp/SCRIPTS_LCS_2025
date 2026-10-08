@@ -7,7 +7,7 @@
 **Repositorios y archivos**
 - [x] Push de ENTREGA_JUAN (2026-10-08, último `b52a949`).
 - [x] Push de SCRIPTS_LCS_2025 (2026-10-08).
-- [ ] Acceso de escritura para Juan en `LegalCredit/legal-credit-carlos-tools` (GitHub → Settings → Collaborators).
+- [x] Acceso de Juan a `LegalCredit/legal-credit-carlos-tools` (Juan lo creó y tiene acceso).
 - [x] PDF del documento de entrega re-exportado (`b52a949`).
 - [ ] Regenerar el zip de respaldo (se armó antes del PDF nuevo) y volver a subirlo a OneDrive.
 - [ ] Respaldo `C:\SALESFORCE\LCS\ENTREGA_JUAN_respaldo_2026-10-08.zip` subido a OneDrive: https://legalcredit-my.sharepoint.com/:f:/g/personal/clopez_legal-credit_com/IgBCTioAmX-hQK4nrRjYBu9lAQhTNquAumK8XamRGbpFGZ4?e=TCvexl
@@ -16,15 +16,37 @@
   2. Juan copia: **Mi OneDrive → Compartido** → selecciona la carpeta → **Copiar en** → **Mis archivos**.
   3. Juan confirma que el zip está en su OneDrive, que abre, y manda su enlace nuevo.
   4. Opcional, por TI: al desactivar la cuenta, "Conceder a otro usuario acceso a los archivos de OneDrive" → Juan. Red de seguridad, no plan principal.
-- [ ] **`COMPILADO COLLECTIONS`** (también en el OneDrive de Carlos): **Mover a** un SharePoint/Teams de la empresa y que Juan la sincronice con el mismo nombre en la raíz de su OneDrive.
+- [ ] **`COMPILADO COLLECTIONS`**: por ahora va en el Drive compartido con Juan (misma carpeta del respaldo); Juan la moverá donde necesite. Mientras esté en el OneDrive de Carlos, se pierde al terminar la retención de la cuenta.
 
-**Salesforce, antes de soltar el usuario (tocan producción)**
-- [ ] Reprogramar con el usuario nuevo los jobs a nombre de Carlos: los de `scripts/apex/Schedule_Jobs_LegalCreditSolutions_PR.apex`, `SM_WeeklyComercialDigest_Monday`, `DataExport` (recrear en Setup → Data Export, 07:00 PR).
-- [ ] Jobs dudosos: confirmar propósito de `ACH Payment 14:50 PR.` (no pausar sin saber), identificar el job GUID (diario 12:00), reprogramar `RPT- ACH Payment` después.
-- [ ] Custom Labels `LCS_Notify_Email_Tecnico` y `LCS_Notify_Email_Comercial`: quitar `clopez@legal-credit.com`.
-- [ ] `B. Enviar Correo Reporte ACH.apex`: quitar a Carlos de `CC_REALES`.
-- [ ] Alerta de email del workflow de `SM_Payment__c` y carpetas `CollectionsFolder` de reportes/dashboards.
-- [ ] OwnerId fijo `0051U000007bbx5QAA` en scripts → usuario nuevo (lista en `TRASPASO_JOBS_CARLOS.txt` 2.1).
+**Salesforce, antes de soltar el usuario (barrido en MONEE 2026-10-08; tocan producción, confirmar cada uno)**
+
+Crítico (deja de funcionar al desactivar el usuario):
+- [ ] **Adobe Acrobat Sign entra a Salesforce con el usuario de Carlos** (143 logins en 60 días, a diario). Reconectar la integración Salesforce ↔ Adobe Sign con otro usuario (desde la administración de Adobe Sign / TI). Sin esto se cae la firma de contratos. Relacionado: los Agreements que quedan a nombre de Carlos los reasigna `UTILITARIOS/AgreementMaintenance.apex` (tarea 2).
+- [ ] **Custom Label `UPGRADED_CONTRACT_TASK_OWNER_USERNAME` = `clopez@legal-credit.com`**: lo usa `SM_TaskHelper.cls` como dueño de las Tasks de error en contratos upgraded. Con el usuario inactivo el insert falla. Cambiar al username de Juan (Setup → Custom Labels, sin deploy).
+- [ ] **3 jobs a nombre de Carlos** (los demás ya están bajo Legal Credit Solutions o Juan):
+  - `DataExport` (jueves 8:03, WAITING): recrear desde Setup → Data Export con el usuario nuevo.
+  - `e2cb73ab-a3eb-0ba3-0621-76eaabaa1167` (tipo A = reporte/dashboard programado, diario 12:00, WAITING): identificarlo en Setup → Tareas programadas y reprogramarlo con el usuario nuevo.
+  - `RPT- ACH Payment` (PAUSED): decidir si se borra o se reprograma bajo Legal Credit Solutions.
+- [ ] **6 dashboards que corren como Carlos** (usuario de ejecución fijo): `Credit Elevator`, `Campaign, Lead & Activity Data Quality`, `Case & Contract Data Quality`, `Source and Path`, `TC Dahsboard`, `ACH Dahsboard`. Cambiar el "Ver dashboard como" a otro usuario.
+
+Correos:
+- [ ] Custom Labels `LCS_Notify_Email_Tecnico` y `LCS_Notify_Email_Comercial`: quitar `clopez@legal-credit.com` (dejar Juan).
+- [ ] Alerta de email `SM_Nacha_Alert_Ttransaction_Limit` (`SM_Nacha_File__c`): quitar a Carlos de CC.
+- [ ] Alerta del workflow de `SM_Payment__c` (recipient `clopez@legal-credit.com`): cambiar el destinatario.
+- [ ] `B. Enviar Correo Reporte ACH.apex`: quitar a Carlos de `CC_REALES` (repo ENTREGA_JUAN).
+- [ ] Carpetas `CollectionsFolder` de reportes y dashboards: compartidas con Carlos; agregar a Juan.
+
+Integraciones con tu usuario (avisar a quien las use):
+- [ ] **Microsoft Power Query** (228 logins en 60 días): algún Excel/Power BI refresca datos con tu usuario. Identificar cuál y reconectarlo.
+- [ ] **Slack** y **XL-Connector 365**: pocos logins; reconectar si se siguen usando.
+
+Registros a nombre de Carlos (no se rompe nada; reasignar solo si alguien los trabaja):
+- 34 Contracts, 25 Accounts, 28 Opportunities, 12 Cases, 14 Agreements, 598 Leads (279 No Contact, 167 New, 124 Not Oriented…).
+- 1,631 Tasks abiertas: casi todas Reminders históricos 2021-2025 (y Tasks TIADM de notas). Sirven como histórico; no hace falta moverlas.
+
+Sin acción:
+- `NOTIFY_EMAIL` en las clases de monitoreo: solo se usa en mensajes de debug, no manda correos.
+- Scripts de ENTREGA_JUAN: ya no tienen el OwnerId de Carlos fijo (solo `AgreementMaintenance.apex`, que reasigna *desde* Carlos).
 
 **Accesos y acompañamiento**
 - [ ] Usuarios de Cybersource (LCS y HARMONEY) y Authorize.net para Juan.
