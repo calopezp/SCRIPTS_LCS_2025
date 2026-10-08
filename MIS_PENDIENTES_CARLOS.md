@@ -2,7 +2,13 @@
 
 ## Checklist para cerrar la entrega a Juan
 
-**Estado:** en curso (anotado 2026-10-08).
+**Estado:** CERRADO (2026-10-08). Desde el 2026-10-08 los procesos los corre Juan. Juan ejecutó
+`traspaso_usuario.py` (vista previa final OK; Files, labels, alertas, dashboards, carpetas y CC ya son
+suyos). Documento de entrega v2 + PDF en ENTREGA_JUAN (`42a2008`). Casos abiertos de abajo: tratados
+con Juan, no van a la entrega. **La baja del usuario de Carlos la decide y la hace Juan**; antes:
+reconectar Adobe Sign con Legal Credit Solutions (token activo aún de Carlos), recrear los 3 jobs y
+correr el script en vista previa. Este repo queda archivado en GitHub (solo referencia).
+El detalle de abajo es el checklist histórico.
 
 ### ⚠️ PRIORITARIO — Adobe Acrobat Sign conectado con el usuario de Carlos
 
