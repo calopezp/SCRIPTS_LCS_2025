@@ -16,18 +16,29 @@ La conexión activa Adobe Acrobat Sign ↔ Salesforce está autorizada con `clop
 Hacerlo **antes** de desactivar el usuario de Carlos. El token "Adobe Acrobat Sign For Salesforce" (paquete) ya es de Legal Credit Solutions: no depende de Carlos.
 
 **Repositorios y archivos**
-- [x] Push de ENTREGA_JUAN (2026-10-08, último `b52a949`).
+- [x] Push de ENTREGA_JUAN hasta `b52a949`.
+- [ ] **Push de ENTREGA_JUAN** (5 commits nuevos, último `df3259c`: script de traspaso, Apex/triggers/flows de MONEE, ajustes de la prueba punta a punta, PDF): `git push origin main` desde la sesión de ENTREGA_JUAN.
+- [ ] Push de SCRIPTS_LCS_2025 (4 commits de MIS_PENDIENTES): `git push origin main`.
 - [x] Push de SCRIPTS_LCS_2025 (2026-10-08).
 - [x] Acceso de Juan a `LegalCredit/legal-credit-carlos-tools` (Juan lo creó y tiene acceso).
-- [x] PDF del documento de entrega re-exportado (`b52a949`).
-- [ ] Regenerar el zip de respaldo (se armó antes del PDF nuevo) y volver a subirlo a OneDrive.
-- [ ] Respaldo `C:\SALESFORCE\LCS\ENTREGA_JUAN_respaldo_2026-10-08.zip` subido a OneDrive: https://legalcredit-my.sharepoint.com/:f:/g/personal/clopez_legal-credit_com/IgBCTioAmX-hQK4nrRjYBu9lAQhTNquAumK8XamRGbpFGZ4?e=TCvexl
+- [x] PDF del documento de entrega re-exportado con Word desde el .docx actual (`df3259c`, versión v1).
+- [x] Zip de respaldo regenerado con todo (`df3259c`) y reemplazado en OneDrive (mismo nombre). Si cambia algo más, regenerarlo otra vez.
+- [x] Respaldo `C:\SALESFORCE\LCS\ENTREGA_JUAN_respaldo_2026-10-08.zip` subido a OneDrive: https://legalcredit-my.sharepoint.com/:f:/g/personal/clopez_legal-credit_com/IgBCTioAmX-hQK4nrRjYBu9lAQhTNquAumK8XamRGbpFGZ4?e=TCvexl
 - [ ] **Pasarle a Juan el respaldo** (OneDrive no transfiere propiedad entre personas: Juan hace su copia):
   1. Restringir el enlace: OneDrive web, sobre la carpeta → **Compartir** → **Configuración de vínculo** → **"Personas específicas"** → `jduarte@legal-credit.com`, **"Puede editar"**. No "Cualquier persona con el vínculo" (el zip trae cuentas bancarias).
   2. Juan copia: **Mi OneDrive → Compartido** → selecciona la carpeta → **Copiar en** → **Mis archivos**.
   3. Juan confirma que el zip está en su OneDrive, que abre, y manda su enlace nuevo.
   4. Opcional, por TI: al desactivar la cuenta, "Conceder a otro usuario acceso a los archivos de OneDrive" → Juan. Red de seguridad, no plan principal.
-- [ ] **`COMPILADO COLLECTIONS`**: por ahora va en el Drive compartido con Juan (misma carpeta del respaldo); Juan la moverá donde necesite. Mientras esté en el OneDrive de Carlos, se pierde al terminar la retención de la cuenta.
+- [x] **`COMPILADO COLLECTIONS\ACH Reportados`** copiada a la carpeta de entrega del Drive (698 archivos). `ACH Returns` y `Check Collection` no se copian: son accesos directos a las carpetas de Elba (ver INSTALACION sección 2).
+- [ ] Pedirle a Elba que comparta con Juan sus carpetas `ACH Returns` y `Check Collection` (`Collections Campaign\Reportes de Banca`).
+- [ ] Correo a Juan: enviar la última versión (sección PRIORITARIO de Adobe Sign, `COMPILADO COLLECTIONS` con accesos directos, y en "Día del cierre" correr `scripts/traspaso/traspaso_usuario.py`).
+
+**Día del cierre (lo corre Juan, con Carlos presente)**
+- [ ] Reconexión de Adobe Sign con Legal Credit Solutions y verificación (ver PRIORITARIO).
+- [ ] `python3 scripts/traspaso/traspaso_usuario.py` (vista previa, con validación check-only) y luego `--apply` con la sesión de Juan. Cubre labels, alertas, dashboards, carpetas y el CC del correo ACH.
+- [ ] Recrear con el usuario de Juan los 3 jobs que el script lista (DataExport, job e2cb73ab…, RPT- ACH Payment).
+- [ ] Primera corrida diaria con `apply` hecha por Juan; él comitea los índices.
+- [ ] Al final, el script en vista previa: no debe quedar nada a nombre de Carlos. Recién entonces, desactivar el usuario.
 
 **Salesforce, antes de soltar el usuario (barrido en MONEE 2026-10-08; tocan producción, confirmar cada uno)**
 
